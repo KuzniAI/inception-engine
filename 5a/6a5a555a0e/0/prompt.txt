@@ -1,0 +1,9 @@
+I want to publish this package to npm so people can just use it npx package directory.
+
+What am I missing in repo itself to be a good package? I will also need GitHub action that releases it to npm after creating a release on GitHub.
+
+Also walk me through a process of creating npm account for GitHub organization.
+
+---
+
+Something changed with tokens. I get a message "There are security risks with this option. For automation or CI/CD uses, please use Trusted Publishing instead."
