@@ -1,0 +1,5 @@
+Ok, what do I do know when I've made some changes and wants to publish a new version?
+
+---
+
+commit your changes
