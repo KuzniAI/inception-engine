@@ -1,12 +1,31 @@
 {
-  "name": "inception-engine",
+  "name": "@kuznai/inception-engine",
   "version": "0.1.0",
   "description": "Deploy AI agent skills from a git repo to user home directories",
   "license": "MIT",
   "author": "Damian Piatkowski",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/KuzniAI/inception-engine.git"
+  },
+  "homepage": "https://github.com/KuzniAI/inception-engine#readme",
+  "bugs": {
+    "url": "https://github.com/KuzniAI/inception-engine/issues"
+  },
+  "keywords": [
+    "cli",
+    "ai",
+    "agent",
+    "skills",
+    "claude",
+    "copilot",
+    "gemini",
+    "deployment",
+    "npx"
+  ],
   "type": "module",
   "bin": {
-    "inception-engine": "./dist/index.js"
+    "inception-engine": "dist/index.js"
   },
   "files": [
     "dist"
