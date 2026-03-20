@@ -1,0 +1,21 @@
+{
+  "skills": [
+    {
+      "name": "jedi-force-powers",
+      "path": "skills/jedi-force-powers",
+      "agents": ["claude-code", "codex", "gemini-cli", "antigravity", "opencode", "github-copilot"]
+    },
+    {
+      "name": "time-traveler-debug",
+      "path": "skills/time-traveler-debug",
+      "agents": ["claude-code", "codex", "gemini-cli", "antigravity", "opencode", "github-copilot"]
+    },
+    {
+      "name": "rubber-duck-deluxe",
+      "path": "skills/rubber-duck-deluxe",
+      "agents": ["claude-code", "codex", "gemini-cli", "antigravity", "opencode", "github-copilot"]
+    }
+  ],
+  "mcpServers": [],
+  "agentRules": []
+}

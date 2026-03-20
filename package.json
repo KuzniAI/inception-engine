@@ -1,0 +1,27 @@
+{
+  "name": "inception-engine",
+  "version": "0.1.0",
+  "description": "Deploy AI agent skills from a git repo to user home directories",
+  "license": "MIT",
+  "author": "Damian Piatkowski",
+  "type": "module",
+  "bin": {
+    "inception-engine": "./dist/index.js"
+  },
+  "files": [
+    "dist"
+  ],
+  "engines": {
+    "node": ">=23.6.0"
+  },
+  "scripts": {
+    "build": "tsc",
+    "dev": "node src/index.ts",
+    "test": "node --test test/*.test.ts",
+    "prepublishOnly": "npm run build"
+  },
+  "devDependencies": {
+    "@types/node": "^25.5.0",
+    "typescript": "^5.8.0"
+  }
+}
