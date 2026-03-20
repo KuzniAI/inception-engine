@@ -1,0 +1,1 @@
+Rewrite first sentence in @README.md to state that this tool makes inception for installed agents by x,y,z. Make the beginning clever and on the cheek while rest remains true and informational.
