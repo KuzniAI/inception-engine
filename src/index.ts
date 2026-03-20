@@ -9,6 +9,7 @@ import { resolveHome } from "./core/resolve.ts";
 import { detectInstalledAgents } from "./core/detect.ts";
 import { planDeploy, executeDeploy } from "./core/deploy.ts";
 import { planRevert, executeRevert } from "./core/revert.ts";
+import { UserError } from "./errors.ts";
 
 const USAGE = `
 inception-engine - Deploy AI agent skills
@@ -21,6 +22,7 @@ Options:
   --dry-run        Show what would be done without doing it
   --agents <list>  Comma-separated list of agent IDs to target
   --verbose        Show detailed output
+  --debug          Show full error stack traces
   --help           Show this help message
 
 Supported agents:
@@ -31,7 +33,7 @@ function parseArgs(argv: string[]): CliOptions {
   const args = argv.slice(2);
 
   if (args.length === 0 || args.includes("--help")) {
-    return { command: "help", directory: "", dryRun: false, agents: null, verbose: false };
+    return { command: "help", directory: "", dryRun: false, agents: null, verbose: false, debug: false };
   }
 
   let command: "deploy" | "revert" = "deploy";
@@ -39,6 +41,7 @@ function parseArgs(argv: string[]): CliOptions {
   let dryRun = false;
   let agents: AgentId[] | null = null;
   let verbose = false;
+  let debug = false;
 
   let i = 0;
   if (args[0] === "revert") {
@@ -53,6 +56,8 @@ function parseArgs(argv: string[]): CliOptions {
       dryRun = true;
     } else if (arg === "--verbose") {
       verbose = true;
+    } else if (arg === "--debug") {
+      debug = true;
     } else if (arg === "--agents") {
       i++;
       const next = args[i];
@@ -85,7 +90,7 @@ function parseArgs(argv: string[]): CliOptions {
     process.exit(1);
   }
 
-  return { command, directory: path.resolve(directory), dryRun, agents, verbose };
+  return { command, directory: path.resolve(directory), dryRun, agents, verbose, debug };
 }
 
 function main(): void {
@@ -153,4 +158,18 @@ function main(): void {
   }
 }
 
-main();
+const debugMode = process.argv.includes("--debug");
+
+try {
+  main();
+} catch (err) {
+  if (err instanceof UserError) {
+    console.error(`Error: ${err.message}`);
+  } else {
+    console.error("Unexpected error. Run with --debug for details.");
+  }
+  if (debugMode) {
+    console.error(err);
+  }
+  process.exit(1);
+}

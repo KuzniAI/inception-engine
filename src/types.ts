@@ -60,4 +60,5 @@ export interface CliOptions {
   dryRun: boolean;
   agents: AgentId[] | null;
   verbose: boolean;
+  debug: boolean;
 }
