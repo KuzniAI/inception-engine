@@ -1,0 +1,1 @@
+Add Github action that run tsc with no emit (might need new task in package.json) and then tests. It should run on every push to main branch
