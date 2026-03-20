@@ -1,6 +1,6 @@
 # inception-engine
 
-Deploy AI agent skills from a git repo to your local machine. One command installs skills across every supported coding agent.
+Plant skills directly into the minds of your installed AI coding agents — Claude Code, Codex, Gemini CLI, Antigravity, OpenCode, and GitHub Copilot. One command. They'll think they thought of it themselves.
 
 ## Quick Start
 
