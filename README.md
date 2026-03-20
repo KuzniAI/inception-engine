@@ -102,6 +102,7 @@ inception-engine revert <directory> [options]
 | `--dry-run` | Show what would be done without making changes |
 | `--agents <list>` | Comma-separated list of agent IDs to target (skips detection) |
 | `--verbose` | Show detailed output including file paths |
+| `--debug` | Show full error stack traces |
 | `--help` | Show help message |
 
 ### Examples
