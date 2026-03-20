@@ -1,0 +1,54 @@
+{
+  "cli_version": "0.5.1",
+  "checkpoint_id": "e34df608ab4a",
+  "session_id": "12e65d16-e84b-4760-8077-2bdc5441c7cb",
+  "strategy": "manual-commit",
+  "created_at": "2026-03-20T20:57:21.540829Z",
+  "branch": "main",
+  "checkpoints_count": 1,
+  "files_touched": [
+    ".gitignore",
+    "README.md",
+    "limbo/inception.json",
+    "limbo/skills/jedi-force-powers/SKILL.md",
+    "limbo/skills/rubber-duck-deluxe/SKILL.md",
+    "limbo/skills/time-traveler-debug/SKILL.md",
+    "package-lock.json",
+    "package.json",
+    "src/config/agents.ts",
+    "src/config/manifest.ts",
+    "src/core/deploy.ts",
+    "src/core/detect.ts",
+    "src/core/resolve.ts",
+    "src/core/revert.ts",
+    "src/index.ts",
+    "src/types.ts",
+    "test/deploy.test.ts",
+    "test/detect.test.ts",
+    "test/manifest.test.ts",
+    "test/resolve.test.ts",
+    "test/revert.test.ts",
+    "tsconfig.json"
+  ],
+  "agent": "Claude Code",
+  "turn_id": "b53b7ec6d2de",
+  "token_usage": {
+    "input_tokens": 51,
+    "cache_creation_tokens": 140821,
+    "cache_read_tokens": 2085249,
+    "output_tokens": 29380,
+    "api_call_count": 39
+  },
+  "session_metrics": {
+    "turn_count": 1
+  },
+  "initial_attribution": {
+    "calculated_at": "2026-03-20T20:57:21.376339Z",
+    "agent_lines": 1529,
+    "human_added": 0,
+    "human_modified": 0,
+    "human_removed": 0,
+    "total_committed": 1529,
+    "agent_percentage": 100
+  }
+}

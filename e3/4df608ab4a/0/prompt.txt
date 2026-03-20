@@ -1,0 +1,15 @@
+I have a list of agent skills I want to distribute for myself or for my friends. I will keep them in some git repo in standard directories structure. There will also be some Claude plugins etc. to deploy so we need generalize a bit.
+
+I need some cli responsible for "deploying of those skills" By deploying I mean copying them to relevant directories in user's home directory with a command npx inception-engine "some directory" We can assume that skill always overwrite it's previous version if that one exists or they will use symlinks on POSIX systems. Do not focus on CLI experience at first. I want to have a configuration model figured out first so no fancy CLI frameworks unless I ask for it.
+
+CLI should be cross platform (macOS, Windows 11, linux in that order) so built with node.js. Assume modern version with TypeScript support. Use Typescript configured the most modern way with erasable syntax only. It should also work with sudo or any kind of privilege escalation.
+
+I want it to work cross agent. It would be good to detect what is installed for given user. We are working with skills so they are everywhere but we might want to add Claude subcommands so that would not transfer to e.g Codex. Assume that if a feature is not supported, then it's not copied. Remeber, only skills for now. We have to support Claude Code, Codex, Gemini CLI. We want to support Antigravity, OpenCode and Github Copilot.
+
+Cross agent design requires a config map what can be copied for each agent and how.  We probably need a manifest that a directory provides describing what is skill, what is MCP what is agent rules. Rememeber to create abstraction only and work on skills.
+
+This project will not hold any useful skills so let's assume that there are some fake test ones. You can be creative with them - like adding support for Jedi Force powers. We need a dry run mode available.
+
+We need revert operation that removes what manifest declared.
+
+Update @README.md file with a package documentation for it's user. Compatability matrix should be added there.

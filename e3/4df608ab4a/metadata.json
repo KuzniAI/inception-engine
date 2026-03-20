@@ -1,0 +1,46 @@
+{
+  "cli_version": "0.5.1",
+  "checkpoint_id": "e34df608ab4a",
+  "strategy": "manual-commit",
+  "branch": "main",
+  "checkpoints_count": 1,
+  "files_touched": [
+    ".gitignore",
+    "README.md",
+    "limbo/inception.json",
+    "limbo/skills/jedi-force-powers/SKILL.md",
+    "limbo/skills/rubber-duck-deluxe/SKILL.md",
+    "limbo/skills/time-traveler-debug/SKILL.md",
+    "package-lock.json",
+    "package.json",
+    "src/config/agents.ts",
+    "src/config/manifest.ts",
+    "src/core/deploy.ts",
+    "src/core/detect.ts",
+    "src/core/resolve.ts",
+    "src/core/revert.ts",
+    "src/index.ts",
+    "src/types.ts",
+    "test/deploy.test.ts",
+    "test/detect.test.ts",
+    "test/manifest.test.ts",
+    "test/resolve.test.ts",
+    "test/revert.test.ts",
+    "tsconfig.json"
+  ],
+  "sessions": [
+    {
+      "metadata": "/e3/4df608ab4a/0/metadata.json",
+      "transcript": "/e3/4df608ab4a/0/full.jsonl",
+      "content_hash": "/e3/4df608ab4a/0/content_hash.txt",
+      "prompt": "/e3/4df608ab4a/0/prompt.txt"
+    }
+  ],
+  "token_usage": {
+    "input_tokens": 51,
+    "cache_creation_tokens": 140821,
+    "cache_read_tokens": 2085249,
+    "output_tokens": 29380,
+    "api_call_count": 39
+  }
+}
