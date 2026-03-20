@@ -1,0 +1,25 @@
+{
+  "cli_version": "0.5.1",
+  "checkpoint_id": "afdaa2780cd1",
+  "strategy": "manual-commit",
+  "branch": "main",
+  "checkpoints_count": 0,
+  "files_touched": [
+    "README.md"
+  ],
+  "sessions": [
+    {
+      "metadata": "/af/daa2780cd1/0/metadata.json",
+      "transcript": "/af/daa2780cd1/0/full.jsonl",
+      "content_hash": "/af/daa2780cd1/0/content_hash.txt",
+      "prompt": "/af/daa2780cd1/0/prompt.txt"
+    }
+  ],
+  "token_usage": {
+    "input_tokens": 6,
+    "cache_creation_tokens": 2641,
+    "cache_read_tokens": 147844,
+    "output_tokens": 424,
+    "api_call_count": 4
+  }
+}
