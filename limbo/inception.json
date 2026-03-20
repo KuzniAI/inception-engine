@@ -1,18 +1,23 @@
 {
   "skills": [
     {
-      "name": "jedi-force-powers",
-      "path": "skills/jedi-force-powers",
+      "name": "the-prestige",
+      "path": "skills/the-prestige",
       "agents": ["claude-code", "codex", "gemini-cli", "antigravity", "opencode", "github-copilot"]
     },
     {
-      "name": "time-traveler-debug",
-      "path": "skills/time-traveler-debug",
+      "name": "inception",
+      "path": "skills/inception",
       "agents": ["claude-code", "codex", "gemini-cli", "antigravity", "opencode", "github-copilot"]
     },
     {
-      "name": "rubber-duck-deluxe",
-      "path": "skills/rubber-duck-deluxe",
+      "name": "interstellar",
+      "path": "skills/interstellar",
+      "agents": ["claude-code", "codex", "gemini-cli", "antigravity", "opencode", "github-copilot"]
+    },
+    {
+      "name": "tenet",
+      "path": "skills/tenet",
       "agents": ["claude-code", "codex", "gemini-cli", "antigravity", "opencode", "github-copilot"]
     }
   ],
