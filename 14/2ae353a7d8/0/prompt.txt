@@ -1,0 +1,14 @@
+Let's work on errors. When I added non-existing path I got this
+
+file:///Users/damianpiatkowski/Documents/workspace/inception-engine/dist/config/manifest.js:11
+        throw new Error(`No inception.json found in ${directory}. Are you pointing to the right repo?`);
+              ^
+Error: No inception.json found in /Users/damianpiatkowski/Documents/workspace/inception-engine/libo. Are you pointing to the right repo?
+    at loadManifest (file:///Users/damianpiatkowski/Documents/workspace/inception-engine/dist/config/manifest.js:11:15)
+    at main (file:///Users/damianpiatkowski/Documents/workspace/inception-engine/dist/index.js:90:22)
+    at file:///Users/damianpiatkowski/Documents/workspace/inception-engine/dist/index.js:143:1
+    at ModuleJob.run (node:internal/modules/esm/module_job:430:25)
+    at async onImport.tracePromise.__proto__ (node:internal/modules/esm/loader:639:26)
+    at async asyncRunEntryPointWithESMLoader (node:internal/modules/run_main:101:5)
+
+Maybe let's not display whole stack traces. We can either return a valid message for a user or "Unexpected error happened" id it's not provided. Maybe we need some debug mode that keeps those stack trace? What are common approaches?
