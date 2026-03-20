@@ -62,43 +62,38 @@ function parseArgs(argv: string[]): CliOptions {
       i++;
       const next = args[i];
       if (!next) {
-        console.error("--agents requires a comma-separated list");
-        process.exit(1);
+        throw new UserError("--agents requires a comma-separated list");
       }
       const ids = next.split(",").map((s) => s.trim());
       for (const id of ids) {
         if (!AGENT_IDS.includes(id as AgentId)) {
-          console.error(`Unknown agent: "${id}". Valid agents: ${AGENT_IDS.join(", ")}`);
-          process.exit(1);
+          throw new UserError(`Unknown agent: "${id}". Valid agents: ${AGENT_IDS.join(", ")}`);
         }
       }
       agents = ids as AgentId[];
     } else if (arg.startsWith("--")) {
-      console.error(`Unknown option: ${arg}`);
-      process.exit(1);
+      throw new UserError(`Unknown option: ${arg}`);
     } else if (!directory) {
       directory = arg;
     } else {
-      console.error(`Unexpected argument: ${arg}`);
-      process.exit(1);
+      throw new UserError(`Unexpected argument: ${arg}`);
     }
     i++;
   }
 
   if (!directory) {
-    console.error("Missing required <directory> argument");
-    process.exit(1);
+    throw new UserError("Missing required <directory> argument");
   }
 
   return { command, directory: path.resolve(directory), dryRun, agents, verbose, debug };
 }
 
-function main(): void {
+function main(): number {
   const options = parseArgs(process.argv);
 
   if (options.command === "help") {
     console.log(USAGE);
-    process.exit(0);
+    return 0;
   }
 
   const manifest = loadManifest(options.directory);
@@ -115,7 +110,7 @@ function main(): void {
     if (detectedAgents.length === 0) {
       console.log("No supported AI agents detected on this system.");
       console.log(`Install one of: ${AGENT_REGISTRY.map((a) => a.displayName).join(", ")}`);
-      process.exit(0);
+      return 0;
     }
     if (options.verbose) {
       console.log(`Detected agents: ${detectedAgents.join(", ")}`);
@@ -128,7 +123,7 @@ function main(): void {
     const actions = planDeploy(manifest, options.directory, detectedAgents, home);
     if (actions.length === 0) {
       console.log("No skills to deploy for detected agents.");
-      return;
+      return 0;
     }
 
     console.log(`${prefix}Deploying ${actions.length} skill(s):`);
@@ -137,7 +132,7 @@ function main(): void {
     console.log();
     if (failed.length > 0) {
       console.log(`${succeeded} succeeded, ${failed.length} failed`);
-      process.exit(1);
+      return 1;
     } else {
       console.log(`${succeeded} skill(s) deployed${options.dryRun ? " (dry-run)" : ""}`);
     }
@@ -145,7 +140,7 @@ function main(): void {
     const actions = planRevert(manifest, detectedAgents, home);
     if (actions.length === 0) {
       console.log("No skills to revert for detected agents.");
-      return;
+      return 0;
     }
 
     console.log(`${prefix}Reverting ${actions.length} skill(s):`);
@@ -156,12 +151,14 @@ function main(): void {
     if (skipped > 0) parts.push(`${skipped} skipped`);
     console.log(`${parts.join(", ")}${options.dryRun ? " (dry-run)" : ""}`);
   }
+
+  return 0;
 }
 
 const debugMode = process.argv.includes("--debug");
 
 try {
-  main();
+  process.exit(main());
 } catch (err) {
   if (err instanceof UserError) {
     console.error(`Error: ${err.message}`);
