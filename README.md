@@ -125,11 +125,7 @@ npx inception-engine revert ./my-skills-repo --dry-run
 
 ## Sample Skills
 
-The `limbo/` directory contains sample skills for testing:
-
-- **jedi-force-powers** - Channel the Force to write elegant code
-- **time-traveler-debug** - Debug code by traveling through its git timeline
-- **rubber-duck-deluxe** - Premium rubber duck debugging with attitude
+The `limbo/` directory contains exceptional sample skills for testing purposes only.
 
 Try them out:
 
