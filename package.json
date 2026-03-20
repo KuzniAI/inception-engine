@@ -16,6 +16,7 @@
   },
   "scripts": {
     "build": "tsc",
+    "typecheck": "tsc --noEmit",
     "dev": "node src/index.ts",
     "test": "node --test test/*.test.ts",
     "prepublishOnly": "npm run build"
