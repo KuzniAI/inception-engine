@@ -1,0 +1,1 @@
+Prefer async filesystem and process APIs over sync ones in src/config/manifest.ts:7, src/core/deploy.ts:42, src/core/revert.ts:28, and src/core/detect.ts:32; fs/promises, cp, rm, lstat, and child_process async variants keep the event loop unblocked and make future concurrency straightforward.
