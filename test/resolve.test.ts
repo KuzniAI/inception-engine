@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import os from "node:os";
 import { resolveHome, resolveAgentSkillPath, resolveAgentDetectPath } from "../src/core/resolve.ts";
 import { AGENT_REGISTRY } from "../src/config/agents.ts";
+import { UserError } from "../src/errors.ts";
 
 describe("resolveAgentSkillPath", () => {
   it("resolves Claude Code skill path", () => {
@@ -89,8 +90,9 @@ describe("resolveHome", () => {
     try {
       process.env["SUDO_USER"] = "__nonexistent_user_inception_engine_test__";
       assert.throws(() => resolveHome(), (err: unknown) => {
-        assert.ok(err instanceof Error);
-        assert.ok(/Cannot determine home directory/.test(err.message), err.message);
+        assert.ok(err instanceof UserError);
+        assert.equal(err.code, "RESOLVE_FAILED");
+        assert.match(err.message, /Cannot determine home directory/);
         return true;
       });
     } finally {

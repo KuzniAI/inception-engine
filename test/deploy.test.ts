@@ -5,6 +5,7 @@ import path from "node:path";
 import os from "node:os";
 import { planDeploy, executeDeploy } from "../src/core/deploy.ts";
 import type { Manifest } from "../src/types.ts";
+import { UserError } from "../src/errors.ts";
 
 function makeTmpDir(): string {
   const dir = path.join(os.tmpdir(), `ie-test-deploy-${Date.now()}-${Math.random().toString(36).slice(2)}`);
@@ -149,7 +150,12 @@ describe("planDeploy path traversal", () => {
       };
       assert.throws(
         () => planDeploy(traversalManifest, sourceDir, ["claude-code"], "/home/test"),
-        /resolves outside the repository root/
+        (err: unknown) => {
+          assert.ok(err instanceof UserError);
+          assert.equal(err.code, "DEPLOY_FAILED");
+          assert.match(err.message, /resolves outside the repository root/);
+          return true;
+        }
       );
     } finally {
       rmSync(sourceDir, { recursive: true });

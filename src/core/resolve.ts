@@ -63,6 +63,7 @@ function lookupHomeForUser(username: string): string {
   }
 
   throw new UserError(
+    "RESOLVE_FAILED",
     `Cannot determine home directory for user "${username}". ` +
       `Tried getent, dscl, and /etc/passwd. ` +
       `Run without sudo, or set HOME to the correct path before invoking with sudo.`

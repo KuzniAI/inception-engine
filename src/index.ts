@@ -10,6 +10,7 @@ import { detectInstalledAgents } from "./core/detect.ts";
 import { planDeploy, executeDeploy } from "./core/deploy.ts";
 import { planRevert, executeRevert } from "./core/revert.ts";
 import { UserError } from "./errors.ts";
+import type { ErrorCode } from "./errors.ts";
 
 const USAGE = `
 inception-engine - Deploy AI agent skills
@@ -62,27 +63,27 @@ function parseArgs(argv: string[]): CliOptions {
       i++;
       const next = args[i];
       if (!next) {
-        throw new UserError("--agents requires a comma-separated list");
+        throw new UserError("INVALID_ARGS", "--agents requires a comma-separated list");
       }
       const ids = next.split(",").map((s) => s.trim());
       for (const id of ids) {
         if (!AGENT_IDS.includes(id as AgentId)) {
-          throw new UserError(`Unknown agent: "${id}". Valid agents: ${AGENT_IDS.join(", ")}`);
+          throw new UserError("INVALID_ARGS", `Unknown agent: "${id}". Valid agents: ${AGENT_IDS.join(", ")}`);
         }
       }
       agents = ids as AgentId[];
     } else if (arg.startsWith("--")) {
-      throw new UserError(`Unknown option: ${arg}`);
+      throw new UserError("INVALID_ARGS", `Unknown option: ${arg}`);
     } else if (!directory) {
       directory = arg;
     } else {
-      throw new UserError(`Unexpected argument: ${arg}`);
+      throw new UserError("INVALID_ARGS", `Unexpected argument: ${arg}`);
     }
     i++;
   }
 
   if (!directory) {
-    throw new UserError("Missing required <directory> argument");
+    throw new UserError("INVALID_ARGS", "Missing required <directory> argument");
   }
 
   return { command, directory: path.resolve(directory), dryRun, agents, verbose, debug };
@@ -155,6 +156,13 @@ async function main(): Promise<number> {
   return 0;
 }
 
+const USER_ERROR_EXIT: Record<ErrorCode, number> = {
+  INVALID_ARGS: 2,
+  MANIFEST_INVALID: 3,
+  DEPLOY_FAILED: 1,
+  RESOLVE_FAILED: 1,
+};
+
 const debugMode = process.argv.includes("--debug");
 
 try {
@@ -162,11 +170,15 @@ try {
 } catch (err) {
   if (err instanceof UserError) {
     console.error(`Error: ${err.message}`);
+    if (debugMode) {
+      console.error(err);
+    }
+    process.exit(USER_ERROR_EXIT[err.code]);
   } else {
     console.error("Unexpected error. Run with --debug for details.");
+    if (debugMode) {
+      console.error(err);
+    }
+    process.exit(1);
   }
-  if (debugMode) {
-    console.error(err);
-  }
-  process.exit(1);
 }

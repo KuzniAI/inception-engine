@@ -4,6 +4,7 @@ import { writeFileSync, mkdirSync, rmSync } from "node:fs";
 import path from "node:path";
 import os from "node:os";
 import { loadManifest } from "../src/config/manifest.ts";
+import { UserError } from "../src/errors.ts";
 
 function makeTmpDir(): string {
   const dir = path.join(os.tmpdir(), `ie-test-manifest-${Date.now()}-${Math.random().toString(36).slice(2)}`);
@@ -36,14 +37,24 @@ describe("loadManifest", () => {
   });
 
   it("throws on missing file", async () => {
-    await assert.rejects(loadManifest("/nonexistent/path"), /No inception\.json found/);
+    await assert.rejects(loadManifest("/nonexistent/path"), (err: unknown) => {
+      assert.ok(err instanceof UserError);
+      assert.equal(err.code, "MANIFEST_INVALID");
+      assert.match(err.message, /No inception\.json found/);
+      return true;
+    });
   });
 
   it("throws on invalid JSON", async () => {
     const dir = makeTmpDir();
     try {
       writeFileSync(path.join(dir, "inception.json"), "not json{");
-      await assert.rejects(loadManifest(dir), /Invalid JSON/);
+      await assert.rejects(loadManifest(dir), (err: unknown) => {
+        assert.ok(err instanceof UserError);
+        assert.equal(err.code, "MANIFEST_INVALID");
+        assert.match(err.message, /Invalid JSON/);
+        return true;
+      });
     } finally {
       rmSync(dir, { recursive: true });
     }
@@ -53,7 +64,12 @@ describe("loadManifest", () => {
     const dir = makeTmpDir();
     try {
       writeFileSync(path.join(dir, "inception.json"), JSON.stringify({}));
-      await assert.rejects(loadManifest(dir), /"skills" must be an array/);
+      await assert.rejects(loadManifest(dir), (err: unknown) => {
+        assert.ok(err instanceof UserError);
+        assert.equal(err.code, "MANIFEST_INVALID");
+        assert.match(err.message, /"skills" must be an array/);
+        return true;
+      });
     } finally {
       rmSync(dir, { recursive: true });
     }
@@ -68,7 +84,12 @@ describe("loadManifest", () => {
           skills: [{ name: "s", path: "p", agents: ["unknown-agent"] }],
         })
       );
-      await assert.rejects(loadManifest(dir), /unknown agent "unknown-agent"/);
+      await assert.rejects(loadManifest(dir), (err: unknown) => {
+        assert.ok(err instanceof UserError);
+        assert.equal(err.code, "MANIFEST_INVALID");
+        assert.match(err.message, /unknown agent "unknown-agent"/);
+        return true;
+      });
     } finally {
       rmSync(dir, { recursive: true });
     }
@@ -83,7 +104,12 @@ describe("loadManifest", () => {
           skills: [{ path: "p", agents: ["claude-code"] }],
         })
       );
-      await assert.rejects(loadManifest(dir), /name must be a non-empty string/);
+      await assert.rejects(loadManifest(dir), (err: unknown) => {
+        assert.ok(err instanceof UserError);
+        assert.equal(err.code, "MANIFEST_INVALID");
+        assert.match(err.message, /name must be a non-empty string/);
+        return true;
+      });
     } finally {
       rmSync(dir, { recursive: true });
     }
@@ -98,7 +124,12 @@ describe("loadManifest", () => {
           skills: [{ name: "../../.ssh", path: "skills/s", agents: ["claude-code"] }],
         })
       );
-      await assert.rejects(loadManifest(dir), /name must contain only/);
+      await assert.rejects(loadManifest(dir), (err: unknown) => {
+        assert.ok(err instanceof UserError);
+        assert.equal(err.code, "MANIFEST_INVALID");
+        assert.match(err.message, /name must contain only/);
+        return true;
+      });
     } finally {
       rmSync(dir, { recursive: true });
     }
@@ -113,7 +144,12 @@ describe("loadManifest", () => {
           skills: [{ name: "../escape", path: "skills/s", agents: ["claude-code"] }],
         })
       );
-      await assert.rejects(loadManifest(dir), /name must contain only/);
+      await assert.rejects(loadManifest(dir), (err: unknown) => {
+        assert.ok(err instanceof UserError);
+        assert.equal(err.code, "MANIFEST_INVALID");
+        assert.match(err.message, /name must contain only/);
+        return true;
+      });
     } finally {
       rmSync(dir, { recursive: true });
     }
@@ -144,7 +180,12 @@ describe("loadManifest", () => {
           skills: [{ name: "s", path: "/etc/passwd", agents: ["claude-code"] }],
         })
       );
-      await assert.rejects(loadManifest(dir), /must be a relative path/);
+      await assert.rejects(loadManifest(dir), (err: unknown) => {
+        assert.ok(err instanceof UserError);
+        assert.equal(err.code, "MANIFEST_INVALID");
+        assert.match(err.message, /must be a relative path/);
+        return true;
+      });
     } finally {
       rmSync(dir, { recursive: true });
     }

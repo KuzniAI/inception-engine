@@ -21,6 +21,7 @@ export function planDeploy(
 
     if (source !== resolvedSourceDir && !source.startsWith(resolvedSourceDir + path.sep)) {
       throw new UserError(
+        "DEPLOY_FAILED",
         `Skill path "${skill.path}" resolves outside the repository root: ${source}`
       );
     }
