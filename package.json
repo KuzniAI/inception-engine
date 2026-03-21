@@ -34,7 +34,7 @@
     "node": ">=23.6.0"
   },
   "scripts": {
-    "build": "tsc && chmod +x dist/index.js",
+    "build": "tsc",
     "typecheck": "tsc --noEmit",
     "dev": "node src/index.ts",
     "test": "node --test test/*.test.ts",
