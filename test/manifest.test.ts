@@ -88,4 +88,65 @@ describe("loadManifest", () => {
       rmSync(dir, { recursive: true });
     }
   });
+
+  it("throws on skill.name with path traversal (../../.ssh)", () => {
+    const dir = makeTmpDir();
+    try {
+      writeFileSync(
+        path.join(dir, "inception.json"),
+        JSON.stringify({
+          skills: [{ name: "../../.ssh", path: "skills/s", agents: ["claude-code"] }],
+        })
+      );
+      assert.throws(() => loadManifest(dir), /name must contain only/);
+    } finally {
+      rmSync(dir, { recursive: true });
+    }
+  });
+
+  it("throws on skill.name with path separator (../escape)", () => {
+    const dir = makeTmpDir();
+    try {
+      writeFileSync(
+        path.join(dir, "inception.json"),
+        JSON.stringify({
+          skills: [{ name: "../escape", path: "skills/s", agents: ["claude-code"] }],
+        })
+      );
+      assert.throws(() => loadManifest(dir), /name must contain only/);
+    } finally {
+      rmSync(dir, { recursive: true });
+    }
+  });
+
+  it("accepts a skill.name with dots, hyphens, and digits (valid-name_1.0)", () => {
+    const dir = makeTmpDir();
+    try {
+      writeFileSync(
+        path.join(dir, "inception.json"),
+        JSON.stringify({
+          skills: [{ name: "valid-name_1.0", path: "skills/s", agents: ["claude-code"] }],
+        })
+      );
+      const manifest = loadManifest(dir);
+      assert.equal(manifest.skills[0]!.name, "valid-name_1.0");
+    } finally {
+      rmSync(dir, { recursive: true });
+    }
+  });
+
+  it("throws on skill.path that is absolute (/etc/passwd)", () => {
+    const dir = makeTmpDir();
+    try {
+      writeFileSync(
+        path.join(dir, "inception.json"),
+        JSON.stringify({
+          skills: [{ name: "s", path: "/etc/passwd", agents: ["claude-code"] }],
+        })
+      );
+      assert.throws(() => loadManifest(dir), /must be a relative path/);
+    } finally {
+      rmSync(dir, { recursive: true });
+    }
+  });
 });

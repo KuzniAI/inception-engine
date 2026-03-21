@@ -10,6 +10,7 @@ import {
 import path from "node:path";
 import { AGENT_REGISTRY } from "../config/agents.ts";
 import { resolveAgentSkillPath, getDeployMethod } from "./resolve.ts";
+import { UserError } from "../errors.ts";
 import type { AgentId, DeployAction, Manifest } from "../types.ts";
 
 export function planDeploy(
@@ -20,9 +21,16 @@ export function planDeploy(
 ): DeployAction[] {
   const method = getDeployMethod();
   const actions: DeployAction[] = [];
+  const resolvedSourceDir = path.resolve(sourceDir);
 
   for (const skill of manifest.skills) {
     const source = path.resolve(sourceDir, skill.path);
+
+    if (source !== resolvedSourceDir && !source.startsWith(resolvedSourceDir + path.sep)) {
+      throw new UserError(
+        `Skill path "${skill.path}" resolves outside the repository root: ${source}`
+      );
+    }
 
     for (const agentId of skill.agents) {
       if (!detectedAgents.includes(agentId)) continue;

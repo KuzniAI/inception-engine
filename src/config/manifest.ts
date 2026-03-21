@@ -48,8 +48,19 @@ function validateManifest(data: unknown, filePath: string): Manifest {
       throw new UserError(`${filePath}: skills[${i}].name must be a non-empty string`);
     }
 
+    const SAFE_NAME_RE = /^[a-zA-Z0-9][a-zA-Z0-9._-]*$/;
+    if (!SAFE_NAME_RE.test(skill.name as string)) {
+      throw new UserError(
+        `${filePath}: skills[${i}].name must contain only letters, digits, hyphens, underscores, and dots, and must not start with a dot`
+      );
+    }
+
     if (typeof skill.path !== "string" || skill.path.length === 0) {
       throw new UserError(`${filePath}: skills[${i}].path must be a non-empty string`);
+    }
+
+    if (path.isAbsolute(skill.path as string)) {
+      throw new UserError(`${filePath}: skills[${i}].path must be a relative path`);
     }
 
     if (!Array.isArray(skill.agents) || skill.agents.length === 0) {

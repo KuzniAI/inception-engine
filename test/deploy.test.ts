@@ -137,3 +137,22 @@ describe("executeDeploy", () => {
     }
   });
 });
+
+describe("planDeploy path traversal", () => {
+  it("throws when skill.path escapes sourceDir via traversal (../../outside)", () => {
+    const sourceDir = makeTmpDir();
+    try {
+      const traversalManifest: Manifest = {
+        skills: [{ name: "evil", path: "../../outside", agents: ["claude-code"] }],
+        mcpServers: [],
+        agentRules: [],
+      };
+      assert.throws(
+        () => planDeploy(traversalManifest, sourceDir, ["claude-code"], "/home/test"),
+        /resolves outside the repository root/
+      );
+    } finally {
+      rmSync(sourceDir, { recursive: true });
+    }
+  });
+});
