@@ -1,0 +1,5 @@
+I'm running `npx @kuznai/inception-engine limbo --dry-run` in main directory of this project to test new version of package. I'm still getting sh: inception-engine: command not found. Why? Obviously it's not about CHMOD
+
+---
+
+Please revert this chmod change
