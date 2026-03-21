@@ -1,0 +1,17 @@
+The same error?
+
+npm notice Publishing to __https://registry.npmjs.org/__ with tag latest and public access
+npm notice publish Signed provenance statement with source and build information from GitHub Actions
+npm notice publish Provenance statement published to transparency log: __https://search.sigstore.dev/?logIndex=1154500753__
+npm error code E404
+npm error 404 Not Found - PUT __https://registry.npmjs.org/@kuznai%2finception-engine__ - Not found
+npm error 404
+npm error 404  '@kuznai/inception-engine@0.2.1' is not in this registry.
+npm error 404
+npm error 404 Note that you can also install from a
+npm error 404 tarball, folder, http url, or git url.
+npm error A complete log of this run can be found in: /home/runner/.npm/_logs/2026-03-21T16_49_58_126Z-debug-0.log
+
+---
+
+commit and push your changes
