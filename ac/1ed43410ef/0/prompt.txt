@@ -1,0 +1,2 @@
+Home directory resolution under sudo is not portable and can write to the wrong user on valid systems. src/core/resolve.ts (line 10)
+The code assumes the real home is /Users/$SUDO_USER on macOS or /home/$SUDO_USER elsewhere. That breaks on systems with nonstandard homes: enterprise Linux, LDAP/NIS accounts, custom /srv/users/..., Nix setups, renamed home roots, etc. The result is silent deployment into a guessed path rather than the actual account. From a portability standpoint, this is brittle; from a safety standpoint, it risks modifying the wrong filesystem location.
