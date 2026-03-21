@@ -5,7 +5,7 @@ Plant skills directly into the minds of your installed AI coding agents — Clau
 ## Quick Start
 
 ```bash
-npx inception-engine <directory>
+npx @kuznai/inception-engine <directory>
 ```
 
 Where `<directory>` is a repo (or subdirectory) containing an `inception.json` manifest and skill files.
