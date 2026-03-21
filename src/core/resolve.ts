@@ -1,5 +1,8 @@
+import { execFileSync } from "node:child_process";
+import { readFileSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import { UserError } from "../errors.ts";
 import type { AgentConfig } from "../types.ts";
 
 export function resolveHome(): string {
@@ -9,11 +12,61 @@ export function resolveHome(): string {
 
   const sudoUser = process.env["SUDO_USER"];
   if (sudoUser) {
-    const base = process.platform === "darwin" ? "/Users" : "/home";
-    return path.join(base, sudoUser);
+    return lookupHomeForUser(sudoUser);
   }
 
   return os.homedir();
+}
+
+function lookupHomeForUser(username: string): string {
+  // Method 1: getent passwd (Linux/POSIX — handles LDAP, NIS, local via NSS)
+  if (process.platform !== "darwin") {
+    try {
+      const out = execFileSync("getent", ["passwd", username], {
+        encoding: "utf8",
+        stdio: ["ignore", "pipe", "ignore"],
+      }).trim();
+      const home = out.split(":")[5];
+      if (typeof home === "string" && home.startsWith("/")) return home;
+    } catch {
+      // getent unavailable or user not found — try next method
+    }
+  }
+
+  // Method 2: dscl (macOS directory services)
+  if (process.platform === "darwin") {
+    try {
+      const out = execFileSync(
+        "dscl",
+        [".", "-read", `/Users/${username}`, "NFSHomeDirectory"],
+        { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] }
+      ).trim();
+      const home = out.replace(/^NFSHomeDirectory:\s*/, "").trim();
+      if (home.startsWith("/")) return home;
+    } catch {
+      // dscl unavailable or user record not found — try next method
+    }
+  }
+
+  // Method 3: parse /etc/passwd directly (universal POSIX fallback)
+  try {
+    const passwd = readFileSync("/etc/passwd", "utf8");
+    for (const line of passwd.split("\n")) {
+      const parts = line.split(":");
+      if (parts[0] === username) {
+        const home = parts[5];
+        if (typeof home === "string" && home.startsWith("/")) return home;
+      }
+    }
+  } catch {
+    // /etc/passwd unavailable — fall through to error
+  }
+
+  throw new UserError(
+    `Cannot determine home directory for user "${username}". ` +
+      `Tried getent, dscl, and /etc/passwd. ` +
+      `Run without sudo, or set HOME to the correct path before invoking with sudo.`
+  );
 }
 
 export function getPlatformKey(): "posix" | "windows" {
