@@ -153,7 +153,9 @@ If an agent isn't detected, its skills are skipped. Use `--agents` to override d
 
 ## Running with Privilege Escalation
 
-The tool works without elevated privileges. If run with `sudo` on POSIX systems, it resolves the real user's home directory via `SUDO_USER` so skills are deployed to the correct location (not `/root/`).
+The tool works without elevated privileges. If run with `sudo` on POSIX systems, it looks up the real user's home directory from the OS directory services (`getent passwd` on Linux, `dscl` on macOS, `/etc/passwd` as a universal fallback) so skills are deployed to the correct location regardless of where home directories are stored — standard `/home/<user>`, LDAP/NIS paths, enterprise layouts, or otherwise.
+
+If the real home cannot be determined, the tool exits with an error rather than silently deploying to a guessed path.
 
 On Windows, `os.homedir()` correctly resolves even in elevated PowerShell or cmd.
 
