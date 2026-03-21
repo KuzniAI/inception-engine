@@ -64,13 +64,13 @@ describe("planDeploy", () => {
 describe("executeDeploy", () => {
   if (process.platform === "win32") return;
 
-  it("creates symlinks on POSIX", () => {
+  it("creates symlinks on POSIX", async () => {
     const sourceDir = makeTmpDir();
     const home = makeTmpDir();
     try {
       createSkillSource(sourceDir, "skills/test-skill");
       const actions = planDeploy(testManifest, sourceDir, ["claude-code"], home);
-      const { succeeded, failed } = executeDeploy(actions, false, false);
+      const { succeeded, failed } = await executeDeploy(actions, false, false);
 
       assert.equal(succeeded, 1);
       assert.equal(failed.length, 0);
@@ -85,13 +85,13 @@ describe("executeDeploy", () => {
     }
   });
 
-  it("does not create symlinks in dry-run mode", () => {
+  it("does not create symlinks in dry-run mode", async () => {
     const sourceDir = makeTmpDir();
     const home = makeTmpDir();
     try {
       createSkillSource(sourceDir, "skills/test-skill");
       const actions = planDeploy(testManifest, sourceDir, ["claude-code"], home);
-      const { succeeded, failed } = executeDeploy(actions, true, false);
+      const { succeeded, failed } = await executeDeploy(actions, true, false);
 
       assert.equal(succeeded, 1);
       assert.equal(failed.length, 0);
@@ -104,7 +104,7 @@ describe("executeDeploy", () => {
     }
   });
 
-  it("overwrites existing symlink", () => {
+  it("overwrites existing symlink", async () => {
     const sourceDir = makeTmpDir();
     const home = makeTmpDir();
     try {
@@ -112,8 +112,8 @@ describe("executeDeploy", () => {
       const actions = planDeploy(testManifest, sourceDir, ["claude-code"], home);
 
       // Deploy twice - second should overwrite
-      executeDeploy(actions, false, false);
-      const { succeeded, failed } = executeDeploy(actions, false, false);
+      await executeDeploy(actions, false, false);
+      const { succeeded, failed } = await executeDeploy(actions, false, false);
 
       assert.equal(succeeded, 1);
       assert.equal(failed.length, 0);
@@ -123,11 +123,11 @@ describe("executeDeploy", () => {
     }
   });
 
-  it("reports error for missing source", () => {
+  it("reports error for missing source", async () => {
     const home = makeTmpDir();
     try {
       const actions = planDeploy(testManifest, "/nonexistent/source", ["claude-code"], home);
-      const { succeeded, failed } = executeDeploy(actions, false, false);
+      const { succeeded, failed } = await executeDeploy(actions, false, false);
 
       assert.equal(succeeded, 0);
       assert.equal(failed.length, 1);

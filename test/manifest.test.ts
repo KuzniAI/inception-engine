@@ -12,7 +12,7 @@ function makeTmpDir(): string {
 }
 
 describe("loadManifest", () => {
-  it("parses a valid manifest", () => {
+  it("parses a valid manifest", async () => {
     const dir = makeTmpDir();
     try {
       writeFileSync(
@@ -24,7 +24,7 @@ describe("loadManifest", () => {
         })
       );
 
-      const manifest = loadManifest(dir);
+      const manifest = await loadManifest(dir);
       assert.equal(manifest.skills.length, 1);
       assert.equal(manifest.skills[0]!.name, "test-skill");
       assert.deepEqual(manifest.skills[0]!.agents, ["claude-code"]);
@@ -35,31 +35,31 @@ describe("loadManifest", () => {
     }
   });
 
-  it("throws on missing file", () => {
-    assert.throws(() => loadManifest("/nonexistent/path"), /No inception\.json found/);
+  it("throws on missing file", async () => {
+    await assert.rejects(loadManifest("/nonexistent/path"), /No inception\.json found/);
   });
 
-  it("throws on invalid JSON", () => {
+  it("throws on invalid JSON", async () => {
     const dir = makeTmpDir();
     try {
       writeFileSync(path.join(dir, "inception.json"), "not json{");
-      assert.throws(() => loadManifest(dir), /Invalid JSON/);
+      await assert.rejects(loadManifest(dir), /Invalid JSON/);
     } finally {
       rmSync(dir, { recursive: true });
     }
   });
 
-  it("throws on missing skills array", () => {
+  it("throws on missing skills array", async () => {
     const dir = makeTmpDir();
     try {
       writeFileSync(path.join(dir, "inception.json"), JSON.stringify({}));
-      assert.throws(() => loadManifest(dir), /"skills" must be an array/);
+      await assert.rejects(loadManifest(dir), /"skills" must be an array/);
     } finally {
       rmSync(dir, { recursive: true });
     }
   });
 
-  it("throws on unknown agent ID", () => {
+  it("throws on unknown agent ID", async () => {
     const dir = makeTmpDir();
     try {
       writeFileSync(
@@ -68,13 +68,13 @@ describe("loadManifest", () => {
           skills: [{ name: "s", path: "p", agents: ["unknown-agent"] }],
         })
       );
-      assert.throws(() => loadManifest(dir), /unknown agent "unknown-agent"/);
+      await assert.rejects(loadManifest(dir), /unknown agent "unknown-agent"/);
     } finally {
       rmSync(dir, { recursive: true });
     }
   });
 
-  it("throws on missing skill name", () => {
+  it("throws on missing skill name", async () => {
     const dir = makeTmpDir();
     try {
       writeFileSync(
@@ -83,13 +83,13 @@ describe("loadManifest", () => {
           skills: [{ path: "p", agents: ["claude-code"] }],
         })
       );
-      assert.throws(() => loadManifest(dir), /name must be a non-empty string/);
+      await assert.rejects(loadManifest(dir), /name must be a non-empty string/);
     } finally {
       rmSync(dir, { recursive: true });
     }
   });
 
-  it("throws on skill.name with path traversal (../../.ssh)", () => {
+  it("throws on skill.name with path traversal (../../.ssh)", async () => {
     const dir = makeTmpDir();
     try {
       writeFileSync(
@@ -98,13 +98,13 @@ describe("loadManifest", () => {
           skills: [{ name: "../../.ssh", path: "skills/s", agents: ["claude-code"] }],
         })
       );
-      assert.throws(() => loadManifest(dir), /name must contain only/);
+      await assert.rejects(loadManifest(dir), /name must contain only/);
     } finally {
       rmSync(dir, { recursive: true });
     }
   });
 
-  it("throws on skill.name with path separator (../escape)", () => {
+  it("throws on skill.name with path separator (../escape)", async () => {
     const dir = makeTmpDir();
     try {
       writeFileSync(
@@ -113,13 +113,13 @@ describe("loadManifest", () => {
           skills: [{ name: "../escape", path: "skills/s", agents: ["claude-code"] }],
         })
       );
-      assert.throws(() => loadManifest(dir), /name must contain only/);
+      await assert.rejects(loadManifest(dir), /name must contain only/);
     } finally {
       rmSync(dir, { recursive: true });
     }
   });
 
-  it("accepts a skill.name with dots, hyphens, and digits (valid-name_1.0)", () => {
+  it("accepts a skill.name with dots, hyphens, and digits (valid-name_1.0)", async () => {
     const dir = makeTmpDir();
     try {
       writeFileSync(
@@ -128,14 +128,14 @@ describe("loadManifest", () => {
           skills: [{ name: "valid-name_1.0", path: "skills/s", agents: ["claude-code"] }],
         })
       );
-      const manifest = loadManifest(dir);
+      const manifest = await loadManifest(dir);
       assert.equal(manifest.skills[0]!.name, "valid-name_1.0");
     } finally {
       rmSync(dir, { recursive: true });
     }
   });
 
-  it("throws on skill.path that is absolute (/etc/passwd)", () => {
+  it("throws on skill.path that is absolute (/etc/passwd)", async () => {
     const dir = makeTmpDir();
     try {
       writeFileSync(
@@ -144,7 +144,7 @@ describe("loadManifest", () => {
           skills: [{ name: "s", path: "/etc/passwd", agents: ["claude-code"] }],
         })
       );
-      assert.throws(() => loadManifest(dir), /must be a relative path/);
+      await assert.rejects(loadManifest(dir), /must be a relative path/);
     } finally {
       rmSync(dir, { recursive: true });
     }

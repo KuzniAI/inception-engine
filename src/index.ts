@@ -88,7 +88,7 @@ function parseArgs(argv: string[]): CliOptions {
   return { command, directory: path.resolve(directory), dryRun, agents, verbose, debug };
 }
 
-function main(): number {
+async function main(): Promise<number> {
   const options = parseArgs(process.argv);
 
   if (options.command === "help") {
@@ -96,7 +96,7 @@ function main(): number {
     return 0;
   }
 
-  const manifest = loadManifest(options.directory);
+  const manifest = await loadManifest(options.directory);
   const home = resolveHome();
 
   let detectedAgents: AgentId[];
@@ -106,7 +106,7 @@ function main(): number {
       console.log(`Using specified agents: ${detectedAgents.join(", ")}`);
     }
   } else {
-    detectedAgents = detectInstalledAgents(home);
+    detectedAgents = await detectInstalledAgents(home);
     if (detectedAgents.length === 0) {
       console.log("No supported AI agents detected on this system.");
       console.log(`Install one of: ${AGENT_REGISTRY.map((a) => a.displayName).join(", ")}`);
@@ -127,7 +127,7 @@ function main(): number {
     }
 
     console.log(`${prefix}Deploying ${actions.length} skill(s):`);
-    const { succeeded, failed } = executeDeploy(actions, options.dryRun, options.verbose);
+    const { succeeded, failed } = await executeDeploy(actions, options.dryRun, options.verbose);
 
     console.log();
     if (failed.length > 0) {
@@ -144,7 +144,7 @@ function main(): number {
     }
 
     console.log(`${prefix}Reverting ${actions.length} skill(s):`);
-    const { succeeded, skipped } = executeRevert(actions, options.dryRun, options.verbose);
+    const { succeeded, skipped } = await executeRevert(actions, options.dryRun, options.verbose);
 
     console.log();
     const parts = [`${succeeded} removed`];
@@ -158,7 +158,7 @@ function main(): number {
 const debugMode = process.argv.includes("--debug");
 
 try {
-  process.exit(main());
+  process.exit(await main());
 } catch (err) {
   if (err instanceof UserError) {
     console.error(`Error: ${err.message}`);

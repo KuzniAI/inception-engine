@@ -1,15 +1,15 @@
-import { readFileSync } from "node:fs";
+import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { AGENT_IDS } from "../types.ts";
 import type { AgentId, Manifest, SkillEntry } from "../types.ts";
 import { UserError } from "../errors.ts";
 
-export function loadManifest(directory: string): Manifest {
+export async function loadManifest(directory: string): Promise<Manifest> {
   const manifestPath = path.join(directory, "inception.json");
 
   let raw: string;
   try {
-    raw = readFileSync(manifestPath, "utf-8");
+    raw = await readFile(manifestPath, "utf-8");
   } catch {
     throw new UserError(
       `No inception.json found in ${directory}. Are you pointing to the right repo?`

@@ -1,4 +1,4 @@
-import { existsSync, lstatSync, unlinkSync, rmSync } from "node:fs";
+import { lstat, unlink, rm } from "node:fs/promises";
 import { AGENT_REGISTRY } from "../config/agents.ts";
 import { resolveAgentSkillPath } from "./resolve.ts";
 import type { AgentId, Manifest, RevertAction } from "../types.ts";
@@ -25,18 +25,21 @@ export function planRevert(
   return actions;
 }
 
-export function executeRevert(
+export async function executeRevert(
   actions: RevertAction[],
   dryRun: boolean,
   verbose: boolean
-): { succeeded: number; skipped: number } {
+): Promise<{ succeeded: number; skipped: number }> {
   let succeeded = 0;
   let skipped = 0;
 
   for (const action of actions) {
     const label = `${action.skill} -> ${action.agent}`;
 
-    if (!existsSync(action.target) && !isSymlink(action.target)) {
+    let stat: Awaited<ReturnType<typeof lstat>>;
+    try {
+      stat = await lstat(action.target);
+    } catch {
       console.log(`  \x1b[33m-\x1b[0m ${label} (not found, skipping)`);
       skipped++;
       continue;
@@ -52,10 +55,10 @@ export function executeRevert(
     }
 
     try {
-      if (isSymlink(action.target)) {
-        unlinkSync(action.target);
+      if (stat.isSymbolicLink()) {
+        await unlink(action.target);
       } else {
-        rmSync(action.target, { recursive: true });
+        await rm(action.target, { recursive: true });
       }
       console.log(`  \x1b[32m✓\x1b[0m ${label}`);
       if (verbose) {
@@ -69,12 +72,4 @@ export function executeRevert(
   }
 
   return { succeeded, skipped };
-}
-
-function isSymlink(p: string): boolean {
-  try {
-    return lstatSync(p).isSymbolicLink();
-  } catch {
-    return false;
-  }
 }

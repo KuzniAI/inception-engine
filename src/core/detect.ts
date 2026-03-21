@@ -1,14 +1,17 @@
-import { existsSync } from "node:fs";
-import { execFileSync } from "node:child_process";
+import { access } from "node:fs/promises";
+import { execFile } from "node:child_process";
+import { promisify } from "node:util";
 import { AGENT_REGISTRY } from "../config/agents.ts";
 import { resolveAgentDetectPath } from "./resolve.ts";
 import type { AgentId, AgentConfig } from "../types.ts";
 
-export function detectInstalledAgents(home: string): AgentId[] {
+const execFileAsync = promisify(execFile);
+
+export async function detectInstalledAgents(home: string): Promise<AgentId[]> {
   const detected: AgentId[] = [];
 
   for (const agent of AGENT_REGISTRY) {
-    if (isAgentInstalled(agent, home)) {
+    if (await isAgentInstalled(agent, home)) {
       detected.push(agent.id);
     }
   }
@@ -16,11 +19,12 @@ export function detectInstalledAgents(home: string): AgentId[] {
   return detected;
 }
 
-function isAgentInstalled(agent: AgentConfig, home: string): boolean {
+async function isAgentInstalled(agent: AgentConfig, home: string): Promise<boolean> {
   const detectPath = resolveAgentDetectPath(agent, home);
-  if (existsSync(detectPath)) {
+  try {
+    await access(detectPath);
     return true;
-  }
+  } catch {}
 
   if (agent.detectBinary) {
     return isBinaryInPath(agent.detectBinary);
@@ -29,10 +33,10 @@ function isAgentInstalled(agent: AgentConfig, home: string): boolean {
   return false;
 }
 
-function isBinaryInPath(binary: string): boolean {
+async function isBinaryInPath(binary: string): Promise<boolean> {
   const command = process.platform === "win32" ? "where.exe" : "which";
   try {
-    execFileSync(command, [binary], { stdio: "ignore" });
+    await execFileAsync(command, [binary], { stdio: "ignore" });
     return true;
   } catch {
     return false;

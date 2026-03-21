@@ -12,10 +12,10 @@ function makeTmpDir(): string {
 }
 
 describe("detectInstalledAgents", () => {
-  it("returns empty array when no agents are installed", () => {
+  it("returns empty array when no agents are installed", async () => {
     const home = makeTmpDir();
     try {
-      const agents = detectInstalledAgents(home);
+      const agents = await detectInstalledAgents(home);
       // May detect agents via binary-in-PATH, but directory check should find nothing
       // Filter to only directory-based detections by checking what we know
       assert.ok(Array.isArray(agents));
@@ -24,35 +24,35 @@ describe("detectInstalledAgents", () => {
     }
   });
 
-  it("detects claude-code when .claude directory exists", () => {
+  it("detects claude-code when .claude directory exists", async () => {
     const home = makeTmpDir();
     try {
       mkdirSync(path.join(home, ".claude"), { recursive: true });
-      const agents = detectInstalledAgents(home);
+      const agents = await detectInstalledAgents(home);
       assert.ok(agents.includes("claude-code"));
     } finally {
       rmSync(home, { recursive: true });
     }
   });
 
-  it("detects gemini-cli when .gemini directory exists", () => {
+  it("detects gemini-cli when .gemini directory exists", async () => {
     const home = makeTmpDir();
     try {
       mkdirSync(path.join(home, ".gemini"), { recursive: true });
-      const agents = detectInstalledAgents(home);
+      const agents = await detectInstalledAgents(home);
       assert.ok(agents.includes("gemini-cli"));
     } finally {
       rmSync(home, { recursive: true });
     }
   });
 
-  it("detects multiple agents", () => {
+  it("detects multiple agents", async () => {
     const home = makeTmpDir();
     try {
       mkdirSync(path.join(home, ".claude"), { recursive: true });
       mkdirSync(path.join(home, ".codex"), { recursive: true });
       mkdirSync(path.join(home, ".copilot"), { recursive: true });
-      const agents = detectInstalledAgents(home);
+      const agents = await detectInstalledAgents(home);
       assert.ok(agents.includes("claude-code"));
       assert.ok(agents.includes("codex"));
       assert.ok(agents.includes("github-copilot"));

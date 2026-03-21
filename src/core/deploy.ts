@@ -1,12 +1,5 @@
-import {
-  existsSync,
-  lstatSync,
-  mkdirSync,
-  rmSync,
-  symlinkSync,
-  cpSync,
-  unlinkSync,
-} from "node:fs";
+import { access, lstat, mkdir, symlink, cp, unlink, rm } from "node:fs/promises";
+import type { Stats } from "node:fs";
 import path from "node:path";
 import { AGENT_REGISTRY } from "../config/agents.ts";
 import { resolveAgentSkillPath, getDeployMethod } from "./resolve.ts";
@@ -47,18 +40,20 @@ export function planDeploy(
   return actions;
 }
 
-export function executeDeploy(
+export async function executeDeploy(
   actions: DeployAction[],
   dryRun: boolean,
   verbose: boolean
-): { succeeded: number; failed: Array<{ action: DeployAction; error: string }> } {
+): Promise<{ succeeded: number; failed: Array<{ action: DeployAction; error: string }> }> {
   let succeeded = 0;
   const failed: Array<{ action: DeployAction; error: string }> = [];
 
   for (const action of actions) {
     const label = `${action.skill} -> ${action.agent}`;
 
-    if (!existsSync(action.source)) {
+    try {
+      await access(action.source);
+    } catch {
       const msg = `Source not found: ${action.source}`;
       failed.push({ action, error: msg });
       console.error(`  \x1b[31m✗\x1b[0m ${label}: ${msg}`);
@@ -75,13 +70,13 @@ export function executeDeploy(
     }
 
     try {
-      removeExisting(action.target, verbose);
-      mkdirSync(path.dirname(action.target), { recursive: true });
+      await removeExisting(action.target, verbose);
+      await mkdir(path.dirname(action.target), { recursive: true });
 
       if (action.method === "symlink") {
-        symlinkSync(action.source, action.target, "dir");
+        await symlink(action.source, action.target, "dir");
       } else {
-        cpSync(action.source, action.target, { recursive: true });
+        await cp(action.source, action.target, { recursive: true });
       }
 
       console.log(`  \x1b[32m✓\x1b[0m ${label}`);
@@ -99,26 +94,23 @@ export function executeDeploy(
   return { succeeded, failed };
 }
 
-function removeExisting(targetPath: string, verbose: boolean): void {
-  if (!existsSync(targetPath) && !isSymlink(targetPath)) return;
+async function removeExisting(targetPath: string, verbose: boolean): Promise<void> {
+  let stat: Stats;
+  try {
+    stat = await lstat(targetPath);
+  } catch {
+    return;
+  }
 
-  if (isSymlink(targetPath)) {
+  if (stat.isSymbolicLink()) {
     if (verbose) {
       console.log(`    removing existing symlink: ${targetPath}`);
     }
-    unlinkSync(targetPath);
+    await unlink(targetPath);
   } else {
     if (verbose) {
       console.log(`    \x1b[33m!\x1b[0m replacing existing directory: ${targetPath}`);
     }
-    rmSync(targetPath, { recursive: true });
-  }
-}
-
-function isSymlink(p: string): boolean {
-  try {
-    return lstatSync(p).isSymbolicLink();
-  } catch {
-    return false;
+    await rm(targetPath, { recursive: true });
   }
 }

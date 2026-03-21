@@ -37,7 +37,7 @@ describe("planRevert", () => {
 describe("executeRevert", () => {
   if (process.platform === "win32") return;
 
-  it("removes a symlink", () => {
+  it("removes a symlink", async () => {
     const home = makeTmpDir();
     const sourceDir = makeTmpDir();
     try {
@@ -49,7 +49,7 @@ describe("executeRevert", () => {
       symlinkSync(sourceDir, target, "dir");
       assert.ok(existsSync(target));
 
-      const { succeeded, skipped } = executeRevert(actions, false, false);
+      const { succeeded, skipped } = await executeRevert(actions, false, false);
       assert.equal(succeeded, 1);
       assert.equal(skipped, 0);
       assert.ok(!existsSync(target));
@@ -59,7 +59,7 @@ describe("executeRevert", () => {
     }
   });
 
-  it("removes a copied directory", () => {
+  it("removes a copied directory", async () => {
     const home = makeTmpDir();
     try {
       const actions = planRevert(testManifest, ["claude-code"], home);
@@ -69,7 +69,7 @@ describe("executeRevert", () => {
       mkdirSync(target, { recursive: true });
       writeFileSync(path.join(target, "SKILL.md"), "test");
 
-      const { succeeded, skipped } = executeRevert(actions, false, false);
+      const { succeeded, skipped } = await executeRevert(actions, false, false);
       assert.equal(succeeded, 1);
       assert.equal(skipped, 0);
       assert.ok(!existsSync(target));
@@ -78,11 +78,11 @@ describe("executeRevert", () => {
     }
   });
 
-  it("skips missing targets", () => {
+  it("skips missing targets", async () => {
     const home = makeTmpDir();
     try {
       const actions = planRevert(testManifest, ["claude-code"], home);
-      const { succeeded, skipped } = executeRevert(actions, false, false);
+      const { succeeded, skipped } = await executeRevert(actions, false, false);
       assert.equal(succeeded, 0);
       assert.equal(skipped, 1);
     } finally {
@@ -90,7 +90,7 @@ describe("executeRevert", () => {
     }
   });
 
-  it("does not remove in dry-run mode", () => {
+  it("does not remove in dry-run mode", async () => {
     const home = makeTmpDir();
     const sourceDir = makeTmpDir();
     try {
@@ -100,7 +100,7 @@ describe("executeRevert", () => {
       mkdirSync(path.dirname(target), { recursive: true });
       symlinkSync(sourceDir, target, "dir");
 
-      const { succeeded } = executeRevert(actions, true, false);
+      const { succeeded } = await executeRevert(actions, true, false);
       assert.equal(succeeded, 1);
       assert.ok(existsSync(target), "symlink should still exist after dry-run");
     } finally {
