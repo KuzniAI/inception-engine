@@ -17,7 +17,7 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: '23'
+          node-version: '24'
           cache: 'npm'
           registry-url: 'https://registry.npmjs.org'
 
@@ -27,14 +27,8 @@ jobs:
 
       - run: npm test
 
-      - run: npm whoami
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+      - run: npm run build
 
-      - run: npm view @kuznai/inception-engine versions --json
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-
-      - run: npm publish --provenance --access public
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+      # Use npm trusted publishing via GitHub OIDC. Do not set NODE_AUTH_TOKEN
+      # here, or npm will fall back to token-based auth and may require OTP.
+      - run: npm publish --access public
