@@ -1,0 +1,1 @@
+Expand UserError in src/errors.ts:1 into a small error hierarchy with codes like INVALID_ARGS, MANIFEST_INVALID, DEPLOY_FAILED; this makes exit-code mapping and test assertions cleaner.
