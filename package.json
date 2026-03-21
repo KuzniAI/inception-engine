@@ -3,7 +3,7 @@
   "version": "0.2.3",
   "description": "Deploy AI agent skills from a git repo to user home directories",
   "license": "MIT",
-  "author": "Damian Piatkowski",
+  "author": "Damian Piątkowski",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/KuzniAI/inception-engine.git"
