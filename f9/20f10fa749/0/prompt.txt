@@ -1,0 +1,16 @@
+Running `npx @kuznai/inception-engine limbo --dry-run` gives me this error: sh: inception-engine: command not found
+
+---
+
+Are you sure?
+
+drwxr-xr-x@ 10 damianpiatkowski  staff   320 20 mar 22:54 .
+drwxr-xr-x@ 17 damianpiatkowski  staff   544 21 mar 17:31 ..
+drwxr-xr-x@  6 damianpiatkowski  staff   192 20 mar 21:53 config
+drwxr-xr-x@ 10 damianpiatkowski  staff   320 20 mar 21:53 core
+-rw-r--r--@  1 damianpiatkowski  staff    83 21 mar 17:31 errors.d.ts
+-rw-r--r--@  1 damianpiatkowski  staff   131 21 mar 17:31 errors.js
+-rw-r--r--@  1 damianpiatkowski  staff    31 21 mar 17:31 index.d.ts
+-rwxr-xr-x@  1 damianpiatkowski  staff  5425 21 mar 17:31 index.js
+-rw-r--r--@  1 damianpiatkowski  staff  1025 21 mar 17:31 types.d.ts
+-rw-r--r--@  1 damianpiatkowski  staff   137 21 mar 17:31 types.js
