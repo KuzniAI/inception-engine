@@ -51,12 +51,8 @@ The current codebase is a cross-platform skill deployer with detection, path res
 
 ### Security Posture
 - **OpenCode Autonomy Risk**: OpenCode remains effectively fast-by-default until `permission: "ask"` behavior is injected into `opencode.json`.
-- ~~**Unmanaged Target Overwrite Risk**: `executeDeploy` deletes any existing target before reinstalling, even when that content was not created by inception-engine.~~
-- ~~**Non-Atomic Deploy Risk**: Deploy removes the previous target before creating the new one, so failed installs can leave users with missing or partially deployed customizations.~~
 - **SUDO_USER Validation**: `SUDO_USER` lookup exists, but inherited or externally injected environment values can still steer deployment into the wrong user's home directory unless provenance is checked more strictly.
 - **Symlink TOCTOU/Injection Risk**: Deploy and revert still rely on pre-checks that can be invalidated between `lstat`, `readlink`, `rm`, `unlink`, and create operations.
-- ~~**Source Symlink Escape Risk**: Repository-root checks use resolved string prefixes instead of `realpath`, so a skill path can remain inside the repo syntactically while resolving through a symlink to content outside it.~~
-- ~~**Ownership Proof Bypass**: POSIX revert trusts the presence of `SKILL.md` in a symlink target as proof of ownership, which is too weak for destructive removal.~~
 - **Insecure File Permissions**: The engine does not explicitly set or verify permissions on deployed files and config artifacts.
 
 ### Interoperability
@@ -72,7 +68,6 @@ The current codebase is a cross-platform skill deployer with detection, path res
 - **Redundant I/O Calls**: Deploy and revert perform repeated `access`, `lstat`, and path checks that could be consolidated.
 
 ### Coding Practices and Dependencies
-- **Manual Path Sanitization**: ~~Current validation relies on regexes and string-prefix checks.~~ It should move fully to stronger path containment rules based on normalized relative paths and `realpath` where appropriate.
 - **Implicit Casting in Manifest**: `loadManifest` still relies on loose casting for manifest parsing instead of schema-backed validation.
 - **Manifest Uniqueness Rules**: `skill.name` values are not enforced as unique, and duplicate agent IDs are not deduplicated, which can create target-path collisions and duplicate actions.
 - **Skill Source Contract Validation**: Deploy verifies only that the source exists; it does not verify that the source is a directory with a valid `SKILL.md`.
@@ -81,11 +76,9 @@ The current codebase is a cross-platform skill deployer with detection, path res
 
 ### CLI Reliability
 - **Revert Exit Codes**: `revert` can log failures and still exit successfully, which makes automation unreliable.
-- ~~**Detection-Coupled Revert**: Revert only targets currently detected agents, so previously deployed assets can become stranded if detection later fails or the agent is uninstalled.~~
 - **Error Specificity**: Manifest read failures and source access failures are currently collapsed into generic messages, which obscures permission and I/O problems.
 
 ### Testing
 - **CLI Coverage Gap**: The main CLI flow is not covered by end-to-end tests.
 - **Binary Detection Coverage Gap**: Detection fallback behavior for `which`, `where.exe`, and `command -v` is only lightly exercised.
 - **Windows Deployment Coverage Gap**: Real copy-based deploy/revert behavior and `.inception-totem` ownership handling are not meaningfully tested on Windows.
-- **Destructive-Path Safety Coverage Gap**: There are no focused tests for ~~unmanaged-target protection,~~ atomic redeploy behavior, or ~~source symlink escape prevention~~.
