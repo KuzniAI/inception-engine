@@ -42,10 +42,12 @@ This document outlines the gap between the current implementation and the strate
 - **Cross-Platform Symlink Proofs**: The current `.inception-totem` logic works for directories but needs a file-level equivalent (e.g., hidden sidecar files or metadata store) for single-file customizations like `CLAUDE.md`.
 - **Enterprise Registry Blocking**: GitHub Copilot may ignore local MCP configs if organization policies are active; the tool should detect and warn about these overrides.
 - **XDG Base Directory Support**: On Linux/POSIX, the engine should respect `XDG_CONFIG_HOME` and other XDG variables instead of defaulting to `{home}/.config`.
-- **Synchronous I/O in Resolver**: `resolve.ts` uses synchronous `execFileSync` and `readFileSync` for home directory lookup, which can block the event loop in high-throughput or constrained environments.
 - **Shell-Specific Escaping**: `isBinaryViaCommandV` uses a POSIX-style shell call that may behave differently on non-standard shells (e.g., Fish, Zsh) if environment variables are not correctly isolated.
 
 ### Performance
+- **Synchronous I/O in Resolver**: `resolve.ts` uses synchronous `execFileSync` and `readFileSync` for home directory lookup, which can block the event loop in high-throughput or constrained environments.
 - **Parallel Deployment Execution**: `executeDeploy` and `executeRevert` process skill actions sequentially. Performance could be significantly improved by parallelizing file system operations (e.g., via `Promise.all`).
-- **Lazy Agent Detection**: Agent installation checks are performed upfront for all registered agents. This could be optimized to only detect agents relevant to the skills being deployed.
 - **Redundant I/O calls**: `executeRevert` and `executeDeploy` perform multiple `access`/`lstat` calls on the same paths. These could be cached or consolidated to reduce syscall overhead.
+
+### Node.js practices and dependecies
+- TBD
