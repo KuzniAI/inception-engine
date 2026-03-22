@@ -2,7 +2,7 @@
 
 This document outlines the gap between the current implementation and the strategic vision defined in `docs/north-star.md`.
 
-## 1. Missing Features
+## Features
 
 ### Customization Vectors
 - **Global System Instructions**: Implementation of automated synchronization for `CLAUDE.md`, `AGENTS.md`, and `GEMINI.md` across all detected agent home directories.
@@ -22,15 +22,13 @@ This document outlines the gap between the current implementation and the strate
 - **Agent-Specific Filters**: Allow users to see which customizations are applicable to which agents before deployment.
 - **Token Linter**: Integrated check to warn users if their instruction sets exceed the ~4,000 token / 65KB safety threshold (Context Rot prevention).
 
-## 2. Functional Defects
+## Issues
 
 ### Divergences from North Star
 - **Manifest Stagnation**: `inception.json` currently contains `mcpServers` and `agentRules` arrays that are completely ignored by the deployment engine.
 - **Gemini/Antigravity Collision**: The codebase does not yet implement the "collision mitigation logic" required to prevent workspace Antigravity rules from corrupting global Gemini CLI state in `~/.gemini/GEMINI.md`.
 - **OpenCode Windows Paths**: `README.md` specifies `%APPDATA%\opencode\skills\`, but code must ensure this extends to the new customization vectors (instructions, subagents) once implemented.
 - **Skill-Only Scope**: The current engine is strictly a "skill directory" installer; it lacks the file-level manipulation capability required for persistent instructions and JSON/TOML config patching.
-
-## 3. Security and Interoperability
 
 ### Security Posture
 - **OpenCode Autonomy Risk**: Currently, OpenCode executes bash commands and writes immediately ("Fast by default"). The roadmap must prioritize the injection of `permission: "ask"` blocks to ensure parity with Claude Code's "Safe by default" behavior.
@@ -40,3 +38,6 @@ This document outlines the gap between the current implementation and the strate
 - **Variable Syntax Mapping**: The engine must handle the transition between `${VAR}` (Standard/Claude) and `{env:VAR}` (OpenCode) to ensure environment variables function across all agents.
 - **Cross-Platform Symlink Proofs**: The current `.inception-totem` logic works for directories but needs a file-level equivalent (e.g., hidden sidecar files or metadata store) for single-file customizations like `CLAUDE.md`.
 - **Enterprise Registry Blocking**: GitHub Copilot may ignore local MCP configs if organization policies are active; the tool should detect and warn about these overrides.
+
+### Performance
+- TBD
