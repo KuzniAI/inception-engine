@@ -34,11 +34,43 @@ async function isAgentInstalled(agent: AgentConfig, home: string): Promise<boole
 }
 
 async function isBinaryInPath(binary: string): Promise<boolean> {
-  const command = process.platform === "win32" ? "where.exe" : "which";
+  if (process.platform === "win32") {
+    try {
+      await execFileAsync("where.exe", [binary]);
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
   try {
-    await execFileAsync(command, [binary], { stdio: "ignore" });
+    await execFileAsync("which", [binary]);
+    return true;
+  } catch (err: unknown) {
+    // `which` itself is not installed — fall back to the POSIX shell built-in
+    if (isENOENT(err)) {
+      return isBinaryViaCommandV(binary);
+    }
+    return false;
+  }
+}
+
+// Used only when `which` is absent (e.g. minimal Alpine containers).
+// `command -v` is a POSIX shell built-in available wherever /bin/sh is.
+async function isBinaryViaCommandV(binary: string): Promise<boolean> {
+  try {
+    // Pass binary as a positional arg ($1) to avoid any shell-injection risk.
+    await execFileAsync("sh", ["-c", 'command -v "$1"', "--", binary]);
     return true;
   } catch {
     return false;
   }
+}
+
+function isENOENT(err: unknown): boolean {
+  return (
+    typeof err === "object" &&
+    err !== null &&
+    (err as NodeJS.ErrnoException).code === "ENOENT"
+  );
 }
