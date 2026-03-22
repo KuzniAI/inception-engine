@@ -1,0 +1,27 @@
+{
+  "cli_version": "0.5.1",
+  "checkpoint_id": "daab2ece9613",
+  "strategy": "manual-commit",
+  "branch": "main",
+  "checkpoints_count": 1,
+  "files_touched": [
+    "src/core/resolve.ts",
+    "test/cross-platform.test.ts",
+    "test/resolve.test.ts"
+  ],
+  "sessions": [
+    {
+      "metadata": "/da/ab2ece9613/0/metadata.json",
+      "transcript": "/da/ab2ece9613/0/full.jsonl",
+      "content_hash": "/da/ab2ece9613/0/content_hash.txt",
+      "prompt": "/da/ab2ece9613/0/prompt.txt"
+    }
+  ],
+  "token_usage": {
+    "input_tokens": 31,
+    "cache_creation_tokens": 51411,
+    "cache_read_tokens": 923298,
+    "output_tokens": 18527,
+    "api_call_count": 21
+  }
+}

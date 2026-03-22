@@ -1,0 +1,3 @@
+test/resolve.test.ts and test/resolve.test.ts assert Windows-shaped behavior from the current platform branch rather than truly isolating platform cases. The suite is better than before, but platform interoperability is still only partially verified.
+
+Add focused tests for cross-platform path generation and sudo/home lookup edge cases, ideally with more mocking and less dependence on the host machine.
