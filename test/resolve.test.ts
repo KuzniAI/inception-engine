@@ -1,6 +1,7 @@
 import { describe, it, mock } from "node:test";
 import assert from "node:assert/strict";
 import os from "node:os";
+import path from "node:path";
 import { resolveHome, resolveAgentSkillPath, resolveAgentDetectPath } from "../src/core/resolve.ts";
 import { AGENT_REGISTRY } from "../src/config/agents.ts";
 import { UserError } from "../src/errors.ts";
@@ -11,7 +12,7 @@ describe("resolveAgentSkillPath", () => {
     const result = resolveAgentSkillPath(claude, "my-skill", "/Users/test");
 
     if (process.platform === "win32") {
-      assert.equal(result, "/Users/test\\.claude\\skills\\my-skill");
+      assert.equal(result, path.join("/Users/test", ".claude", "skills", "my-skill"));
     } else {
       assert.equal(result, "/Users/test/.claude/skills/my-skill");
     }

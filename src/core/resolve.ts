@@ -98,17 +98,16 @@ export function resolveAgentDetectPath(
 }
 
 function resolvePlaceholders(
-  template: string,
+  segments: string[],
   skillName: string,
   home: string
 ): string {
-  let result = template.replace("{home}", home);
-  result = result.replace("{name}", skillName);
-
-  if (result.includes("{appdata}")) {
-    const appdata = process.env["APPDATA"] ?? path.join(home, "AppData", "Roaming");
-    result = result.replace("{appdata}", appdata);
-  }
-
-  return result;
+  const appdata = process.env["APPDATA"] ?? path.join(home, "AppData", "Roaming");
+  const resolved = segments.map((seg) =>
+    seg
+      .replace("{home}", home)
+      .replace("{name}", skillName)
+      .replace("{appdata}", appdata)
+  );
+  return path.join(...resolved);
 }

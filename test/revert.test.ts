@@ -46,7 +46,8 @@ describe("executeRevert", () => {
       const actions = planRevert(testManifest, ["claude-code"], home);
       const target = actions[0]!.target;
 
-      // Create the symlink to remove
+      // Create the symlink to remove (sourceDir must contain SKILL.md for ownership check)
+      writeFileSync(path.join(sourceDir, "SKILL.md"), "---");
       mkdirSync(path.dirname(target), { recursive: true });
       symlinkSync(sourceDir, target, "dir");
       assert.ok(existsSync(target));
@@ -67,9 +68,10 @@ describe("executeRevert", () => {
       const actions = planRevert(testManifest, ["claude-code"], home);
       const target = actions[0]!.target;
 
-      // Create a real directory (as Windows copy would)
+      // Create a real directory (as Windows copy would); .inception-totem is required for ownership
       mkdirSync(target, { recursive: true });
       writeFileSync(path.join(target, "SKILL.md"), "test");
+      writeFileSync(path.join(target, ".inception-totem"), "");
 
       const { succeeded, skipped } = await executeRevert(actions, false, false);
       assert.equal(succeeded, 1);
@@ -99,6 +101,7 @@ describe("executeRevert", () => {
       const actions = planRevert(testManifest, ["claude-code"], home);
       const target = actions[0]!.target;
 
+      writeFileSync(path.join(sourceDir, "SKILL.md"), "---");
       mkdirSync(path.dirname(target), { recursive: true });
       symlinkSync(sourceDir, target, "dir");
 

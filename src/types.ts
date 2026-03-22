@@ -28,8 +28,8 @@ export interface Manifest {
 }
 
 export interface AgentPaths {
-  posix: string;
-  windows: string;
+  posix: string[];
+  windows: string[];
 }
 
 export interface AgentConfig {
