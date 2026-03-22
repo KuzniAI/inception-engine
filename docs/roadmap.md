@@ -1,55 +1,91 @@
 # Inception Engine: Roadmap
 
-This document outlines the gap between the current implementation and the strategic vision defined in `docs/north-star.md`.
+This document tracks the gap between the current implementation and the strategic vision defined in `docs/north-star.md`.
+
+The current codebase is a cross-platform skill deployer with detection, path resolution, and revert support. It is not yet a full customization engine for persistent instruction files, MCP manifests, subagents, or execution hooks.
 
 ## Features
 
 ### Customization Vectors
-- **Global System Instructions**: Implementation of automated synchronization for `CLAUDE.md`, `AGENTS.md`, and `GEMINI.md` across all detected agent home directories.
+- **Global System Instructions**:
+  - Implement synchronization for `CLAUDE.md`, `AGENTS.md`, `GEMINI.md`, and GitHub Copilot instruction files across detected agent home directories.
+  - Add file-level ownership proofs so single-file customizations can be reverted safely.
+  - Implement Gemini CLI / Antigravity collision mitigation for the shared `~/.gemini/GEMINI.md` path.
 - **Model Context Protocol (MCP)**:
-    - Support for parsing `mcpServers` from `inception.json`.
-    - AST-based transformation for OpenCode (`opencode.json` structure, `{env:VAR}` syntax).
-    - Just-in-time `openai.yaml` generation for Codex skill dependencies.
+  - Parse and validate `mcpServers` from `inception.json` instead of treating them as opaque arrays.
+  - Implement standard-to-OpenCode transformation for `opencode.json`, including `type: "local"`, merged `command`/`args`, `environment`, and `{env:VAR}` rewriting.
+  - Generate Codex `openai.yaml` assets just in time for skill and subagent dependencies.
+  - Detect and warn when GitHub Copilot enterprise policy overrides will block local MCP configuration.
 - **Subagent Topologies**:
-    - Support for `.toml` (Codex) and Markdown + YAML (OpenCode/Claude) subagent definitions.
-    - Transpilation logic to convert Codex TOML to OpenCode/Claude Markdown formats.
+  - Support Codex TOML subagents and Markdown + YAML subagents for Claude/OpenCode.
+  - Add transpilation from Codex TOML into Claude/OpenCode-compatible Markdown formats.
+  - Extend the agent registry and deployment planner to target subagent install locations in addition to skill directories.
 - **Execution Hooks**:
-    - Deployment of GitHub Copilot lifecycle hooks via JSON schema.
-    - Emulation of hooks in OpenCode by patching `opencode.json` with `ask` permissions.
+  - Deploy GitHub Copilot lifecycle hooks via its JSON schema.
+  - Emulate hooks in OpenCode by patching `opencode.json` with `permission: { "bash": "ask" }` and related safe-by-default behavior.
+  - Introduce file/config patching primitives so hooks and MCP changes are not limited to directory copies or symlinks.
 
 ### UX Improvements
-- **Dry-run Enhancements**: Show the exact AST transformations that would be applied to JSON/TOML configs.
-- **Agent-Specific Filters**: Allow users to see which customizations are applicable to which agents before deployment.
-- **Token Linter**: Integrated check to warn users if their instruction sets exceed the ~4,000 token / 65KB safety threshold (Context Rot prevention).
+- **Dry-run Enhancements**:
+  - Show exact file/config transformations for JSON, TOML, and Markdown outputs instead of only path-level action summaries.
+  - Surface overwrite, replace, merge, and delete decisions before execution.
+- **Agent-Specific Filters**:
+  - Show which manifest entries apply to which agents before deployment.
+  - Distinguish detected agents, requested agents, unsupported vectors, and skipped work items.
+- **Token Linter**:
+  - Warn when global plus workspace instructions exceed the north-star safety threshold of roughly 4,000 tokens or 65KB.
+  - Call out agent-specific constraints such as Claude's reduced instruction headroom.
+- **Permission Manifest**:
+  - Print a clear summary of every file and config location that will be created, patched, replaced, or removed, especially when operating outside skill directories.
 
 ## Issues
 
 ### Divergences from North Star
-- **Manifest Stagnation**: `inception.json` currently contains `mcpServers` and `agentRules` arrays that are completely ignored by the deployment engine.
-- **Gemini/Antigravity Collision**: The codebase does not yet implement the "collision mitigation logic" required to prevent workspace Antigravity rules from corrupting global Gemini CLI state in `~/.gemini/GEMINI.md`.
-- **OpenCode Windows Paths**: `README.md` specifies `%APPDATA%\opencode\skills\`, but code must ensure this extends to the new customization vectors (instructions, subagents) once implemented.
-- **Skill-Only Scope**: The current engine is strictly a "skill directory" installer; it lacks the file-level manipulation capability required for persistent instructions and JSON/TOML config patching.
+- **Manifest Stagnation**: `inception.json` currently accepts `mcpServers` and `agentRules`, but the deployment engine ignores them entirely.
+- **Instruction-File Gap**: The engine does not yet install or update persistent instruction files such as `CLAUDE.md`, `AGENTS.md`, `GEMINI.md`, or Copilot org instructions.
+- **Subagent Gap**: The engine does not yet model or deploy any subagent assets despite subagents being a core north-star vector.
+- **Execution-Hook Gap**: The engine does not yet patch `opencode.json` or deploy Copilot lifecycle hooks.
+- **Gemini/Antigravity Collision**: The codebase does not yet implement mitigation for the shared `~/.gemini/GEMINI.md` path.
+- **OpenCode Windows Paths**: `%APPDATA%\opencode\...` support exists for skills, but the same path logic must extend to instructions, hooks, MCP, and subagents.
+- **Skill-Only Scope**: The current engine is still a skill-directory installer and lacks the file-level manipulation required for persistent instructions and config patching.
 
 ### Security Posture
-- **OpenCode Autonomy Risk**: Currently, OpenCode executes bash commands and writes immediately ("Fast by default"). The roadmap must prioritize the injection of `permission: "ask"` blocks to ensure parity with Claude Code's "Safe by default" behavior.
-- **SUDO_USER Validation**: While `SUDO_USER` is correctly resolved, the tool lacks an explicit "Permission Manifest" to show exactly what system-level files (outside of skill directories) are being modified during customization deployment.
-- **Symlink TOCTOU/Injection Risk**: `executeDeploy` and `executeRevert` lack comprehensive protection against symlink attacks. A malicious skill or compromised home directory could potentially cause the engine to overwrite or delete sensitive system files if symlinks are used to point target paths outside intended skill directories.
-- **Ownership Proof Bypass**: The `isOwnedByInceptionEngine` check for symlinks relies on the presence of `SKILL.md` in the destination. This could be spoofed by an attacker to trick the engine into "reverting" (deleting) a legitimate directory.
-- **Insecure File Permissions**: The current engine does not explicitly set or verify file permissions on deployed skills, potentially leaving sensitive configuration files readable by other users on the system.
+- **OpenCode Autonomy Risk**: OpenCode remains effectively fast-by-default until `permission: "ask"` behavior is injected into `opencode.json`.
+- **Unmanaged Target Overwrite Risk**: `executeDeploy` deletes any existing target before reinstalling, even when that content was not created by inception-engine.
+- **Non-Atomic Deploy Risk**: Deploy removes the previous target before creating the new one, so failed installs can leave users with missing or partially deployed customizations.
+- **SUDO_USER Validation**: `SUDO_USER` lookup exists, but inherited or externally injected environment values can still steer deployment into the wrong user's home directory unless provenance is checked more strictly.
+- **Symlink TOCTOU/Injection Risk**: Deploy and revert still rely on pre-checks that can be invalidated between `lstat`, `readlink`, `rm`, `unlink`, and create operations.
+- **Source Symlink Escape Risk**: Repository-root checks use resolved string prefixes instead of `realpath`, so a skill path can remain inside the repo syntactically while resolving through a symlink to content outside it.
+- **Ownership Proof Bypass**: POSIX revert trusts the presence of `SKILL.md` in a symlink target as proof of ownership, which is too weak for destructive removal.
+- **Insecure File Permissions**: The engine does not explicitly set or verify permissions on deployed files and config artifacts.
 
 ### Interoperability
-- **Variable Syntax Mapping**: The engine must handle the transition between `${VAR}` (Standard/Claude) and `{env:VAR}` (OpenCode) to ensure environment variables function across all agents.
-- **Cross-Platform Symlink Proofs**: The current `.inception-totem` logic works for directories but needs a file-level equivalent (e.g., hidden sidecar files or metadata store) for single-file customizations like `CLAUDE.md`.
-- **Enterprise Registry Blocking**: GitHub Copilot may ignore local MCP configs if organization policies are active; the tool should detect and warn about these overrides.
-- **XDG Base Directory Support**: On Linux/POSIX, the engine should respect `XDG_CONFIG_HOME` and other XDG variables instead of defaulting to `{home}/.config`.
-- **Shell-Specific Escaping**: `isBinaryViaCommandV` uses a POSIX-style shell call that may behave differently on non-standard shells (e.g., Fish, Zsh) if environment variables are not correctly isolated.
+- **Variable Syntax Mapping**: The engine must translate `${VAR}` to `{env:VAR}` where required so MCP definitions behave consistently across agents.
+- **Cross-Platform Ownership Proofs**: `.inception-totem` works only for copied directories; file-level and patched-config ownership tracking is still missing.
+- **Enterprise Registry Blocking**: GitHub Copilot may ignore local MCP configuration when org policies are active; the tool should detect and warn about that state.
+- **XDG Base Directory Support**: On Linux/POSIX, config paths should respect `XDG_CONFIG_HOME` and related XDG variables instead of always defaulting to `{home}/.config`.
+- **Shell-Specific Escaping**: `isBinaryViaCommandV` relies on a POSIX shell fallback that should be verified across minimal and unusual environments.
 
 ### Performance
-- **Synchronous I/O in Resolver**: `resolve.ts` uses synchronous `execFileSync` and `readFileSync` for home directory lookup, which can block the event loop in high-throughput or constrained environments.
-- **Parallel Deployment Execution**: `executeDeploy` and `executeRevert` process skill actions sequentially. Performance could be significantly improved by parallelizing file system operations (e.g., via `Promise.all`).
-- **Redundant I/O calls**: `executeRevert` and `executeDeploy` perform multiple `access`/`lstat` calls on the same paths. These could be cached or consolidated to reduce syscall overhead.
+- **Synchronous I/O in Resolver**: `resolve.ts` uses synchronous `execFileSync` and `readFileSync` for home directory lookup.
+- **Sequential Execution**: `executeDeploy` and `executeRevert` process actions sequentially and should eventually batch independent filesystem work.
+- **Redundant I/O Calls**: Deploy and revert perform repeated `access`, `lstat`, and path checks that could be consolidated.
 
-### Coding practices and dependencies
-- **Manual Path Sanitization**: Current path validation relies on string prefixes and regex. Adopting a more formal path-sanitization strategy (e.g., using `path.relative` to detect escapes) would improve security across different OS path formats.
-- **Implicit Casting in Manifest**: `loadManifest` uses extensive type casting (`as unknown`, `as Record<string, any>`). Transitioning to a schema-based validator would improve type safety and maintainability.
-- **Test Asset Management**: Tests manually create and delete temporary directories. Using a more robust fixture management system (or Node.js native `tmpdir` with automatic cleanup) would reduce flake and potential disk clutter from failed runs.
+### Coding Practices and Dependencies
+- **Manual Path Sanitization**: Current validation relies on regexes and string-prefix checks. It should move to stronger path containment rules based on normalized relative paths and `realpath` where appropriate.
+- **Implicit Casting in Manifest**: `loadManifest` still relies on loose casting for manifest parsing instead of schema-backed validation.
+- **Manifest Uniqueness Rules**: `skill.name` values are not enforced as unique, and duplicate agent IDs are not deduplicated, which can create target-path collisions and duplicate actions.
+- **Skill Source Contract Validation**: Deploy verifies only that the source exists; it does not verify that the source is a directory with a valid `SKILL.md`.
+- **Naming Rule Drift**: README guidance and runtime validation disagree on allowed `skill.name` formats, which should be reconciled and made portable.
+- **Test Asset Management**: Tests manually create and delete temporary directories instead of using a more robust fixture lifecycle.
+
+### CLI Reliability
+- **Revert Exit Codes**: `revert` can log failures and still exit successfully, which makes automation unreliable.
+- **Detection-Coupled Revert**: Revert only targets currently detected agents, so previously deployed assets can become stranded if detection later fails or the agent is uninstalled.
+- **Error Specificity**: Manifest read failures and source access failures are currently collapsed into generic messages, which obscures permission and I/O problems.
+
+### Testing
+- **CLI Coverage Gap**: The main CLI flow is not covered by end-to-end tests.
+- **Binary Detection Coverage Gap**: Detection fallback behavior for `which`, `where.exe`, and `command -v` is only lightly exercised.
+- **Windows Deployment Coverage Gap**: Real copy-based deploy/revert behavior and `.inception-totem` ownership handling are not meaningfully tested on Windows.
+- **Destructive-Path Safety Coverage Gap**: There are no focused tests for unmanaged-target protection, atomic redeploy behavior, or source symlink escape prevention.
