@@ -1,0 +1,5 @@
+I have these 3 security and interop warnings. Asses them -- if they are true, plan a fix. If they are hypothetical and may be a problem in future when we will be adding more artifacts support, document them in @README.md:
+
+1. Watch src/core/resolve.ts trusts SUDO_USER when present. That is generally normal for CLI tooling, but if this may run in automation or hostile envs, you may want to prefer os.userInfo()/UID-based resolution where possible and treat env-only identity as advisory.
+2. Risk src/config/agents.ts: and src/core/resolve.ts: assume %APPDATA% or home/AppData/Roaming on Windows, which is sensible, but not guaranteed in all service/elevated contexts. It is probably acceptable for a user CLI, just worth treating as a compatibility edge.
+3. Risk src/core/deploy.ts uses "dir" symlink type, which is right for your current skill model, but Windows support still depends on copy-mode only. If you later add file-based assets or mixed layouts, that assumption will need revisiting.
