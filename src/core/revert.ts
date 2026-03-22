@@ -1,9 +1,9 @@
-import { access, lstat, unlink, rm, readlink } from "node:fs/promises";
-import path from "node:path";
-import { AGENT_REGISTRY_BY_ID } from "../config/agents.ts";
+import { lstat, unlink, rm } from "node:fs/promises";
+import { AGENT_REGISTRY, AGENT_REGISTRY_BY_ID } from "../config/agents.ts";
 import { resolveAgentSkillPath } from "./resolve.ts";
 import type { AgentId, Manifest, RevertAction } from "../types.ts";
 import { logger } from "../logger.ts";
+import { isOwnedByInceptionEngine } from "./ownership.ts";
 
 export function planRevert(
   manifest: Manifest,
@@ -16,6 +16,25 @@ export function planRevert(
     for (const agentId of skill.agents) {
       if (!detectedAgents.includes(agentId)) continue;
 
+      const agent = AGENT_REGISTRY_BY_ID[agentId];
+      if (!agent) continue;
+
+      const target = resolveAgentSkillPath(agent, skill.name, home);
+      actions.push({ skill: skill.name, agent: agentId, target });
+    }
+  }
+
+  return actions;
+}
+
+export function planRevertAll(
+  manifest: Manifest,
+  home: string
+): RevertAction[] {
+  const actions: RevertAction[] = [];
+
+  for (const skill of manifest.skills) {
+    for (const agentId of skill.agents) {
       const agent = AGENT_REGISTRY_BY_ID[agentId];
       if (!agent) continue;
 
@@ -80,27 +99,4 @@ export async function executeRevert(
   }
 
   return { succeeded, skipped };
-}
-
-async function isOwnedByInceptionEngine(
-  targetPath: string,
-  stat: Awaited<ReturnType<typeof lstat>>
-): Promise<boolean> {
-  if (stat.isSymbolicLink()) {
-    try {
-      const linkTarget = await readlink(targetPath);
-      const resolved = path.resolve(path.dirname(targetPath), linkTarget);
-      await access(path.join(resolved, "SKILL.md"));
-      return true;
-    } catch {
-      return false;
-    }
-  } else {
-    try {
-      await access(path.join(targetPath, ".inception-totem"));
-      return true;
-    } catch {
-      return false;
-    }
-  }
 }

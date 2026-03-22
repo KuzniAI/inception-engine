@@ -9,7 +9,7 @@ import { AGENT_REGISTRY } from "./config/agents.ts";
 import { resolveHome } from "./core/resolve.ts";
 import { detectInstalledAgents } from "./core/detect.ts";
 import { planDeploy, executeDeploy } from "./core/deploy.ts";
-import { planRevert, executeRevert } from "./core/revert.ts";
+import { planRevert, planRevertAll, executeRevert } from "./core/revert.ts";
 import { UserError } from "./errors.ts";
 import type { ErrorCode } from "./errors.ts";
 import { logger, dryRunPrefix } from "./logger.ts";
@@ -109,26 +109,26 @@ async function main(): Promise<number> {
   const manifest = await loadManifest(options.directory);
   const home = resolveHome();
 
-  let detectedAgents: AgentId[];
-  if (options.agents) {
-    detectedAgents = options.agents;
-    if (options.verbose) {
-      logger.info(`Using specified agents: ${detectedAgents.join(", ")}`);
-    }
-  } else {
-    detectedAgents = await detectInstalledAgents(home);
-    if (detectedAgents.length === 0) {
-      logger.info("No supported AI agents detected on this system.");
-      logger.info(`Install one of: ${AGENT_REGISTRY.map((a) => a.displayName).join(", ")}`);
-      return 0;
-    }
-    if (options.verbose) {
-      logger.info(`Detected agents: ${detectedAgents.join(", ")}`);
-    }
-  }
-
   if (options.command === "deploy") {
-    const actions = planDeploy(manifest, options.directory, detectedAgents, home);
+    let detectedAgents: AgentId[];
+    if (options.agents) {
+      detectedAgents = options.agents;
+      if (options.verbose) {
+        logger.info(`Using specified agents: ${detectedAgents.join(", ")}`);
+      }
+    } else {
+      detectedAgents = await detectInstalledAgents(home);
+      if (detectedAgents.length === 0) {
+        logger.info("No supported AI agents detected on this system.");
+        logger.info(`Install one of: ${AGENT_REGISTRY.map((a) => a.displayName).join(", ")}`);
+        return 0;
+      }
+      if (options.verbose) {
+        logger.info(`Detected agents: ${detectedAgents.join(", ")}`);
+      }
+    }
+
+    const actions = await planDeploy(manifest, options.directory, detectedAgents, home);
     if (actions.length === 0) {
       logger.info("No skills to deploy for detected agents.");
       return 0;
@@ -145,9 +145,11 @@ async function main(): Promise<number> {
       logger.info(`${succeeded} skill(s) deployed${options.dryRun ? " (dry-run)" : ""}`);
     }
   } else {
-    const actions = planRevert(manifest, detectedAgents, home);
+    const actions = options.agents
+      ? planRevert(manifest, options.agents, home)
+      : planRevertAll(manifest, home);
     if (actions.length === 0) {
-      logger.info("No skills to revert for detected agents.");
+      logger.info("No skills to revert.");
       return 0;
     }
 

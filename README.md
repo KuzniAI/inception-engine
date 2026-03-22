@@ -141,7 +141,9 @@ inception-engine automatically detects which agents are installed by checking:
 1. Whether the agent's config directory exists (e.g., `~/.claude/` for Claude Code)
 2. Whether the agent's binary is in your PATH (e.g., `claude`, `codex`, `gemini`)
 
-If an agent isn't detected, its skills are skipped. Use `--agents` to override detection.
+If an agent isn't detected, its skills are skipped during deploy. Use `--agents` to override detection.
+
+Revert targets all agents listed in the manifest by default (regardless of detection) so that previously deployed skills are cleaned up even if the agent has since been uninstalled. Use `--agents` to restrict revert to specific agents.
 
 ## Cross-Platform Behavior
 
@@ -153,13 +155,17 @@ If an agent isn't detected, its skills are skipped. Use `--agents` to override d
 
 ### Ownership Tracking and Safe Revert
 
-inception-engine uses different ownership proofs depending on the deploy method so that `revert` never removes content it did not create:
+inception-engine writes a structured `.inception-totem` marker file during every deploy so that `revert` and future deploys never touch content they did not create. The totem contains metadata (source path, skill name, agent ID, deploy timestamp) and is validated on both revert and redeploy.
 
-- **POSIX (symlink)**: The symlink itself is the proof of ownership. On revert, the tool reads the symlink target with `readlink` and verifies it points to a directory containing a `SKILL.md`. Only symlinks that resolve to a valid skill source are removed.
+- **POSIX (symlink)**: `.inception-totem` is written inside the skill source directory. On revert, the tool resolves the symlink target and checks for a valid `.inception-totem` there. Only symlinks whose resolved target contains a valid totem are removed.
 
-- **Windows (copy)**: A marker file `.inception-totem` is written inside each deployed skill directory. On revert, this file must be present for the directory to be removed. Directories that lack `.inception-totem` are skipped with a warning, even if they contain a `SKILL.md`.
+- **Windows (copy)**: `.inception-totem` is written inside each deployed skill directory. On revert, this file must be present and valid for the directory to be removed.
 
-> **Note:** Skills deployed before this ownership tracking was introduced (Windows only) will lack `.inception-totem` and must be re-deployed before `revert` can remove them.
+- **Deploy safety**: Before overwriting an existing target, the engine checks for a valid `.inception-totem`. If the target exists but is not managed by inception-engine, the deploy is skipped with an error — the unmanaged content is never removed.
+
+- **Atomic redeploy**: When overwriting an existing managed target, the engine renames the old target to a backup, creates the new deployment, and only removes the backup on success. If the new deployment fails, the backup is restored.
+
+> **Note:** Skills deployed before `.inception-totem` was introduced must be re-deployed before `revert` can remove them.
 
 ## Running with Privilege Escalation
 
