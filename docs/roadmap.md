@@ -49,5 +49,5 @@ This document outlines the gap between the current implementation and the strate
 - **Parallel Deployment Execution**: `executeDeploy` and `executeRevert` process skill actions sequentially. Performance could be significantly improved by parallelizing file system operations (e.g., via `Promise.all`).
 - **Redundant I/O calls**: `executeRevert` and `executeDeploy` perform multiple `access`/`lstat` calls on the same paths. These could be cached or consolidated to reduce syscall overhead.
 
-### Node.js practices and dependecies
+### Coding practices and dependencies
 - TBD
