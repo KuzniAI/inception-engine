@@ -1,0 +1,1 @@
+Safety In src/core/revert.ts: verify symlink targets or managed paths before deletion; right now any matching directory path can be recursively removed, which is risky for a deploy tool.
