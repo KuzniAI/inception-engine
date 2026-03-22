@@ -1,4 +1,4 @@
-import { access, lstat, mkdir, symlink, cp, unlink, rm } from "node:fs/promises";
+import { access, lstat, mkdir, symlink, cp, unlink, rm, writeFile } from "node:fs/promises";
 import type { Stats } from "node:fs";
 import path from "node:path";
 import { AGENT_REGISTRY_BY_ID } from "../config/agents.ts";
@@ -79,6 +79,7 @@ export async function executeDeploy(
         await symlink(action.source, action.target, "dir");
       } else {
         await cp(action.source, action.target, { recursive: true });
+        await writeFile(path.join(action.target, ".inception-totem"), "inception-engine\n");
       }
 
       logger.ok(label);

@@ -151,6 +151,16 @@ If an agent isn't detected, its skills are skipped. Use `--agents` to override d
 | Linux | Symlink | Source changes are reflected immediately |
 | Windows | Copy | Source must be re-deployed after changes |
 
+### Ownership Tracking and Safe Revert
+
+inception-engine uses different ownership proofs depending on the deploy method so that `revert` never removes content it did not create:
+
+- **POSIX (symlink)**: The symlink itself is the proof of ownership. On revert, the tool reads the symlink target with `readlink` and verifies it points to a directory containing a `SKILL.md`. Only symlinks that resolve to a valid skill source are removed.
+
+- **Windows (copy)**: A marker file `.inception-totem` is written inside each deployed skill directory. On revert, this file must be present for the directory to be removed. Directories that lack `.inception-totem` are skipped with a warning, even if they contain a `SKILL.md`.
+
+> **Note:** Skills deployed before this ownership tracking was introduced (Windows only) will lack `.inception-totem` and must be re-deployed before `revert` can remove them.
+
 ## Running with Privilege Escalation
 
 The tool works without elevated privileges. If run with `sudo` on POSIX systems, it looks up the real user's home directory from the OS directory services (`getent passwd` on Linux, `dscl` on macOS, `/etc/passwd` as a universal fallback) so skills are deployed to the correct location regardless of where home directories are stored — standard `/home/<user>`, LDAP/NIS paths, enterprise layouts, or otherwise.

@@ -1,4 +1,4 @@
-import { access, lstat, unlink, rm } from "node:fs/promises";
+import { access, lstat, unlink, rm, readlink } from "node:fs/promises";
 import path from "node:path";
 import { AGENT_REGISTRY_BY_ID } from "../config/agents.ts";
 import { resolveAgentSkillPath } from "./resolve.ts";
@@ -47,8 +47,8 @@ export async function executeRevert(
       continue;
     }
 
-    if (!(await looksLikeDeployedSkill(action.target))) {
-      logger.warn(label, `skipping: ${action.target} does not contain SKILL.md — not managed by inception-engine`);
+    if (!(await isOwnedByInceptionEngine(action.target, stat))) {
+      logger.warn(label, `skipping: ${action.target} does not have inception-engine ownership proof — not managed by inception-engine`);
       skipped++;
       continue;
     }
@@ -82,11 +82,25 @@ export async function executeRevert(
   return { succeeded, skipped };
 }
 
-async function looksLikeDeployedSkill(targetPath: string): Promise<boolean> {
-  try {
-    await access(path.join(targetPath, "SKILL.md"));
-    return true;
-  } catch {
-    return false;
+async function isOwnedByInceptionEngine(
+  targetPath: string,
+  stat: Awaited<ReturnType<typeof lstat>>
+): Promise<boolean> {
+  if (stat.isSymbolicLink()) {
+    try {
+      const linkTarget = await readlink(targetPath);
+      const resolved = path.resolve(path.dirname(targetPath), linkTarget);
+      await access(path.join(resolved, "SKILL.md"));
+      return true;
+    } catch {
+      return false;
+    }
+  } else {
+    try {
+      await access(path.join(targetPath, ".inception-totem"));
+      return true;
+    } catch {
+      return false;
+    }
   }
 }
