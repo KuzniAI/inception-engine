@@ -1,0 +1,5 @@
+Read the last commit (implementing new ownership mechanism) and cross out implemented items from @docs/roadmap.md If you are not sure about an item then report it back to me
+
+---
+
+You review the roadmap again to be sure
