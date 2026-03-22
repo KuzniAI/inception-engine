@@ -1,0 +1,1 @@
+Review Manual Path Sanitization. It should move fully to stronger path containment rules based on normalized relative paths and `realpath` where appropriate.
