@@ -357,6 +357,28 @@ describe("atomic redeploy behavior", () => {
 });
 
 describe("planDeploy path traversal", () => {
+  it("throws when skill.path resolves to the repository root itself (.)", async () => {
+    const sourceDir = makeTmpDir();
+    try {
+      const rootManifest: Manifest = {
+        skills: [{ name: "root-skill", path: ".", agents: ["claude-code"] }],
+        mcpServers: [],
+        agentRules: [],
+      };
+      await assert.rejects(
+        () => planDeploy(rootManifest, sourceDir, ["claude-code"], "/home/test"),
+        (err: unknown) => {
+          assert.ok(err instanceof UserError);
+          assert.equal(err.code, "DEPLOY_FAILED");
+          assert.match(err.message, /resolves outside the repository root/);
+          return true;
+        }
+      );
+    } finally {
+      rmSync(sourceDir, { recursive: true });
+    }
+  });
+
   it("throws when skill.path escapes sourceDir via traversal (../../outside)", async () => {
     const sourceDir = makeTmpDir();
     try {

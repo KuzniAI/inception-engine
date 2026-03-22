@@ -65,6 +65,13 @@ function validateManifest(data: unknown, filePath: string): Manifest {
       throw new UserError("MANIFEST_INVALID", `${filePath}: skills[${i}].path must be a relative path`);
     }
 
+    if (path.normalize(skill.path as string).startsWith("..")) {
+      throw new UserError(
+        "MANIFEST_INVALID",
+        `${filePath}: skills[${i}].path must not escape the repository root`
+      );
+    }
+
     if (!Array.isArray(skill.agents) || skill.agents.length === 0) {
       throw new UserError("MANIFEST_INVALID", `${filePath}: skills[${i}].agents must be a non-empty array`);
     }

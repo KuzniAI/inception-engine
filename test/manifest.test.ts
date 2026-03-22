@@ -171,6 +171,26 @@ describe("loadManifest", () => {
     }
   });
 
+  it("throws on skill.path with path traversal (../../secret)", async () => {
+    const dir = makeTmpDir();
+    try {
+      writeFileSync(
+        path.join(dir, "inception.json"),
+        JSON.stringify({
+          skills: [{ name: "s", path: "../../secret", agents: ["claude-code"] }],
+        })
+      );
+      await assert.rejects(loadManifest(dir), (err: unknown) => {
+        assert.ok(err instanceof UserError);
+        assert.equal(err.code, "MANIFEST_INVALID");
+        assert.match(err.message, /must not escape the repository root/);
+        return true;
+      });
+    } finally {
+      rmSync(dir, { recursive: true });
+    }
+  });
+
   it("throws on skill.path that is absolute (/etc/passwd)", async () => {
     const dir = makeTmpDir();
     try {

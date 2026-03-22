@@ -28,7 +28,7 @@ export async function planDeploy(
   for (const skill of manifest.skills) {
     const source = path.resolve(sourceDir, skill.path);
 
-    if (source !== resolvedSourceDir && !source.startsWith(resolvedSourceDir + path.sep)) {
+    if (!source.startsWith(resolvedSourceDir + path.sep)) {
       throw new UserError(
         "DEPLOY_FAILED",
         `Skill path "${skill.path}" resolves outside the repository root: ${source}`
