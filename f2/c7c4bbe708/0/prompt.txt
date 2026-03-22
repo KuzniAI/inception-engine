@@ -1,0 +1,1 @@
+Find and patch stale items in @README.md  and @docs/north-star.md same in @docs/roadmap.md
