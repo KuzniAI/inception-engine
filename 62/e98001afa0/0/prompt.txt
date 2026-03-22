@@ -1,0 +1,1 @@
+src/core/resolve.ts:105 still builds paths via string template replacement. It is acceptable, but it leaves Windows interoperability a bit fragile because the final path semantics depend on hand-authored separator strings in src/config/agents.ts:7. Long-term, storing path segments or using platform-specific builders would be more robust.
