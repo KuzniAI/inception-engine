@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 
 import path from "node:path";
+import { parseArgs } from "node:util";
 import { AGENT_IDS } from "./types.ts";
 import type { AgentId, CliOptions } from "./types.ts";
 import { loadManifest } from "./config/manifest.ts";
@@ -31,67 +32,74 @@ Supported agents:
   ${AGENT_REGISTRY.map((a) => `${a.id} (${a.displayName})`).join(", ")}
 `.trim();
 
-function parseArgs(argv: string[]): CliOptions {
+function parseCLI(argv: string[]): CliOptions {
   const args = argv.slice(2);
 
-  if (args.length === 0 || args.includes("--help")) {
+  if (args.length === 0) {
+    return { command: "help", directory: "", dryRun: false, agents: null, verbose: false, debug: false };
+  }
+
+  let parsed: ReturnType<typeof parseArgs>;
+  try {
+    parsed = parseArgs({
+      args,
+      allowPositionals: true,
+      options: {
+        "dry-run": { type: "boolean", default: false },
+        "verbose": { type: "boolean", default: false },
+        "debug": { type: "boolean", default: false },
+        "help": { type: "boolean", default: false },
+        "agents": { type: "string" },
+      },
+    });
+  } catch (err) {
+    throw new UserError("INVALID_ARGS", (err as Error).message);
+  }
+
+  const { values, positionals } = parsed;
+
+  if (values.help) {
     return { command: "help", directory: "", dryRun: false, agents: null, verbose: false, debug: false };
   }
 
   let command: "deploy" | "revert" = "deploy";
-  let directory = "";
-  let dryRun = false;
-  let agents: AgentId[] | null = null;
-  let verbose = false;
-  let debug = false;
-
-  let i = 0;
-  if (args[0] === "revert") {
+  let pos = positionals;
+  if (pos[0] === "revert") {
     command = "revert";
-    i = 1;
+    pos = pos.slice(1);
   }
 
-  while (i < args.length) {
-    const arg = args[i]!;
-
-    if (arg === "--dry-run") {
-      dryRun = true;
-    } else if (arg === "--verbose") {
-      verbose = true;
-    } else if (arg === "--debug") {
-      debug = true;
-    } else if (arg === "--agents") {
-      i++;
-      const next = args[i];
-      if (!next) {
-        throw new UserError("INVALID_ARGS", "--agents requires a comma-separated list");
-      }
-      const ids = next.split(",").map((s) => s.trim());
-      for (const id of ids) {
-        if (!AGENT_IDS.includes(id as AgentId)) {
-          throw new UserError("INVALID_ARGS", `Unknown agent: "${id}". Valid agents: ${AGENT_IDS.join(", ")}`);
-        }
-      }
-      agents = ids as AgentId[];
-    } else if (arg.startsWith("--")) {
-      throw new UserError("INVALID_ARGS", `Unknown option: ${arg}`);
-    } else if (!directory) {
-      directory = arg;
-    } else {
-      throw new UserError("INVALID_ARGS", `Unexpected argument: ${arg}`);
-    }
-    i++;
+  if (pos.length > 1) {
+    throw new UserError("INVALID_ARGS", `Unexpected argument: ${pos[1]}`);
   }
-
-  if (!directory) {
+  const rawDir = pos[0];
+  if (!rawDir) {
     throw new UserError("INVALID_ARGS", "Missing required <directory> argument");
   }
 
-  return { command, directory: path.resolve(directory), dryRun, agents, verbose, debug };
+  let agents: AgentId[] | null = null;
+  if (typeof values.agents === "string") {
+    const ids = values.agents.split(",").map((s) => s.trim());
+    for (const id of ids) {
+      if (!AGENT_IDS.includes(id as AgentId)) {
+        throw new UserError("INVALID_ARGS", `Unknown agent: "${id}". Valid agents: ${AGENT_IDS.join(", ")}`);
+      }
+    }
+    agents = ids as AgentId[];
+  }
+
+  return {
+    command,
+    directory: path.resolve(rawDir),
+    dryRun: values["dry-run"] as boolean,
+    agents,
+    verbose: values.verbose as boolean,
+    debug: values.debug as boolean,
+  };
 }
 
 async function main(): Promise<number> {
-  const options = parseArgs(process.argv);
+  const options = parseCLI(process.argv);
 
   if (options.command === "help") {
     console.log(USAGE);
