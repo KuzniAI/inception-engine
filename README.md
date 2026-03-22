@@ -17,7 +17,7 @@ inception-engine reads a manifest file (`inception.json`) from the target direct
 - **POSIX (macOS, Linux)**: creates symlinks from the source skill directory to each agent's skill path
 - **Windows**: copies skill directories to each agent's skill path
 
-Skills always overwrite their previous version. On POSIX systems, symlinks mean updates to the source repo are reflected immediately.
+Managed skills overwrite their previous version. If a target exists but was not created by inception-engine, deployment refuses to replace it. On POSIX systems, symlinks mean updates to the source repo are reflected immediately.
 
 ## Agent Compatibility Matrix
 
@@ -93,14 +93,14 @@ inception-engine revert <directory> [options]
 | Command | Description |
 |---|---|
 | `<directory>` | Deploy skills from the manifest in the given directory |
-| `revert <directory>` | Remove all skills declared in the manifest |
+| `revert <directory>` | Remove previously deployed skills declared in the manifest |
 
 ### Options
 
 | Option | Description |
 |---|---|
 | `--dry-run` | Show what would be done without making changes |
-| `--agents <list>` | Comma-separated list of agent IDs to target (skips detection) |
+| `--agents <list>` | Comma-separated list of agent IDs to target (overrides deploy detection; restricts revert) |
 | `--verbose` | Show detailed output including file paths |
 | `--debug` | Show full error stack traces |
 | `--help` | Show help message |

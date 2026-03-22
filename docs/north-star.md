@@ -51,7 +51,7 @@ Both Gemini CLI and Antigravity target `~/.gemini/GEMINI.md`. Deployment must pr
 
 ### Security Paradigms
 - **Claude Code**: "Safe by default" (prompts for confirmation).
-- **OpenCode**: "Fast by default" (autonomous execution). Implementation must inject `ask` permissions in `opencode.json` to emulate "safe" hooks.
+- **OpenCode**: "Fast by default" (autonomous execution). Future config-patching support should inject `ask` permissions in `opencode.json` to emulate "safe" hooks.
 
 ### MCP Transformation (Standard to OpenCode)
 1. Rename `env` to `environment`.

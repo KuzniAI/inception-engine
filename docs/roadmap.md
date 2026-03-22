@@ -72,7 +72,7 @@ The current codebase is a cross-platform skill deployer with detection, path res
 - **Redundant I/O Calls**: Deploy and revert perform repeated `access`, `lstat`, and path checks that could be consolidated.
 
 ### Coding Practices and Dependencies
-- **Manual Path Sanitization**: Current validation relies on regexes and string-prefix checks. It should move to stronger path containment rules based on normalized relative paths and `realpath` where appropriate.
+- **Manual Path Sanitization**: ~~Current validation relies on regexes and string-prefix checks.~~ It should move fully to stronger path containment rules based on normalized relative paths and `realpath` where appropriate.
 - **Implicit Casting in Manifest**: `loadManifest` still relies on loose casting for manifest parsing instead of schema-backed validation.
 - **Manifest Uniqueness Rules**: `skill.name` values are not enforced as unique, and duplicate agent IDs are not deduplicated, which can create target-path collisions and duplicate actions.
 - **Skill Source Contract Validation**: Deploy verifies only that the source exists; it does not verify that the source is a directory with a valid `SKILL.md`.
