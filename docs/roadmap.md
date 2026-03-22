@@ -50,4 +50,6 @@ This document outlines the gap between the current implementation and the strate
 - **Redundant I/O calls**: `executeRevert` and `executeDeploy` perform multiple `access`/`lstat` calls on the same paths. These could be cached or consolidated to reduce syscall overhead.
 
 ### Coding practices and dependencies
-- TBD
+- **Manual Path Sanitization**: Current path validation relies on string prefixes and regex. Adopting a more formal path-sanitization strategy (e.g., using `path.relative` to detect escapes) would improve security across different OS path formats.
+- **Implicit Casting in Manifest**: `loadManifest` uses extensive type casting (`as unknown`, `as Record<string, any>`). Transitioning to a schema-based validator would improve type safety and maintainability.
+- **Test Asset Management**: Tests manually create and delete temporary directories. Using a more robust fixture management system (or Node.js native `tmpdir` with automatic cleanup) would reduce flake and potential disk clutter from failed runs.
