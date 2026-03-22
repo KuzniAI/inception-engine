@@ -1,0 +1,5 @@
+Read @docs/north-star.md and then review codebase for missing features and defects. Your findings should be validated against @docs/roadmap.md Any new or updated work items should be divided in the same way.
+
+---
+
+Rewrite @docs/roadmap.md to accomodate your findings
