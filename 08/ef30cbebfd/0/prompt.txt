@@ -1,0 +1,18 @@
+src/core/detect.ts:37 relies on which on POSIX. That is common, but not universal on minimal systems. Since you already care about portability, consider trying command -v through a shell only as a fallback, or documenting that binary detection is best-effort and directory detection is primary.
+
+---
+
+Why is TS in vs code complains about stdio? [{
+	"resource": "/Users/damianpiatkowski/Documents/workspace/inception-engine/src/core/detect.ts",
+	"owner": "typescript",
+	"code": "2769",
+	"severity": 8,
+	"message": "No overload matches this call.\n  Overload 1 of 8, '(file: string, args: readonly string[] | null | undefined, options: ExecFileOptionsWithBufferEncoding): PromiseWithChild<{ stdout: NonSharedBuffer; stderr: NonSharedBuffer; }>', gave the following error.\n    Object literal may only specify known properties, and 'stdio' does not exist in type 'ExecFileOptionsWithBufferEncoding'.\n  Overload 2 of 8, '(file: string, args: readonly string[] | null | undefined, options: ExecFileOptionsWithStringEncoding): PromiseWithChild<{ stdout: string; stderr: string; }>', gave the following error.\n    Object literal may only specify known properties, and 'stdio' does not exist in type 'ExecFileOptionsWithStringEncoding'.\n  Overload 3 of 8, '(file: string, args: readonly string[] | null | undefined, options: ExecFileOptions | null | undefined): PromiseWithChild<{ stdout: string | NonSharedBuffer; stderr: string | NonSharedBuffer; }>', gave the following error.\n    Object literal may only specify known properties, and 'stdio' does not exist in type 'ExecFileOptions'.",
+	"source": "ts",
+	"startLineNumber": 39,
+	"startColumn": 52,
+	"endLineNumber": 39,
+	"endColumn": 57,
+	"modelVersionId": 1,
+	"origin": "extHost1"
+}]
