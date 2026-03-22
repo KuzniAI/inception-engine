@@ -1,4 +1,5 @@
-import { lstat, unlink, rm } from "node:fs/promises";
+import { access, lstat, unlink, rm } from "node:fs/promises";
+import path from "node:path";
 import { AGENT_REGISTRY_BY_ID } from "../config/agents.ts";
 import { resolveAgentSkillPath } from "./resolve.ts";
 import type { AgentId, Manifest, RevertAction } from "../types.ts";
@@ -46,6 +47,12 @@ export async function executeRevert(
       continue;
     }
 
+    if (!(await looksLikeDeployedSkill(action.target))) {
+      logger.warn(label, `skipping: ${action.target} does not contain SKILL.md — not managed by inception-engine`);
+      skipped++;
+      continue;
+    }
+
     if (dryRun) {
       logger.plan(label);
       if (verbose) {
@@ -73,4 +80,13 @@ export async function executeRevert(
   }
 
   return { succeeded, skipped };
+}
+
+async function looksLikeDeployedSkill(targetPath: string): Promise<boolean> {
+  try {
+    await access(path.join(targetPath, "SKILL.md"));
+    return true;
+  } catch {
+    return false;
+  }
 }
