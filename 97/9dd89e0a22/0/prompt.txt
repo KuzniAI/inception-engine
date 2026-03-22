@@ -1,0 +1,1 @@
+Replace repeated registry scans with map-based lookup in src/core/deploy.ts and src/core/revert.ts; building an AGENT_REGISTRY_BY_ID object once is more idiomatic and avoids repeated find() calls.
