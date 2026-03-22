@@ -1,5 +1,5 @@
 import { lstat, unlink, rm } from "node:fs/promises";
-import { AGENT_REGISTRY } from "../config/agents.ts";
+import { AGENT_REGISTRY_BY_ID } from "../config/agents.ts";
 import { resolveAgentSkillPath } from "./resolve.ts";
 import type { AgentId, Manifest, RevertAction } from "../types.ts";
 import { logger } from "../logger.ts";
@@ -15,7 +15,7 @@ export function planRevert(
     for (const agentId of skill.agents) {
       if (!detectedAgents.includes(agentId)) continue;
 
-      const agent = AGENT_REGISTRY.find((a) => a.id === agentId);
+      const agent = AGENT_REGISTRY_BY_ID[agentId];
       if (!agent) continue;
 
       const target = resolveAgentSkillPath(agent, skill.name, home);

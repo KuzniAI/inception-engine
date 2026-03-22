@@ -1,7 +1,7 @@
 import { access, lstat, mkdir, symlink, cp, unlink, rm } from "node:fs/promises";
 import type { Stats } from "node:fs";
 import path from "node:path";
-import { AGENT_REGISTRY } from "../config/agents.ts";
+import { AGENT_REGISTRY_BY_ID } from "../config/agents.ts";
 import { resolveAgentSkillPath, getDeployMethod } from "./resolve.ts";
 import { UserError } from "../errors.ts";
 import type { AgentId, DeployAction, Manifest } from "../types.ts";
@@ -30,7 +30,7 @@ export function planDeploy(
     for (const agentId of skill.agents) {
       if (!detectedAgents.includes(agentId)) continue;
 
-      const agent = AGENT_REGISTRY.find((a) => a.id === agentId);
+      const agent = AGENT_REGISTRY_BY_ID[agentId];
       if (!agent) continue;
 
       const target = resolveAgentSkillPath(agent, skill.name, home);

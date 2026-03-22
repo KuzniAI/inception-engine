@@ -1,4 +1,4 @@
-import type { AgentConfig } from "../types.ts";
+import type { AgentConfig, AgentId } from "../types.ts";
 
 export const AGENT_REGISTRY: readonly AgentConfig[] = [
   {
@@ -80,3 +80,6 @@ export const AGENT_REGISTRY: readonly AgentConfig[] = [
     detectBinary: "github-copilot",
   },
 ] as const;
+
+export const AGENT_REGISTRY_BY_ID: Readonly<Record<AgentId, AgentConfig>> =
+  Object.fromEntries(AGENT_REGISTRY.map((a) => [a.id, a])) as Record<AgentId, AgentConfig>;
