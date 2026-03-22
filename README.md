@@ -169,6 +169,22 @@ If the real home cannot be determined, the tool exits with an error rather than 
 
 On Windows, `os.homedir()` correctly resolves even in elevated PowerShell or cmd.
 
+## Security & Compatibility Notes
+
+### SUDO_USER handling
+
+When run under `sudo` on POSIX, `SUDO_USER` is read as an advisory signal to identify the real user. The username is validated through OS directory services (`getent passwd` on Linux, `dscl` on macOS, `/etc/passwd` as a fallback) — it is never used as a raw path. This is standard practice for sudo-aware CLI tools.
+
+Automation edge case: if the tool runs inside a pipeline where `SUDO_USER` has been set externally in the environment before the process starts, the tool will look up that username's home directory. To avoid this in automation, either run without `sudo` or set `HOME` explicitly before invoking the tool.
+
+### Windows %APPDATA% fallback
+
+On Windows, `%APPDATA%` is used to locate agent config directories (currently only OpenCode). When `%APPDATA%` is unset — which can happen in some service or minimal sandbox contexts — the tool falls back to `AppData\Roaming` under the resolved home directory. This fallback is intentional and correct for interactive user sessions and elevated PowerShell. Running as a Windows service account is outside the supported use case for this tool.
+
+### Future: mixed asset layouts on Windows
+
+Windows deployment currently uses directory-level copy (one `cp -r` per skill). This works correctly for the present skill model where each skill is a single directory. If file-based assets or mixed (file + directory) skill layouts are added in the future, the copy strategy in `src/core/deploy.ts` will need revisiting — including `.inception-totem` placement and revert logic.
+
 ## Requirements
 
 - Node.js >= 23.6.0
