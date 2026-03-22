@@ -1,0 +1,5 @@
+src/core/revert.ts:50 still treats any directory containing SKILL.md as safe to delete; that is better than blind deletion, but it still allows removing unrelated user content if it happens to sit at a managed target path. Safer modern practice is to verify ownership more strongly, e.g. symlink target provenance or a small deployment marker created by this tool.
+
+---
+
+Change the name of windows file from marker to totem to be in line with Nolan's movie
