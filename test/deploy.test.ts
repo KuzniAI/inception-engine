@@ -1,6 +1,6 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { mkdirSync, rmSync, writeFileSync, existsSync, lstatSync, readlinkSync, readFileSync, symlinkSync } from "node:fs";
+import { mkdirSync, rmSync, writeFileSync, existsSync, lstatSync, readlinkSync, readFileSync, symlinkSync, chmodSync } from "node:fs";
 import path from "node:path";
 import os from "node:os";
 import { planDeploy, executeDeploy } from "../src/core/deploy.ts";
@@ -185,35 +185,172 @@ describe("executeDeploy", () => {
     }
   });
 
-  it("restores backup on deploy failure", async () => {
+  it("backup is removed after successful redeploy", async () => {
     const sourceDir = makeTmpDir();
     const home = makeTmpDir();
     try {
       createSkillSource(sourceDir, "skills/test-skill");
       const actions = await planDeploy(testManifest, sourceDir, ["claude-code"], home);
       const target = actions[0]!.target;
-
-      // First deploy to establish ownership
-      await executeDeploy(actions, false, false);
-      assert.ok(existsSync(target));
-
-      // Now make the source unreadable to force symlink to fail
-      // We'll create a file at the target path between backup and symlink creation
-      // Instead: remove the source so the access check passes but symlink target is gone
-      // Actually the simplest way: remove source after planning but before execute
-      const skillSourcePath = actions[0]!.source;
-
-      // Deploy again but with a bad source — the access check at the top will catch this
-      // and report "Source not found". Let's test atomic rollback differently:
-      // Create a file (not dir) at the target path after the backup rename
-      // We can't easily intercept mid-execution, so let's verify the backup path doesn't linger
-      // after a successful redeploy
       const backupPath = target + ".inception-backup";
-      const { succeeded } = await executeDeploy(actions, false, false);
-      assert.equal(succeeded, 1);
-      assert.ok(!existsSync(backupPath), "backup should be cleaned up after successful deploy");
+
+      await executeDeploy(actions, false, false);
+      await executeDeploy(actions, false, false);
+
+      assert.ok(!existsSync(backupPath), "backup should not exist after successful redeploy");
+      assert.ok(existsSync(target), "target should exist after redeploy");
     } finally {
       rmSync(sourceDir, { recursive: true });
+      rmSync(home, { recursive: true, force: true });
+    }
+  });
+});
+
+describe("atomic redeploy behavior", () => {
+  if (process.platform === "win32") return;
+
+  it("cleans up stale .inception-backup from a previous failed attempt", async () => {
+    const sourceDir = makeTmpDir();
+    const home = makeTmpDir();
+    try {
+      createSkillSource(sourceDir, "skills/test-skill");
+      const actions = await planDeploy(testManifest, sourceDir, ["claude-code"], home);
+      const target = actions[0]!.target;
+      const backupPath = target + ".inception-backup";
+
+      // First deploy to establish managed target
+      await executeDeploy(actions, false, false);
+
+      // Simulate a stale backup left by a previous crash
+      mkdirSync(backupPath, { recursive: true });
+      writeFileSync(path.join(backupPath, "stale.txt"), "leftover");
+
+      // Redeploy should clean up the stale backup and succeed
+      const { succeeded, failed } = await executeDeploy(actions, false, false);
+      assert.equal(succeeded, 1);
+      assert.equal(failed.length, 0);
+      assert.ok(!existsSync(backupPath), "stale backup should be cleaned up");
+      assert.ok(existsSync(target), "target should exist after redeploy");
+    } finally {
+      rmSync(sourceDir, { recursive: true });
+      rmSync(home, { recursive: true, force: true });
+    }
+  });
+
+  it("no backup is created on first deploy (no prior target)", async () => {
+    const sourceDir = makeTmpDir();
+    const home = makeTmpDir();
+    try {
+      createSkillSource(sourceDir, "skills/test-skill");
+      const actions = await planDeploy(testManifest, sourceDir, ["claude-code"], home);
+      const target = actions[0]!.target;
+      const backupPath = target + ".inception-backup";
+
+      const { succeeded } = await executeDeploy(actions, false, false);
+      assert.equal(succeeded, 1);
+      assert.ok(existsSync(target));
+      assert.ok(!existsSync(backupPath), "no backup should be created when there was no prior target");
+    } finally {
+      rmSync(sourceDir, { recursive: true });
+      rmSync(home, { recursive: true, force: true });
+    }
+  });
+
+  it("restores backup when totem write fails (totem file read-only)", async () => {
+    const sourceDir = makeTmpDir();
+    const home = makeTmpDir();
+    const totemPath = path.join(sourceDir, "skills/test-skill", ".inception-totem");
+    try {
+      createSkillSource(sourceDir, "skills/test-skill");
+      const actions = await planDeploy(testManifest, sourceDir, ["claude-code"], home);
+      const target = actions[0]!.target;
+      const backupPath = target + ".inception-backup";
+      const skillSource = actions[0]!.source;
+
+      // First deploy: establishes managed symlink and writes .inception-totem into source
+      const { succeeded: firstSucceeded } = await executeDeploy(actions, false, false);
+      assert.equal(firstSucceeded, 1);
+      const originalLink = readlinkSync(target);
+
+      // Make .inception-totem read-only so writeTotem fails on the next attempt.
+      // The ownership check (readFile) still passes since the file remains readable;
+      // only the write (writeFile) will throw EACCES.
+      chmodSync(totemPath, 0o444);
+
+      const { succeeded, failed } = await executeDeploy(actions, false, false);
+
+      // Deploy must report failure
+      assert.equal(succeeded, 0);
+      assert.equal(failed.length, 1);
+
+      // Backup must be cleaned up (restored back to target)
+      assert.ok(!existsSync(backupPath), "backup should be gone after rollback");
+
+      // Original managed symlink must be restored at the target path
+      assert.ok(existsSync(target), "original symlink must be restored");
+      assert.ok(lstatSync(target).isSymbolicLink(), "restored target must be a symlink");
+      assert.equal(readlinkSync(target), originalLink, "restored symlink must point to original source");
+    } finally {
+      try { chmodSync(totemPath, 0o644); } catch { /* best effort */ }
+      rmSync(sourceDir, { recursive: true, force: true });
+      rmSync(home, { recursive: true, force: true });
+    }
+  });
+
+  it("restores backup when cp fails (source not readable)", async () => {
+    const sourceDir = makeTmpDir();
+    const home = makeTmpDir();
+    try {
+      // First deploy using copy method to establish a managed target directory
+      const skillSource = createSkillSource(sourceDir, "skills/test-skill");
+      const target = path.join(home, ".claude", "skills", "test-skill");
+      mkdirSync(path.dirname(target), { recursive: true });
+
+      const firstAction: import("../src/types.ts").DeployAction = {
+        skill: "test-skill",
+        agent: "claude-code",
+        source: skillSource,
+        target,
+        method: "copy",
+      };
+      const { succeeded: firstSucceeded } = await executeDeploy([firstAction], false, false);
+      assert.equal(firstSucceeded, 1);
+      assert.ok(existsSync(target));
+
+      // Create an unreadable source directory for the next deploy attempt
+      // access() (F_OK) passes — the dir exists — but cp() fails reading its contents
+      const unreadableSource = path.join(sourceDir, "unreadable-source");
+      mkdirSync(unreadableSource, { recursive: true });
+      writeFileSync(path.join(unreadableSource, "SKILL.md"), "---");
+      chmodSync(unreadableSource, 0o000);
+
+      const backupPath = target + ".inception-backup";
+      const failAction: import("../src/types.ts").DeployAction = {
+        skill: "test-skill",
+        agent: "claude-code",
+        source: unreadableSource,
+        target,
+        method: "copy",
+      };
+
+      const { succeeded, failed } = await executeDeploy([failAction], false, false);
+
+      // Deploy must report failure
+      assert.equal(succeeded, 0);
+      assert.equal(failed.length, 1);
+
+      // Backup must be cleaned up (restored back to target)
+      assert.ok(!existsSync(backupPath), "backup should be gone after rollback");
+
+      // Original managed directory must be restored with its content intact
+      assert.ok(existsSync(target), "original target must be restored");
+      assert.ok(
+        existsSync(path.join(target, ".inception-totem")),
+        "restored target must have original .inception-totem"
+      );
+    } finally {
+      try { chmodSync(path.join(sourceDir, "unreadable-source"), 0o755); } catch { /* best effort */ }
+      rmSync(sourceDir, { recursive: true, force: true });
       rmSync(home, { recursive: true, force: true });
     }
   });
