@@ -5,6 +5,7 @@ import { AGENT_REGISTRY } from "../config/agents.ts";
 import { resolveAgentSkillPath, getDeployMethod } from "./resolve.ts";
 import { UserError } from "../errors.ts";
 import type { AgentId, DeployAction, Manifest } from "../types.ts";
+import { logger } from "../logger.ts";
 
 export function planDeploy(
   manifest: Manifest,
@@ -57,14 +58,14 @@ export async function executeDeploy(
     } catch {
       const msg = `Source not found: ${action.source}`;
       failed.push({ action, error: msg });
-      console.error(`  \x1b[31m✗\x1b[0m ${label}: ${msg}`);
+      logger.fail(label, msg);
       continue;
     }
 
     if (dryRun) {
-      console.log(`  \x1b[36m○\x1b[0m ${label}`);
+      logger.plan(label);
       if (verbose) {
-        console.log(`    ${action.method}: ${action.source} -> ${action.target}`);
+        logger.detail(`${action.method}: ${action.source} -> ${action.target}`);
       }
       succeeded++;
       continue;
@@ -80,15 +81,15 @@ export async function executeDeploy(
         await cp(action.source, action.target, { recursive: true });
       }
 
-      console.log(`  \x1b[32m✓\x1b[0m ${label}`);
+      logger.ok(label);
       if (verbose) {
-        console.log(`    ${action.method}: ${action.source} -> ${action.target}`);
+        logger.detail(`${action.method}: ${action.source} -> ${action.target}`);
       }
       succeeded++;
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       failed.push({ action, error: msg });
-      console.error(`  \x1b[31m✗\x1b[0m ${label}: ${msg}`);
+      logger.fail(label, msg);
     }
   }
 
@@ -105,12 +106,12 @@ async function removeExisting(targetPath: string, verbose: boolean): Promise<voi
 
   if (stat.isSymbolicLink()) {
     if (verbose) {
-      console.log(`    removing existing symlink: ${targetPath}`);
+      logger.detail(`removing existing symlink: ${targetPath}`);
     }
     await unlink(targetPath);
   } else {
     if (verbose) {
-      console.log(`    \x1b[33m!\x1b[0m replacing existing directory: ${targetPath}`);
+      logger.warn(targetPath, "replacing existing directory");
     }
     await rm(targetPath, { recursive: true });
   }

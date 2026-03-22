@@ -6,6 +6,8 @@ import os from "node:os";
 import { planDeploy, executeDeploy } from "../src/core/deploy.ts";
 import type { Manifest } from "../src/types.ts";
 import { UserError } from "../src/errors.ts";
+import { logger } from "../src/logger.ts";
+logger.silence();
 
 function makeTmpDir(): string {
   const dir = path.join(os.tmpdir(), `ie-test-deploy-${Date.now()}-${Math.random().toString(36).slice(2)}`);

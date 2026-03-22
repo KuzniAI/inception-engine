@@ -5,6 +5,8 @@ import path from "node:path";
 import os from "node:os";
 import { planRevert, executeRevert } from "../src/core/revert.ts";
 import type { Manifest } from "../src/types.ts";
+import { logger } from "../src/logger.ts";
+logger.silence();
 
 function makeTmpDir(): string {
   const dir = path.join(os.tmpdir(), `ie-test-revert-${Date.now()}-${Math.random().toString(36).slice(2)}`);

@@ -2,6 +2,7 @@ import { lstat, unlink, rm } from "node:fs/promises";
 import { AGENT_REGISTRY } from "../config/agents.ts";
 import { resolveAgentSkillPath } from "./resolve.ts";
 import type { AgentId, Manifest, RevertAction } from "../types.ts";
+import { logger } from "../logger.ts";
 
 export function planRevert(
   manifest: Manifest,
@@ -40,15 +41,15 @@ export async function executeRevert(
     try {
       stat = await lstat(action.target);
     } catch {
-      console.log(`  \x1b[33m-\x1b[0m ${label} (not found, skipping)`);
+      logger.skip(label, "(not found, skipping)");
       skipped++;
       continue;
     }
 
     if (dryRun) {
-      console.log(`  \x1b[36m○\x1b[0m ${label}`);
+      logger.plan(label);
       if (verbose) {
-        console.log(`    would remove: ${action.target}`);
+        logger.detail(`would remove: ${action.target}`);
       }
       succeeded++;
       continue;
@@ -60,14 +61,14 @@ export async function executeRevert(
       } else {
         await rm(action.target, { recursive: true });
       }
-      console.log(`  \x1b[32m✓\x1b[0m ${label}`);
+      logger.ok(label);
       if (verbose) {
-        console.log(`    removed: ${action.target}`);
+        logger.detail(`removed: ${action.target}`);
       }
       succeeded++;
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
-      console.error(`  \x1b[31m✗\x1b[0m ${label}: ${msg}`);
+      logger.fail(label, msg);
     }
   }
 

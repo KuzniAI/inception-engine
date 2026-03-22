@@ -11,6 +11,7 @@ import { planDeploy, executeDeploy } from "./core/deploy.ts";
 import { planRevert, executeRevert } from "./core/revert.ts";
 import { UserError } from "./errors.ts";
 import type { ErrorCode } from "./errors.ts";
+import { logger, dryRunPrefix } from "./logger.ts";
 
 const USAGE = `
 inception-engine - Deploy AI agent skills
@@ -104,53 +105,51 @@ async function main(): Promise<number> {
   if (options.agents) {
     detectedAgents = options.agents;
     if (options.verbose) {
-      console.log(`Using specified agents: ${detectedAgents.join(", ")}`);
+      logger.info(`Using specified agents: ${detectedAgents.join(", ")}`);
     }
   } else {
     detectedAgents = await detectInstalledAgents(home);
     if (detectedAgents.length === 0) {
-      console.log("No supported AI agents detected on this system.");
-      console.log(`Install one of: ${AGENT_REGISTRY.map((a) => a.displayName).join(", ")}`);
+      logger.info("No supported AI agents detected on this system.");
+      logger.info(`Install one of: ${AGENT_REGISTRY.map((a) => a.displayName).join(", ")}`);
       return 0;
     }
     if (options.verbose) {
-      console.log(`Detected agents: ${detectedAgents.join(", ")}`);
+      logger.info(`Detected agents: ${detectedAgents.join(", ")}`);
     }
   }
-
-  const prefix = options.dryRun ? "\x1b[36m[dry-run]\x1b[0m " : "";
 
   if (options.command === "deploy") {
     const actions = planDeploy(manifest, options.directory, detectedAgents, home);
     if (actions.length === 0) {
-      console.log("No skills to deploy for detected agents.");
+      logger.info("No skills to deploy for detected agents.");
       return 0;
     }
 
-    console.log(`${prefix}Deploying ${actions.length} skill(s):`);
+    logger.info(`${dryRunPrefix(options.dryRun)}Deploying ${actions.length} skill(s):`);
     const { succeeded, failed } = await executeDeploy(actions, options.dryRun, options.verbose);
 
-    console.log();
+    logger.info("");
     if (failed.length > 0) {
-      console.log(`${succeeded} succeeded, ${failed.length} failed`);
+      logger.info(`${succeeded} succeeded, ${failed.length} failed`);
       return 1;
     } else {
-      console.log(`${succeeded} skill(s) deployed${options.dryRun ? " (dry-run)" : ""}`);
+      logger.info(`${succeeded} skill(s) deployed${options.dryRun ? " (dry-run)" : ""}`);
     }
   } else {
     const actions = planRevert(manifest, detectedAgents, home);
     if (actions.length === 0) {
-      console.log("No skills to revert for detected agents.");
+      logger.info("No skills to revert for detected agents.");
       return 0;
     }
 
-    console.log(`${prefix}Reverting ${actions.length} skill(s):`);
+    logger.info(`${dryRunPrefix(options.dryRun)}Reverting ${actions.length} skill(s):`);
     const { succeeded, skipped } = await executeRevert(actions, options.dryRun, options.verbose);
 
-    console.log();
+    logger.info("");
     const parts = [`${succeeded} removed`];
     if (skipped > 0) parts.push(`${skipped} skipped`);
-    console.log(`${parts.join(", ")}${options.dryRun ? " (dry-run)" : ""}`);
+    logger.info(`${parts.join(", ")}${options.dryRun ? " (dry-run)" : ""}`);
   }
 
   return 0;
@@ -169,15 +168,15 @@ try {
   process.exit(await main());
 } catch (err) {
   if (err instanceof UserError) {
-    console.error(`Error: ${err.message}`);
+    logger.error(`Error: ${err.message}`);
     if (debugMode) {
-      console.error(err);
+      logger.errorRaw(err);
     }
     process.exit(USER_ERROR_EXIT[err.code]);
   } else {
-    console.error("Unexpected error. Run with --debug for details.");
+    logger.error("Unexpected error. Run with --debug for details.");
     if (debugMode) {
-      console.error(err);
+      logger.errorRaw(err);
     }
     process.exit(1);
   }
