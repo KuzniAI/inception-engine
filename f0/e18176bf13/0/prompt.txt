@@ -1,0 +1,5 @@
+Introduce a small logger/output layer instead of raw console.log/error plus embedded ANSI sequences in src/index.ts, src/core/deploy.ts, and src/core/revert.ts; using node:utilstyling or a tiny formatter makes output easier to disable, test, and adapt to non-TTY environments.
+
+---
+
+Please format @src/logger.ts as it was written by a normal person
