@@ -1,0 +1,18 @@
+* CLI ergonomics Consider util.parseArgs() in src/index.ts; for a small CLI it removes manual index-walking, gives clearer validation, and fits modern Node without adding dependencies.
+
+---
+
+VS Code shows me this error on line 82: [{
+	"resource": "/Users/damianpiatkowski/Documents/workspace/inception-engine/src/index.ts",
+	"owner": "typescript",
+	"code": "2339",
+	"severity": 8,
+	"message": "Property 'split' does not exist on type 'string | boolean | (string | boolean)[]'.\n  Property 'split' does not exist on type 'false'.",
+	"source": "ts",
+	"startLineNumber": 82,
+	"startColumn": 31,
+	"endLineNumber": 82,
+	"endColumn": 36,
+	"modelVersionId": 4,
+	"origin": "extHost1"
+}]
