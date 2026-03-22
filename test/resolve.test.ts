@@ -10,33 +10,20 @@ describe("resolveAgentSkillPath", () => {
   it("resolves Claude Code skill path", () => {
     const claude = AGENT_REGISTRY.find((a) => a.id === "claude-code")!;
     const result = resolveAgentSkillPath(claude, "my-skill", "/Users/test");
-
-    if (process.platform === "win32") {
-      assert.equal(result, path.join("/Users/test", ".claude", "skills", "my-skill"));
-    } else {
-      assert.equal(result, "/Users/test/.claude/skills/my-skill");
-    }
+    assert.equal(result, path.join("/Users/test", ".claude", "skills", "my-skill"));
   });
 
   it("resolves OpenCode skill path with home", () => {
     const opencode = AGENT_REGISTRY.find((a) => a.id === "opencode")!;
     const result = resolveAgentSkillPath(opencode, "test-skill", "/home/user");
-
-    if (process.platform === "win32") {
-      // Uses {appdata} on Windows
-      assert.ok(result.includes("opencode"));
-    } else {
-      assert.equal(result, "/home/user/.config/opencode/skills/test-skill");
-    }
+    // On non-Windows the posix template is used; cross-platform template tests live in cross-platform.test.ts
+    assert.ok(result.includes("opencode") && result.includes("test-skill"));
   });
 
   it("resolves Antigravity nested path", () => {
     const antigravity = AGENT_REGISTRY.find((a) => a.id === "antigravity")!;
     const result = resolveAgentSkillPath(antigravity, "my-skill", "/home/user");
-
-    if (process.platform !== "win32") {
-      assert.equal(result, "/home/user/.gemini/antigravity/skills/my-skill");
-    }
+    assert.equal(result, path.join("/home/user", ".gemini", "antigravity", "skills", "my-skill"));
   });
 });
 

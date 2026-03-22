@@ -18,15 +18,20 @@ export function resolveHome(): string {
   return os.homedir();
 }
 
-function lookupHomeForUser(username: string): string {
+export function lookupHomeForUserWith(
+  username: string,
+  platform: NodeJS.Platform,
+  execFileFn: typeof execFileSync,
+  readFileFn: typeof readFileSync
+): string {
   // Method 1: getent passwd (Linux/POSIX — handles LDAP, NIS, local via NSS)
-  if (process.platform !== "darwin") {
+  if (platform !== "darwin") {
     try {
-      const out = execFileSync("getent", ["passwd", username], {
+      const out = execFileFn("getent", ["passwd", username], {
         encoding: "utf8",
         stdio: ["ignore", "pipe", "ignore"],
       }).trim();
-      const home = out.split(":")[5];
+      const home = (out as string).split(":")[5];
       if (typeof home === "string" && home.startsWith("/")) return home;
     } catch {
       // getent unavailable or user not found — try next method
@@ -34,14 +39,14 @@ function lookupHomeForUser(username: string): string {
   }
 
   // Method 2: dscl (macOS directory services)
-  if (process.platform === "darwin") {
+  if (platform === "darwin") {
     try {
-      const out = execFileSync(
+      const out = execFileFn(
         "dscl",
         [".", "-read", `/Users/${username}`, "NFSHomeDirectory"],
         { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] }
       ).trim();
-      const home = out.replace(/^NFSHomeDirectory:\s*/, "").trim();
+      const home = (out as string).replace(/^NFSHomeDirectory:\s*/, "").trim();
       if (home.startsWith("/")) return home;
     } catch {
       // dscl unavailable or user record not found — try next method
@@ -50,7 +55,7 @@ function lookupHomeForUser(username: string): string {
 
   // Method 3: parse /etc/passwd directly (universal POSIX fallback)
   try {
-    const passwd = readFileSync("/etc/passwd", "utf8");
+    const passwd = readFileFn("/etc/passwd", "utf8") as string;
     for (const line of passwd.split("\n")) {
       const parts = line.split(":");
       if (parts[0] === username) {
@@ -70,6 +75,10 @@ function lookupHomeForUser(username: string): string {
   );
 }
 
+function lookupHomeForUser(username: string): string {
+  return lookupHomeForUserWith(username, process.platform, execFileSync, readFileSync);
+}
+
 export function getPlatformKey(): "posix" | "windows" {
   return process.platform === "win32" ? "windows" : "posix";
 }
@@ -78,23 +87,36 @@ export function getDeployMethod(): "symlink" | "copy" {
   return process.platform === "win32" ? "copy" : "symlink";
 }
 
+export function resolveAgentSkillPathFor(
+  agent: AgentConfig,
+  skillName: string,
+  home: string,
+  platform: "posix" | "windows"
+): string {
+  return resolvePlaceholders(agent.skills[platform], skillName, home);
+}
+
+export function resolveAgentDetectPathFor(
+  agent: AgentConfig,
+  home: string,
+  platform: "posix" | "windows"
+): string {
+  return resolvePlaceholders(agent.detectPaths[platform], "", home);
+}
+
 export function resolveAgentSkillPath(
   agent: AgentConfig,
   skillName: string,
   home: string
 ): string {
-  const platform = getPlatformKey();
-  const template = agent.skills[platform];
-  return resolvePlaceholders(template, skillName, home);
+  return resolveAgentSkillPathFor(agent, skillName, home, getPlatformKey());
 }
 
 export function resolveAgentDetectPath(
   agent: AgentConfig,
   home: string
 ): string {
-  const platform = getPlatformKey();
-  const template = agent.detectPaths[platform];
-  return resolvePlaceholders(template, "", home);
+  return resolveAgentDetectPathFor(agent, home, getPlatformKey());
 }
 
 function resolvePlaceholders(
