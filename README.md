@@ -165,8 +165,6 @@ inception-engine writes a structured `.inception-totem` marker file during every
 
 - **Atomic redeploy**: When overwriting an existing managed target, the engine renames the old target to a backup, creates the new deployment, and only removes the backup on success. If the new deployment fails, the backup is restored.
 
-> **Note:** Skills deployed before `.inception-totem` was introduced must be re-deployed before `revert` can remove them.
-
 ## Running with Privilege Escalation
 
 The tool works without elevated privileges. If run with `sudo` on POSIX systems, it looks up the real user's home directory from the OS directory services (`getent passwd` on Linux, `dscl` on macOS, `/etc/passwd` as a universal fallback) so skills are deployed to the correct location regardless of where home directories are stored — standard `/home/<user>`, LDAP/NIS paths, enterprise layouts, or otherwise.
