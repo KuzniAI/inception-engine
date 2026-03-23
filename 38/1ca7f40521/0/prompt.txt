@@ -1,0 +1,1 @@
+Run linter defined in @package.json, read it's result and propose a fixes for all warnings.
