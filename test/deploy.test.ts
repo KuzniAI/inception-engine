@@ -546,7 +546,11 @@ describe("planDeploy path traversal", () => {
       // Create a symlink inside the repo that points outside
       const symlinkPath = path.join(sourceDir, "skills", "escape");
       mkdirSync(path.join(sourceDir, "skills"), { recursive: true });
-      symlinkSync(outsideDir, symlinkPath, "dir");
+      symlinkSync(
+        outsideDir,
+        symlinkPath,
+        process.platform === "win32" ? "junction" : "dir",
+      );
 
       const escapeManifest: Manifest = {
         skills: [
