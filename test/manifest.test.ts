@@ -1,8 +1,8 @@
-import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { writeFileSync, mkdirSync, rmSync } from "node:fs";
-import path from "node:path";
+import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import os from "node:os";
+import path from "node:path";
+import { describe, it } from "node:test";
 import { loadManifest } from "../src/config/manifest.ts";
 import { UserError } from "../src/errors.ts";
 

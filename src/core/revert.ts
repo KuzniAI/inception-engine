@@ -1,9 +1,9 @@
 import { lstat, unlink, rm } from "node:fs/promises";
 import { AGENT_REGISTRY, AGENT_REGISTRY_BY_ID } from "../config/agents.ts";
-import { resolveAgentSkillPath } from "./resolve.ts";
-import type { AgentId, Manifest, RevertAction } from "../types.ts";
 import { logger } from "../logger.ts";
+import type { AgentId, Manifest, RevertAction } from "../types.ts";
 import { isOwnedByInceptionEngine } from "./ownership.ts";
+import { resolveAgentSkillPath } from "./resolve.ts";
 
 export function planRevert(
   manifest: Manifest,

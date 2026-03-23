@@ -2,17 +2,17 @@
 
 import path from "node:path";
 import { parseArgs } from "node:util";
-import { AGENT_IDS } from "./types.ts";
-import type { AgentId, CliOptions } from "./types.ts";
-import { loadManifest } from "./config/manifest.ts";
 import { AGENT_REGISTRY } from "./config/agents.ts";
-import { resolveHome } from "./core/resolve.ts";
+import { loadManifest } from "./config/manifest.ts";
+import { executeDeploy, planDeploy } from "./core/deploy.ts";
 import { detectInstalledAgents } from "./core/detect.ts";
-import { planDeploy, executeDeploy } from "./core/deploy.ts";
-import { planRevert, planRevertAll, executeRevert } from "./core/revert.ts";
-import { UserError } from "./errors.ts";
+import { resolveHome } from "./core/resolve.ts";
+import { executeRevert, planRevert, planRevertAll } from "./core/revert.ts";
 import type { ErrorCode } from "./errors.ts";
-import { logger, dryRunPrefix } from "./logger.ts";
+import { UserError } from "./errors.ts";
+import { dryRunPrefix, logger } from "./logger.ts";
+import type { AgentId, CliOptions } from "./types.ts";
+import { AGENT_IDS } from "./types.ts";
 
 const USAGE = `
 inception-engine - Deploy AI agent skills

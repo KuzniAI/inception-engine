@@ -1,9 +1,9 @@
-import { access } from "node:fs/promises";
 import { execFile } from "node:child_process";
+import { access } from "node:fs/promises";
 import { promisify } from "node:util";
 import { AGENT_REGISTRY } from "../config/agents.ts";
+import type { AgentConfig, AgentId } from "../types.ts";
 import { resolveAgentDetectPath } from "./resolve.ts";
-import type { AgentId, AgentConfig } from "../types.ts";
 
 const execFileAsync = promisify(execFile);
 

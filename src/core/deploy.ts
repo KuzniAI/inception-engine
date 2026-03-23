@@ -1,22 +1,22 @@
+import type { Stats } from "node:fs";
 import {
   access,
+  cp,
   lstat,
   mkdir,
-  symlink,
-  cp,
-  unlink,
-  rm,
-  rename,
   realpath,
+  rename,
+  rm,
+  symlink,
+  unlink,
 } from "node:fs/promises";
-import type { Stats } from "node:fs";
 import path from "node:path";
 import { AGENT_REGISTRY_BY_ID } from "../config/agents.ts";
-import { resolveAgentSkillPath, getDeployMethod } from "./resolve.ts";
 import { UserError } from "../errors.ts";
-import type { AgentId, DeployAction, Manifest } from "../types.ts";
 import { logger } from "../logger.ts";
+import type { AgentId, DeployAction, Manifest } from "../types.ts";
 import { isOwnedByInceptionEngine, writeTotem } from "./ownership.ts";
+import { getDeployMethod, resolveAgentSkillPath } from "./resolve.ts";
 
 export async function planDeploy(
   manifest: Manifest,

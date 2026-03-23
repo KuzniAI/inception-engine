@@ -1,8 +1,8 @@
 import { readFile } from "node:fs/promises";
 import path from "node:path";
-import { AGENT_IDS } from "../types.ts";
-import type { AgentId, Manifest, SkillEntry } from "../types.ts";
 import { UserError } from "../errors.ts";
+import type { AgentId, Manifest, SkillEntry } from "../types.ts";
+import { AGENT_IDS } from "../types.ts";
 
 export async function loadManifest(directory: string): Promise<Manifest> {
   const manifestPath = path.join(directory, "inception.json");

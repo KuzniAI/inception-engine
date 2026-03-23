@@ -1,13 +1,18 @@
-import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { mkdirSync, rmSync, writeFileSync, symlinkSync } from "node:fs";
-import { lstatSync } from "node:fs";
-import path from "node:path";
-import os from "node:os";
 import {
+  lstatSync,
+  mkdirSync,
+  rmSync,
+  symlinkSync,
+  writeFileSync,
+} from "node:fs";
+import os from "node:os";
+import path from "node:path";
+import { describe, it } from "node:test";
+import {
+  formatTotem,
   isOwnedByInceptionEngine,
   writeTotem,
-  formatTotem,
 } from "../src/core/ownership.ts";
 
 function makeTmpDir(): string {

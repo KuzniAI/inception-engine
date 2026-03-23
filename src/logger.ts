@@ -72,7 +72,5 @@ export const logger = createLogger();
 
 export function dryRunPrefix(dryRun: boolean): string {
   if (!dryRun) return "";
-  return Boolean(process.stdout.isTTY)
-    ? `\x1b[36m[dry-run]\x1b[0m `
-    : `[dry-run] `;
+  return process.stdout.isTTY ? `\x1b[36m[dry-run]\x1b[0m ` : `[dry-run] `;
 }

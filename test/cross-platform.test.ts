@@ -1,14 +1,14 @@
-import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import path from "node:path";
-import { execFileSync } from "node:child_process";
+import type { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
-import {
-  resolveAgentSkillPathFor,
-  resolveAgentDetectPathFor,
-  lookupHomeForUserWith,
-} from "../src/core/resolve.ts";
+import path from "node:path";
+import { describe, it } from "node:test";
 import { AGENT_REGISTRY } from "../src/config/agents.ts";
+import {
+  lookupHomeForUserWith,
+  resolveAgentDetectPathFor,
+  resolveAgentSkillPathFor,
+} from "../src/core/resolve.ts";
 import { UserError } from "../src/errors.ts";
 
 const HOME = "/home/u";

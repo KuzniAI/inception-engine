@@ -1,6 +1,6 @@
-import { access, readlink, readFile, writeFile, chmod } from "node:fs/promises";
-import path from "node:path";
 import type { Stats } from "node:fs";
+import { access, chmod, readFile, readlink, writeFile } from "node:fs/promises";
+import path from "node:path";
 import type { AgentId } from "../types.ts";
 
 const TOTEM_FILE = ".inception-totem";

@@ -1,21 +1,22 @@
-import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import {
+  existsSync,
   mkdirSync,
   rmSync,
   symlinkSync,
-  existsSync,
   writeFileSync,
 } from "node:fs";
-import path from "node:path";
 import os from "node:os";
+import path from "node:path";
+import { describe, it } from "node:test";
 import {
+  executeRevert,
   planRevert,
   planRevertAll,
-  executeRevert,
 } from "../src/core/revert.ts";
-import type { Manifest } from "../src/types.ts";
 import { logger } from "../src/logger.ts";
+import type { Manifest } from "../src/types.ts";
+
 logger.silence();
 
 function makeTmpDir(): string {
