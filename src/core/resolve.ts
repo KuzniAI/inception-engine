@@ -22,7 +22,7 @@ export function lookupHomeForUserWith(
   username: string,
   platform: NodeJS.Platform,
   execFileFn: typeof execFileSync,
-  readFileFn: typeof readFileSync
+  readFileFn: typeof readFileSync,
 ): string {
   // Method 1: getent passwd (Linux/POSIX — handles LDAP, NIS, local via NSS)
   if (platform !== "darwin") {
@@ -44,7 +44,7 @@ export function lookupHomeForUserWith(
       const out = execFileFn(
         "dscl",
         [".", "-read", `/Users/${username}`, "NFSHomeDirectory"],
-        { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] }
+        { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] },
       ).trim();
       const home = (out as string).replace(/^NFSHomeDirectory:\s*/, "").trim();
       if (home.startsWith("/")) return home;
@@ -71,12 +71,17 @@ export function lookupHomeForUserWith(
     "RESOLVE_FAILED",
     `Cannot determine home directory for user "${username}". ` +
       `Tried getent, dscl, and /etc/passwd. ` +
-      `Run without sudo, or set HOME to the correct path before invoking with sudo.`
+      `Run without sudo, or set HOME to the correct path before invoking with sudo.`,
   );
 }
 
 function lookupHomeForUser(username: string): string {
-  return lookupHomeForUserWith(username, process.platform, execFileSync, readFileSync);
+  return lookupHomeForUserWith(
+    username,
+    process.platform,
+    execFileSync,
+    readFileSync,
+  );
 }
 
 export function getPlatformKey(): "posix" | "windows" {
@@ -91,7 +96,7 @@ export function resolveAgentSkillPathFor(
   agent: AgentConfig,
   skillName: string,
   home: string,
-  platform: "posix" | "windows"
+  platform: "posix" | "windows",
 ): string {
   return resolvePlaceholders(agent.skills[platform], skillName, home);
 }
@@ -99,7 +104,7 @@ export function resolveAgentSkillPathFor(
 export function resolveAgentDetectPathFor(
   agent: AgentConfig,
   home: string,
-  platform: "posix" | "windows"
+  platform: "posix" | "windows",
 ): string {
   return resolvePlaceholders(agent.detectPaths[platform], "", home);
 }
@@ -107,14 +112,14 @@ export function resolveAgentDetectPathFor(
 export function resolveAgentSkillPath(
   agent: AgentConfig,
   skillName: string,
-  home: string
+  home: string,
 ): string {
   return resolveAgentSkillPathFor(agent, skillName, home, getPlatformKey());
 }
 
 export function resolveAgentDetectPath(
   agent: AgentConfig,
-  home: string
+  home: string,
 ): string {
   return resolveAgentDetectPathFor(agent, home, getPlatformKey());
 }
@@ -122,14 +127,15 @@ export function resolveAgentDetectPath(
 function resolvePlaceholders(
   segments: string[],
   skillName: string,
-  home: string
+  home: string,
 ): string {
-  const appdata = process.env["APPDATA"] ?? path.join(home, "AppData", "Roaming");
+  const appdata =
+    process.env["APPDATA"] ?? path.join(home, "AppData", "Roaming");
   const resolved = segments.map((seg) =>
     seg
       .replace("{home}", home)
       .replace("{name}", skillName)
-      .replace("{appdata}", appdata)
+      .replace("{appdata}", appdata),
   );
   return path.join(...resolved);
 }

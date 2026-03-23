@@ -1,15 +1,28 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { mkdirSync, rmSync, symlinkSync, existsSync, writeFileSync } from "node:fs";
+import {
+  mkdirSync,
+  rmSync,
+  symlinkSync,
+  existsSync,
+  writeFileSync,
+} from "node:fs";
 import path from "node:path";
 import os from "node:os";
-import { planRevert, planRevertAll, executeRevert } from "../src/core/revert.ts";
+import {
+  planRevert,
+  planRevertAll,
+  executeRevert,
+} from "../src/core/revert.ts";
 import type { Manifest } from "../src/types.ts";
 import { logger } from "../src/logger.ts";
 logger.silence();
 
 function makeTmpDir(): string {
-  const dir = path.join(os.tmpdir(), `ie-test-revert-${Date.now()}-${Math.random().toString(36).slice(2)}`);
+  const dir = path.join(
+    os.tmpdir(),
+    `ie-test-revert-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+  );
   mkdirSync(dir, { recursive: true });
   return dir;
 }
@@ -40,14 +53,18 @@ describe("planRevertAll", () => {
   it("creates revert actions for all agents in manifest regardless of detection", () => {
     const multiAgentManifest: Manifest = {
       skills: [
-        { name: "test-skill", path: "skills/test-skill", agents: ["claude-code", "codex", "gemini-cli"] },
+        {
+          name: "test-skill",
+          path: "skills/test-skill",
+          agents: ["claude-code", "codex", "gemini-cli"],
+        },
       ],
       mcpServers: [],
       agentRules: [],
     };
     const actions = planRevertAll(multiAgentManifest, "/home/test");
     assert.equal(actions.length, 3);
-    const agentIds = actions.map(a => a.agent);
+    const agentIds = actions.map((a) => a.agent);
     assert.ok(agentIds.includes("claude-code"));
     assert.ok(agentIds.includes("codex"));
     assert.ok(agentIds.includes("gemini-cli"));
@@ -65,7 +82,10 @@ describe("executeRevert", () => {
       const target = actions[0]!.target;
 
       // Source must contain .inception-totem for ownership check
-      writeFileSync(path.join(sourceDir, ".inception-totem"), "inception-engine\nsource=/x\n");
+      writeFileSync(
+        path.join(sourceDir, ".inception-totem"),
+        "inception-engine\nsource=/x\n",
+      );
       mkdirSync(path.dirname(target), { recursive: true });
       symlinkSync(sourceDir, target, "dir");
       assert.ok(existsSync(target));
@@ -88,7 +108,10 @@ describe("executeRevert", () => {
 
       mkdirSync(target, { recursive: true });
       writeFileSync(path.join(target, "SKILL.md"), "test");
-      writeFileSync(path.join(target, ".inception-totem"), "inception-engine\nsource=/x\n");
+      writeFileSync(
+        path.join(target, ".inception-totem"),
+        "inception-engine\nsource=/x\n",
+      );
 
       const { succeeded, skipped } = await executeRevert(actions, false, false);
       assert.equal(succeeded, 1);
@@ -118,7 +141,10 @@ describe("executeRevert", () => {
       const actions = planRevert(testManifest, ["claude-code"], home);
       const target = actions[0]!.target;
 
-      writeFileSync(path.join(sourceDir, ".inception-totem"), "inception-engine\nsource=/x\n");
+      writeFileSync(
+        path.join(sourceDir, ".inception-totem"),
+        "inception-engine\nsource=/x\n",
+      );
       mkdirSync(path.dirname(target), { recursive: true });
       symlinkSync(sourceDir, target, "dir");
 
@@ -160,12 +186,18 @@ describe("executeRevert", () => {
       const target = actions[0]!.target;
 
       mkdirSync(target, { recursive: true });
-      writeFileSync(path.join(target, ".inception-totem"), "not-inception-engine\n");
+      writeFileSync(
+        path.join(target, ".inception-totem"),
+        "not-inception-engine\n",
+      );
 
       const { succeeded, skipped } = await executeRevert(actions, false, false);
       assert.equal(succeeded, 0);
       assert.equal(skipped, 1);
-      assert.ok(existsSync(target), "directory should still exist — invalid totem");
+      assert.ok(
+        existsSync(target),
+        "directory should still exist — invalid totem",
+      );
     } finally {
       rmSync(home, { recursive: true, force: true });
     }

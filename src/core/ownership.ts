@@ -23,7 +23,10 @@ export function formatTotem(data: TotemData): string {
   return lines.join("\n") + "\n";
 }
 
-export async function writeTotem(directory: string, data: TotemData): Promise<void> {
+export async function writeTotem(
+  directory: string,
+  data: TotemData,
+): Promise<void> {
   const totemPath = path.join(directory, TOTEM_FILE);
   await writeFile(totemPath, formatTotem(data));
   await chmod(totemPath, 0o644);
@@ -31,7 +34,7 @@ export async function writeTotem(directory: string, data: TotemData): Promise<vo
 
 export async function isOwnedByInceptionEngine(
   targetPath: string,
-  stat: Stats
+  stat: Stats,
 ): Promise<boolean> {
   const totemLocation = stat.isSymbolicLink()
     ? await resolveSymlinkTotemPath(targetPath)
@@ -47,7 +50,9 @@ export async function isOwnedByInceptionEngine(
   }
 }
 
-async function resolveSymlinkTotemPath(targetPath: string): Promise<string | null> {
+async function resolveSymlinkTotemPath(
+  targetPath: string,
+): Promise<string | null> {
   try {
     const linkTarget = await readlink(targetPath);
     const resolved = path.resolve(path.dirname(targetPath), linkTarget);

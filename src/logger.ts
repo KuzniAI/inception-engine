@@ -33,19 +33,22 @@ export function createLogger(): Logger {
 
   return {
     fail(label, msg) {
-      if (!silent) process.stderr.write(`  ${c("red", "✗", errTTY)} ${label}: ${msg}\n`);
+      if (!silent)
+        process.stderr.write(`  ${c("red", "✗", errTTY)} ${label}: ${msg}\n`);
     },
     ok(label) {
       if (!silent) process.stdout.write(`  ${c("green", "✓", tty)} ${label}\n`);
     },
     skip(label, note) {
-      if (!silent) process.stdout.write(`  ${c("yellow", "-", tty)} ${label} ${note}\n`);
+      if (!silent)
+        process.stdout.write(`  ${c("yellow", "-", tty)} ${label} ${note}\n`);
     },
     plan(label) {
       if (!silent) process.stdout.write(`  ${c("cyan", "○", tty)} ${label}\n`);
     },
     warn(label, msg) {
-      if (!silent) process.stdout.write(`  ${c("yellow", "!", tty)} ${label}: ${msg}\n`);
+      if (!silent)
+        process.stdout.write(`  ${c("yellow", "!", tty)} ${label}: ${msg}\n`);
     },
     info(msg) {
       if (!silent) process.stdout.write(`${msg}\n`);
@@ -69,5 +72,7 @@ export const logger = createLogger();
 
 export function dryRunPrefix(dryRun: boolean): string {
   if (!dryRun) return "";
-  return Boolean(process.stdout.isTTY) ? `\x1b[36m[dry-run]\x1b[0m ` : `[dry-run] `;
+  return Boolean(process.stdout.isTTY)
+    ? `\x1b[36m[dry-run]\x1b[0m `
+    : `[dry-run] `;
 }

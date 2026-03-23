@@ -7,7 +7,10 @@ import { loadManifest } from "../src/config/manifest.ts";
 import { UserError } from "../src/errors.ts";
 
 function makeTmpDir(): string {
-  const dir = path.join(os.tmpdir(), `ie-test-manifest-${Date.now()}-${Math.random().toString(36).slice(2)}`);
+  const dir = path.join(
+    os.tmpdir(),
+    `ie-test-manifest-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+  );
   mkdirSync(dir, { recursive: true });
   return dir;
 }
@@ -20,9 +23,13 @@ describe("loadManifest", () => {
         path.join(dir, "inception.json"),
         JSON.stringify({
           skills: [
-            { name: "test-skill", path: "skills/test-skill", agents: ["claude-code"] },
+            {
+              name: "test-skill",
+              path: "skills/test-skill",
+              agents: ["claude-code"],
+            },
           ],
-        })
+        }),
       );
 
       const manifest = await loadManifest(dir);
@@ -82,7 +89,7 @@ describe("loadManifest", () => {
         path.join(dir, "inception.json"),
         JSON.stringify({
           skills: [{ name: "s", path: "p", agents: ["unknown-agent"] }],
-        })
+        }),
       );
       await assert.rejects(loadManifest(dir), (err: unknown) => {
         assert.ok(err instanceof UserError);
@@ -102,7 +109,7 @@ describe("loadManifest", () => {
         path.join(dir, "inception.json"),
         JSON.stringify({
           skills: [{ path: "p", agents: ["claude-code"] }],
-        })
+        }),
       );
       await assert.rejects(loadManifest(dir), (err: unknown) => {
         assert.ok(err instanceof UserError);
@@ -121,8 +128,10 @@ describe("loadManifest", () => {
       writeFileSync(
         path.join(dir, "inception.json"),
         JSON.stringify({
-          skills: [{ name: "../../.ssh", path: "skills/s", agents: ["claude-code"] }],
-        })
+          skills: [
+            { name: "../../.ssh", path: "skills/s", agents: ["claude-code"] },
+          ],
+        }),
       );
       await assert.rejects(loadManifest(dir), (err: unknown) => {
         assert.ok(err instanceof UserError);
@@ -141,8 +150,10 @@ describe("loadManifest", () => {
       writeFileSync(
         path.join(dir, "inception.json"),
         JSON.stringify({
-          skills: [{ name: "../escape", path: "skills/s", agents: ["claude-code"] }],
-        })
+          skills: [
+            { name: "../escape", path: "skills/s", agents: ["claude-code"] },
+          ],
+        }),
       );
       await assert.rejects(loadManifest(dir), (err: unknown) => {
         assert.ok(err instanceof UserError);
@@ -161,8 +172,14 @@ describe("loadManifest", () => {
       writeFileSync(
         path.join(dir, "inception.json"),
         JSON.stringify({
-          skills: [{ name: "valid-name_1.0", path: "skills/s", agents: ["claude-code"] }],
-        })
+          skills: [
+            {
+              name: "valid-name_1.0",
+              path: "skills/s",
+              agents: ["claude-code"],
+            },
+          ],
+        }),
       );
       const manifest = await loadManifest(dir);
       assert.equal(manifest.skills[0]!.name, "valid-name_1.0");
@@ -177,8 +194,10 @@ describe("loadManifest", () => {
       writeFileSync(
         path.join(dir, "inception.json"),
         JSON.stringify({
-          skills: [{ name: "s", path: "../../secret", agents: ["claude-code"] }],
-        })
+          skills: [
+            { name: "s", path: "../../secret", agents: ["claude-code"] },
+          ],
+        }),
       );
       await assert.rejects(loadManifest(dir), (err: unknown) => {
         assert.ok(err instanceof UserError);
@@ -198,7 +217,7 @@ describe("loadManifest", () => {
         path.join(dir, "inception.json"),
         JSON.stringify({
           skills: [{ name: "s", path: "/etc/passwd", agents: ["claude-code"] }],
-        })
+        }),
       );
       await assert.rejects(loadManifest(dir), (err: unknown) => {
         assert.ok(err instanceof UserError);

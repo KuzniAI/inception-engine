@@ -2,7 +2,11 @@ import { describe, it, mock } from "node:test";
 import assert from "node:assert/strict";
 import os from "node:os";
 import path from "node:path";
-import { resolveHome, resolveAgentSkillPath, resolveAgentDetectPath } from "../src/core/resolve.ts";
+import {
+  resolveHome,
+  resolveAgentSkillPath,
+  resolveAgentDetectPath,
+} from "../src/core/resolve.ts";
 import { AGENT_REGISTRY } from "../src/config/agents.ts";
 import { UserError } from "../src/errors.ts";
 
@@ -10,7 +14,10 @@ describe("resolveAgentSkillPath", () => {
   it("resolves Claude Code skill path", () => {
     const claude = AGENT_REGISTRY.find((a) => a.id === "claude-code")!;
     const result = resolveAgentSkillPath(claude, "my-skill", "/Users/test");
-    assert.equal(result, path.join("/Users/test", ".claude", "skills", "my-skill"));
+    assert.equal(
+      result,
+      path.join("/Users/test", ".claude", "skills", "my-skill"),
+    );
   });
 
   it("resolves OpenCode skill path with home", () => {
@@ -23,7 +30,10 @@ describe("resolveAgentSkillPath", () => {
   it("resolves Antigravity nested path", () => {
     const antigravity = AGENT_REGISTRY.find((a) => a.id === "antigravity")!;
     const result = resolveAgentSkillPath(antigravity, "my-skill", "/home/user");
-    assert.equal(result, path.join("/home/user", ".gemini", "antigravity", "skills", "my-skill"));
+    assert.equal(
+      result,
+      path.join("/home/user", ".gemini", "antigravity", "skills", "my-skill"),
+    );
   });
 });
 
@@ -62,7 +72,10 @@ describe("resolveHome", () => {
     try {
       process.env["SUDO_USER"] = currentUser;
       const result = resolveHome();
-      assert.ok(typeof result === "string" && result.startsWith("/"), `expected absolute path, got: ${result}`);
+      assert.ok(
+        typeof result === "string" && result.startsWith("/"),
+        `expected absolute path, got: ${result}`,
+      );
     } finally {
       if (saved === undefined) {
         delete process.env["SUDO_USER"];
@@ -77,12 +90,15 @@ describe("resolveHome", () => {
     const saved = process.env["SUDO_USER"];
     try {
       process.env["SUDO_USER"] = "__nonexistent_user_inception_engine_test__";
-      assert.throws(() => resolveHome(), (err: unknown) => {
-        assert.ok(err instanceof UserError);
-        assert.equal(err.code, "RESOLVE_FAILED");
-        assert.match(err.message, /Cannot determine home directory/);
-        return true;
-      });
+      assert.throws(
+        () => resolveHome(),
+        (err: unknown) => {
+          assert.ok(err instanceof UserError);
+          assert.equal(err.code, "RESOLVE_FAILED");
+          assert.match(err.message, /Cannot determine home directory/);
+          return true;
+        },
+      );
     } finally {
       if (saved === undefined) {
         delete process.env["SUDO_USER"];

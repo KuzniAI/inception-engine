@@ -8,7 +8,7 @@ import { isOwnedByInceptionEngine } from "./ownership.ts";
 export function planRevert(
   manifest: Manifest,
   detectedAgents: AgentId[],
-  home: string
+  home: string,
 ): RevertAction[] {
   const actions: RevertAction[] = [];
 
@@ -29,7 +29,7 @@ export function planRevert(
 
 export function planRevertAll(
   manifest: Manifest,
-  home: string
+  home: string,
 ): RevertAction[] {
   const actions: RevertAction[] = [];
 
@@ -49,7 +49,7 @@ export function planRevertAll(
 export async function executeRevert(
   actions: RevertAction[],
   dryRun: boolean,
-  verbose: boolean
+  verbose: boolean,
 ): Promise<{ succeeded: number; skipped: number }> {
   let succeeded = 0;
   let skipped = 0;
@@ -67,7 +67,10 @@ export async function executeRevert(
     }
 
     if (!(await isOwnedByInceptionEngine(action.target, stat))) {
-      logger.warn(label, `skipping: ${action.target} does not have inception-engine ownership proof — not managed by inception-engine`);
+      logger.warn(
+        label,
+        `skipping: ${action.target} does not have inception-engine ownership proof — not managed by inception-engine`,
+      );
       skipped++;
       continue;
     }

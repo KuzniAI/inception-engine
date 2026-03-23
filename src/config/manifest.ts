@@ -13,7 +13,7 @@ export async function loadManifest(directory: string): Promise<Manifest> {
   } catch {
     throw new UserError(
       "MANIFEST_INVALID",
-      `No inception.json found in ${directory}. Are you pointing to the right repo?`
+      `No inception.json found in ${directory}. Are you pointing to the right repo?`,
     );
   }
 
@@ -29,58 +29,79 @@ export async function loadManifest(directory: string): Promise<Manifest> {
 
 function validateManifest(data: unknown, filePath: string): Manifest {
   if (typeof data !== "object" || data === null || Array.isArray(data)) {
-    throw new UserError("MANIFEST_INVALID", `${filePath}: manifest must be a JSON object`);
+    throw new UserError(
+      "MANIFEST_INVALID",
+      `${filePath}: manifest must be a JSON object`,
+    );
   }
 
   const obj = data as Record<string, unknown>;
 
   if (!Array.isArray(obj.skills)) {
-    throw new UserError("MANIFEST_INVALID", `${filePath}: "skills" must be an array`);
+    throw new UserError(
+      "MANIFEST_INVALID",
+      `${filePath}: "skills" must be an array`,
+    );
   }
 
   const skills: SkillEntry[] = obj.skills.map((entry: unknown, i: number) => {
     if (typeof entry !== "object" || entry === null || Array.isArray(entry)) {
-      throw new UserError("MANIFEST_INVALID", `${filePath}: skills[${i}] must be an object`);
+      throw new UserError(
+        "MANIFEST_INVALID",
+        `${filePath}: skills[${i}] must be an object`,
+      );
     }
 
     const skill = entry as Record<string, unknown>;
 
     if (typeof skill.name !== "string" || skill.name.length === 0) {
-      throw new UserError("MANIFEST_INVALID", `${filePath}: skills[${i}].name must be a non-empty string`);
+      throw new UserError(
+        "MANIFEST_INVALID",
+        `${filePath}: skills[${i}].name must be a non-empty string`,
+      );
     }
 
     const SAFE_NAME_RE = /^[a-zA-Z0-9][a-zA-Z0-9._-]*$/;
     if (!SAFE_NAME_RE.test(skill.name as string)) {
       throw new UserError(
         "MANIFEST_INVALID",
-        `${filePath}: skills[${i}].name must contain only letters, digits, hyphens, underscores, and dots, and must not start with a dot`
+        `${filePath}: skills[${i}].name must contain only letters, digits, hyphens, underscores, and dots, and must not start with a dot`,
       );
     }
 
     if (typeof skill.path !== "string" || skill.path.length === 0) {
-      throw new UserError("MANIFEST_INVALID", `${filePath}: skills[${i}].path must be a non-empty string`);
+      throw new UserError(
+        "MANIFEST_INVALID",
+        `${filePath}: skills[${i}].path must be a non-empty string`,
+      );
     }
 
     if (path.isAbsolute(skill.path as string)) {
-      throw new UserError("MANIFEST_INVALID", `${filePath}: skills[${i}].path must be a relative path`);
+      throw new UserError(
+        "MANIFEST_INVALID",
+        `${filePath}: skills[${i}].path must be a relative path`,
+      );
     }
 
     if (path.normalize(skill.path as string).startsWith("..")) {
       throw new UserError(
         "MANIFEST_INVALID",
-        `${filePath}: skills[${i}].path must not escape the repository root`
+        `${filePath}: skills[${i}].path must not escape the repository root`,
       );
     }
 
     if (!Array.isArray(skill.agents) || skill.agents.length === 0) {
-      throw new UserError("MANIFEST_INVALID", `${filePath}: skills[${i}].agents must be a non-empty array`);
+      throw new UserError(
+        "MANIFEST_INVALID",
+        `${filePath}: skills[${i}].agents must be a non-empty array`,
+      );
     }
 
     for (const agent of skill.agents) {
       if (!AGENT_IDS.includes(agent as AgentId)) {
         throw new UserError(
           "MANIFEST_INVALID",
-          `${filePath}: skills[${i}].agents contains unknown agent "${agent}". Valid agents: ${AGENT_IDS.join(", ")}`
+          `${filePath}: skills[${i}].agents contains unknown agent "${agent}". Valid agents: ${AGENT_IDS.join(", ")}`,
         );
       }
     }

@@ -6,7 +6,10 @@ import os from "node:os";
 import { detectInstalledAgents } from "../src/core/detect.ts";
 
 function makeTmpDir(): string {
-  const dir = path.join(os.tmpdir(), `ie-test-detect-${Date.now()}-${Math.random().toString(36).slice(2)}`);
+  const dir = path.join(
+    os.tmpdir(),
+    `ie-test-detect-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+  );
   mkdirSync(dir, { recursive: true });
   return dir;
 }

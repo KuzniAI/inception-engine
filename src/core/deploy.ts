@@ -1,4 +1,14 @@
-import { access, lstat, mkdir, symlink, cp, unlink, rm, rename, realpath } from "node:fs/promises";
+import {
+  access,
+  lstat,
+  mkdir,
+  symlink,
+  cp,
+  unlink,
+  rm,
+  rename,
+  realpath,
+} from "node:fs/promises";
 import type { Stats } from "node:fs";
 import path from "node:path";
 import { AGENT_REGISTRY_BY_ID } from "../config/agents.ts";
@@ -12,7 +22,7 @@ export async function planDeploy(
   manifest: Manifest,
   sourceDir: string,
   detectedAgents: AgentId[],
-  home: string
+  home: string,
 ): Promise<DeployAction[]> {
   const method = getDeployMethod();
   const actions: DeployAction[] = [];
@@ -31,16 +41,19 @@ export async function planDeploy(
     if (!source.startsWith(resolvedSourceDir + path.sep)) {
       throw new UserError(
         "DEPLOY_FAILED",
-        `Skill path "${skill.path}" resolves outside the repository root: ${source}`
+        `Skill path "${skill.path}" resolves outside the repository root: ${source}`,
       );
     }
 
     try {
       const realSource = await realpath(source);
-      if (realSource !== realRoot && !realSource.startsWith(realRoot + path.sep)) {
+      if (
+        realSource !== realRoot &&
+        !realSource.startsWith(realRoot + path.sep)
+      ) {
         throw new UserError(
           "DEPLOY_FAILED",
-          `Skill path "${skill.path}" resolves outside the repository root via symlink: ${source} -> ${realSource}`
+          `Skill path "${skill.path}" resolves outside the repository root via symlink: ${source} -> ${realSource}`,
         );
       }
     } catch (err) {
@@ -56,7 +69,13 @@ export async function planDeploy(
 
       const target = resolveAgentSkillPath(agent, skill.name, home);
 
-      actions.push({ skill: skill.name, agent: agentId, source, target, method });
+      actions.push({
+        skill: skill.name,
+        agent: agentId,
+        source,
+        target,
+        method,
+      });
     }
   }
 
@@ -66,8 +85,11 @@ export async function planDeploy(
 export async function executeDeploy(
   actions: DeployAction[],
   dryRun: boolean,
-  verbose: boolean
-): Promise<{ succeeded: number; failed: Array<{ action: DeployAction; error: string }> }> {
+  verbose: boolean,
+): Promise<{
+  succeeded: number;
+  failed: Array<{ action: DeployAction; error: string }>;
+}> {
   let succeeded = 0;
   const failed: Array<{ action: DeployAction; error: string }> = [];
 
@@ -100,18 +122,32 @@ export async function executeDeploy(
         // Final TOCTOU check: ensure nothing appeared at the target after backup
         try {
           await lstat(action.target);
-          throw new Error(`Target path appeared unexpectedly after backup: ${action.target}`);
+          throw new Error(
+            `Target path appeared unexpectedly after backup: ${action.target}`,
+          );
         } catch (err) {
-          if (err instanceof Error && err.message.startsWith("Target path appeared")) throw err;
+          if (
+            err instanceof Error &&
+            err.message.startsWith("Target path appeared")
+          )
+            throw err;
           // ENOENT is expected — target should not exist after backup
         }
 
         if (action.method === "symlink") {
           await symlink(action.source, action.target, "dir");
-          await writeTotem(action.source, { source: action.source, skill: action.skill, agent: action.agent });
+          await writeTotem(action.source, {
+            source: action.source,
+            skill: action.skill,
+            agent: action.agent,
+          });
         } else {
           await cp(action.source, action.target, { recursive: true });
-          await writeTotem(action.target, { source: action.source, skill: action.skill, agent: action.agent });
+          await writeTotem(action.target, {
+            source: action.source,
+            skill: action.skill,
+            agent: action.agent,
+          });
         }
       } catch (createErr) {
         // Rollback: restore backup if creation failed
@@ -145,7 +181,10 @@ export async function executeDeploy(
   return { succeeded, failed };
 }
 
-async function backupExisting(targetPath: string, verbose: boolean): Promise<string | null> {
+async function backupExisting(
+  targetPath: string,
+  verbose: boolean,
+): Promise<string | null> {
   let stat: Stats;
   try {
     stat = await lstat(targetPath);
@@ -155,7 +194,7 @@ async function backupExisting(targetPath: string, verbose: boolean): Promise<str
 
   if (!(await isOwnedByInceptionEngine(targetPath, stat))) {
     throw new Error(
-      `Target "${targetPath}" exists but is not managed by inception-engine — refusing to overwrite`
+      `Target "${targetPath}" exists but is not managed by inception-engine — refusing to overwrite`,
     );
   }
 

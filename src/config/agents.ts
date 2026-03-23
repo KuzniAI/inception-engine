@@ -82,4 +82,7 @@ export const AGENT_REGISTRY: readonly AgentConfig[] = [
 ] as const;
 
 export const AGENT_REGISTRY_BY_ID: Readonly<Record<AgentId, AgentConfig>> =
-  Object.fromEntries(AGENT_REGISTRY.map((a) => [a.id, a])) as Record<AgentId, AgentConfig>;
+  Object.fromEntries(AGENT_REGISTRY.map((a) => [a.id, a])) as Record<
+    AgentId,
+    AgentConfig
+  >;

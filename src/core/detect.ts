@@ -19,7 +19,10 @@ export async function detectInstalledAgents(home: string): Promise<AgentId[]> {
   return detected;
 }
 
-async function isAgentInstalled(agent: AgentConfig, home: string): Promise<boolean> {
+async function isAgentInstalled(
+  agent: AgentConfig,
+  home: string,
+): Promise<boolean> {
   const detectPath = resolveAgentDetectPath(agent, home);
   try {
     await access(detectPath);

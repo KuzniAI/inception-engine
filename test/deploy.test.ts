@@ -1,6 +1,16 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { mkdirSync, rmSync, writeFileSync, existsSync, lstatSync, readlinkSync, readFileSync, symlinkSync, chmodSync } from "node:fs";
+import {
+  mkdirSync,
+  rmSync,
+  writeFileSync,
+  existsSync,
+  lstatSync,
+  readlinkSync,
+  readFileSync,
+  symlinkSync,
+  chmodSync,
+} from "node:fs";
 import path from "node:path";
 import os from "node:os";
 import { planDeploy, executeDeploy } from "../src/core/deploy.ts";
@@ -10,7 +20,10 @@ import { logger } from "../src/logger.ts";
 logger.silence();
 
 function makeTmpDir(): string {
-  const dir = path.join(os.tmpdir(), `ie-test-deploy-${Date.now()}-${Math.random().toString(36).slice(2)}`);
+  const dir = path.join(
+    os.tmpdir(),
+    `ie-test-deploy-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+  );
   mkdirSync(dir, { recursive: true });
   return dir;
 }
@@ -18,13 +31,20 @@ function makeTmpDir(): string {
 function createSkillSource(baseDir: string, skillPath: string): string {
   const fullPath = path.join(baseDir, skillPath);
   mkdirSync(fullPath, { recursive: true });
-  writeFileSync(path.join(fullPath, "SKILL.md"), "---\nname: test\n---\n# Test");
+  writeFileSync(
+    path.join(fullPath, "SKILL.md"),
+    "---\nname: test\n---\n# Test",
+  );
   return fullPath;
 }
 
 const testManifest: Manifest = {
   skills: [
-    { name: "test-skill", path: "skills/test-skill", agents: ["claude-code", "codex"] },
+    {
+      name: "test-skill",
+      path: "skills/test-skill",
+      agents: ["claude-code", "codex"],
+    },
   ],
   mcpServers: [],
   agentRules: [],
@@ -34,7 +54,12 @@ describe("planDeploy", () => {
   it("creates actions for detected agents only", async () => {
     const sourceDir = makeTmpDir();
     try {
-      const actions = await planDeploy(testManifest, sourceDir, ["claude-code"], "/home/test");
+      const actions = await planDeploy(
+        testManifest,
+        sourceDir,
+        ["claude-code"],
+        "/home/test",
+      );
       assert.equal(actions.length, 1);
       assert.equal(actions[0]!.agent, "claude-code");
       assert.equal(actions[0]!.skill, "test-skill");
@@ -46,7 +71,12 @@ describe("planDeploy", () => {
   it("creates actions for multiple agents", async () => {
     const sourceDir = makeTmpDir();
     try {
-      const actions = await planDeploy(testManifest, sourceDir, ["claude-code", "codex"], "/home/test");
+      const actions = await planDeploy(
+        testManifest,
+        sourceDir,
+        ["claude-code", "codex"],
+        "/home/test",
+      );
       assert.equal(actions.length, 2);
     } finally {
       rmSync(sourceDir, { recursive: true });
@@ -56,7 +86,12 @@ describe("planDeploy", () => {
   it("skips agents not in detected list", async () => {
     const sourceDir = makeTmpDir();
     try {
-      const actions = await planDeploy(testManifest, sourceDir, ["gemini-cli"], "/home/test");
+      const actions = await planDeploy(
+        testManifest,
+        sourceDir,
+        ["gemini-cli"],
+        "/home/test",
+      );
       assert.equal(actions.length, 0);
     } finally {
       rmSync(sourceDir, { recursive: true });
@@ -72,7 +107,12 @@ describe("executeDeploy", () => {
     const home = makeTmpDir();
     try {
       createSkillSource(sourceDir, "skills/test-skill");
-      const actions = await planDeploy(testManifest, sourceDir, ["claude-code"], home);
+      const actions = await planDeploy(
+        testManifest,
+        sourceDir,
+        ["claude-code"],
+        home,
+      );
       const { succeeded, failed } = await executeDeploy(actions, false, false);
 
       assert.equal(succeeded, 1);
@@ -93,7 +133,12 @@ describe("executeDeploy", () => {
     const home = makeTmpDir();
     try {
       const skillSource = createSkillSource(sourceDir, "skills/test-skill");
-      const actions = await planDeploy(testManifest, sourceDir, ["claude-code"], home);
+      const actions = await planDeploy(
+        testManifest,
+        sourceDir,
+        ["claude-code"],
+        home,
+      );
       await executeDeploy(actions, false, false);
 
       const totemPath = path.join(skillSource, ".inception-totem");
@@ -113,7 +158,12 @@ describe("executeDeploy", () => {
     const home = makeTmpDir();
     try {
       createSkillSource(sourceDir, "skills/test-skill");
-      const actions = await planDeploy(testManifest, sourceDir, ["claude-code"], home);
+      const actions = await planDeploy(
+        testManifest,
+        sourceDir,
+        ["claude-code"],
+        home,
+      );
       const { succeeded, failed } = await executeDeploy(actions, true, false);
 
       assert.equal(succeeded, 1);
@@ -132,7 +182,12 @@ describe("executeDeploy", () => {
     const home = makeTmpDir();
     try {
       createSkillSource(sourceDir, "skills/test-skill");
-      const actions = await planDeploy(testManifest, sourceDir, ["claude-code"], home);
+      const actions = await planDeploy(
+        testManifest,
+        sourceDir,
+        ["claude-code"],
+        home,
+      );
 
       // Deploy twice - second should overwrite (first creates .inception-totem)
       await executeDeploy(actions, false, false);
@@ -149,7 +204,12 @@ describe("executeDeploy", () => {
   it("reports error for missing source", async () => {
     const home = makeTmpDir();
     try {
-      const actions = await planDeploy(testManifest, "/nonexistent/source", ["claude-code"], home);
+      const actions = await planDeploy(
+        testManifest,
+        "/nonexistent/source",
+        ["claude-code"],
+        home,
+      );
       const { succeeded, failed } = await executeDeploy(actions, false, false);
 
       assert.equal(succeeded, 0);
@@ -165,7 +225,12 @@ describe("executeDeploy", () => {
     const home = makeTmpDir();
     try {
       createSkillSource(sourceDir, "skills/test-skill");
-      const actions = await planDeploy(testManifest, sourceDir, ["claude-code"], home);
+      const actions = await planDeploy(
+        testManifest,
+        sourceDir,
+        ["claude-code"],
+        home,
+      );
       const target = actions[0]!.target;
 
       // Create an unmanaged directory at the target (no .inception-totem)
@@ -190,14 +255,22 @@ describe("executeDeploy", () => {
     const home = makeTmpDir();
     try {
       createSkillSource(sourceDir, "skills/test-skill");
-      const actions = await planDeploy(testManifest, sourceDir, ["claude-code"], home);
+      const actions = await planDeploy(
+        testManifest,
+        sourceDir,
+        ["claude-code"],
+        home,
+      );
       const target = actions[0]!.target;
       const backupPath = target + ".inception-backup";
 
       await executeDeploy(actions, false, false);
       await executeDeploy(actions, false, false);
 
-      assert.ok(!existsSync(backupPath), "backup should not exist after successful redeploy");
+      assert.ok(
+        !existsSync(backupPath),
+        "backup should not exist after successful redeploy",
+      );
       assert.ok(existsSync(target), "target should exist after redeploy");
     } finally {
       rmSync(sourceDir, { recursive: true });
@@ -214,7 +287,12 @@ describe("atomic redeploy behavior", () => {
     const home = makeTmpDir();
     try {
       createSkillSource(sourceDir, "skills/test-skill");
-      const actions = await planDeploy(testManifest, sourceDir, ["claude-code"], home);
+      const actions = await planDeploy(
+        testManifest,
+        sourceDir,
+        ["claude-code"],
+        home,
+      );
       const target = actions[0]!.target;
       const backupPath = target + ".inception-backup";
 
@@ -242,14 +320,22 @@ describe("atomic redeploy behavior", () => {
     const home = makeTmpDir();
     try {
       createSkillSource(sourceDir, "skills/test-skill");
-      const actions = await planDeploy(testManifest, sourceDir, ["claude-code"], home);
+      const actions = await planDeploy(
+        testManifest,
+        sourceDir,
+        ["claude-code"],
+        home,
+      );
       const target = actions[0]!.target;
       const backupPath = target + ".inception-backup";
 
       const { succeeded } = await executeDeploy(actions, false, false);
       assert.equal(succeeded, 1);
       assert.ok(existsSync(target));
-      assert.ok(!existsSync(backupPath), "no backup should be created when there was no prior target");
+      assert.ok(
+        !existsSync(backupPath),
+        "no backup should be created when there was no prior target",
+      );
     } finally {
       rmSync(sourceDir, { recursive: true });
       rmSync(home, { recursive: true, force: true });
@@ -259,16 +345,29 @@ describe("atomic redeploy behavior", () => {
   it("restores backup when totem write fails (totem file read-only)", async () => {
     const sourceDir = makeTmpDir();
     const home = makeTmpDir();
-    const totemPath = path.join(sourceDir, "skills/test-skill", ".inception-totem");
+    const totemPath = path.join(
+      sourceDir,
+      "skills/test-skill",
+      ".inception-totem",
+    );
     try {
       createSkillSource(sourceDir, "skills/test-skill");
-      const actions = await planDeploy(testManifest, sourceDir, ["claude-code"], home);
+      const actions = await planDeploy(
+        testManifest,
+        sourceDir,
+        ["claude-code"],
+        home,
+      );
       const target = actions[0]!.target;
       const backupPath = target + ".inception-backup";
       const skillSource = actions[0]!.source;
 
       // First deploy: establishes managed symlink and writes .inception-totem into source
-      const { succeeded: firstSucceeded } = await executeDeploy(actions, false, false);
+      const { succeeded: firstSucceeded } = await executeDeploy(
+        actions,
+        false,
+        false,
+      );
       assert.equal(firstSucceeded, 1);
       const originalLink = readlinkSync(target);
 
@@ -284,14 +383,28 @@ describe("atomic redeploy behavior", () => {
       assert.equal(failed.length, 1);
 
       // Backup must be cleaned up (restored back to target)
-      assert.ok(!existsSync(backupPath), "backup should be gone after rollback");
+      assert.ok(
+        !existsSync(backupPath),
+        "backup should be gone after rollback",
+      );
 
       // Original managed symlink must be restored at the target path
       assert.ok(existsSync(target), "original symlink must be restored");
-      assert.ok(lstatSync(target).isSymbolicLink(), "restored target must be a symlink");
-      assert.equal(readlinkSync(target), originalLink, "restored symlink must point to original source");
+      assert.ok(
+        lstatSync(target).isSymbolicLink(),
+        "restored target must be a symlink",
+      );
+      assert.equal(
+        readlinkSync(target),
+        originalLink,
+        "restored symlink must point to original source",
+      );
     } finally {
-      try { chmodSync(totemPath, 0o644); } catch { /* best effort */ }
+      try {
+        chmodSync(totemPath, 0o644);
+      } catch {
+        /* best effort */
+      }
       rmSync(sourceDir, { recursive: true, force: true });
       rmSync(home, { recursive: true, force: true });
     }
@@ -313,7 +426,11 @@ describe("atomic redeploy behavior", () => {
         target,
         method: "copy",
       };
-      const { succeeded: firstSucceeded } = await executeDeploy([firstAction], false, false);
+      const { succeeded: firstSucceeded } = await executeDeploy(
+        [firstAction],
+        false,
+        false,
+      );
       assert.equal(firstSucceeded, 1);
       assert.ok(existsSync(target));
 
@@ -333,23 +450,34 @@ describe("atomic redeploy behavior", () => {
         method: "copy",
       };
 
-      const { succeeded, failed } = await executeDeploy([failAction], false, false);
+      const { succeeded, failed } = await executeDeploy(
+        [failAction],
+        false,
+        false,
+      );
 
       // Deploy must report failure
       assert.equal(succeeded, 0);
       assert.equal(failed.length, 1);
 
       // Backup must be cleaned up (restored back to target)
-      assert.ok(!existsSync(backupPath), "backup should be gone after rollback");
+      assert.ok(
+        !existsSync(backupPath),
+        "backup should be gone after rollback",
+      );
 
       // Original managed directory must be restored with its content intact
       assert.ok(existsSync(target), "original target must be restored");
       assert.ok(
         existsSync(path.join(target, ".inception-totem")),
-        "restored target must have original .inception-totem"
+        "restored target must have original .inception-totem",
       );
     } finally {
-      try { chmodSync(path.join(sourceDir, "unreadable-source"), 0o755); } catch { /* best effort */ }
+      try {
+        chmodSync(path.join(sourceDir, "unreadable-source"), 0o755);
+      } catch {
+        /* best effort */
+      }
       rmSync(sourceDir, { recursive: true, force: true });
       rmSync(home, { recursive: true, force: true });
     }
@@ -366,13 +494,14 @@ describe("planDeploy path traversal", () => {
         agentRules: [],
       };
       await assert.rejects(
-        () => planDeploy(rootManifest, sourceDir, ["claude-code"], "/home/test"),
+        () =>
+          planDeploy(rootManifest, sourceDir, ["claude-code"], "/home/test"),
         (err: unknown) => {
           assert.ok(err instanceof UserError);
           assert.equal(err.code, "DEPLOY_FAILED");
           assert.match(err.message, /resolves outside the repository root/);
           return true;
-        }
+        },
       );
     } finally {
       rmSync(sourceDir, { recursive: true });
@@ -383,18 +512,26 @@ describe("planDeploy path traversal", () => {
     const sourceDir = makeTmpDir();
     try {
       const traversalManifest: Manifest = {
-        skills: [{ name: "evil", path: "../../outside", agents: ["claude-code"] }],
+        skills: [
+          { name: "evil", path: "../../outside", agents: ["claude-code"] },
+        ],
         mcpServers: [],
         agentRules: [],
       };
       await assert.rejects(
-        () => planDeploy(traversalManifest, sourceDir, ["claude-code"], "/home/test"),
+        () =>
+          planDeploy(
+            traversalManifest,
+            sourceDir,
+            ["claude-code"],
+            "/home/test",
+          ),
         (err: unknown) => {
           assert.ok(err instanceof UserError);
           assert.equal(err.code, "DEPLOY_FAILED");
           assert.match(err.message, /resolves outside the repository root/);
           return true;
-        }
+        },
       );
     } finally {
       rmSync(sourceDir, { recursive: true });
@@ -411,18 +548,24 @@ describe("planDeploy path traversal", () => {
       symlinkSync(outsideDir, symlinkPath, "dir");
 
       const escapeManifest: Manifest = {
-        skills: [{ name: "evil", path: "skills/escape", agents: ["claude-code"] }],
+        skills: [
+          { name: "evil", path: "skills/escape", agents: ["claude-code"] },
+        ],
         mcpServers: [],
         agentRules: [],
       };
       await assert.rejects(
-        () => planDeploy(escapeManifest, sourceDir, ["claude-code"], "/home/test"),
+        () =>
+          planDeploy(escapeManifest, sourceDir, ["claude-code"], "/home/test"),
         (err: unknown) => {
           assert.ok(err instanceof UserError);
           assert.equal(err.code, "DEPLOY_FAILED");
-          assert.match(err.message, /resolves outside the repository root via symlink/);
+          assert.match(
+            err.message,
+            /resolves outside the repository root via symlink/,
+          );
           return true;
-        }
+        },
       );
     } finally {
       rmSync(sourceDir, { recursive: true, force: true });

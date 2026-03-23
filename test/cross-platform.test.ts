@@ -25,7 +25,7 @@ describe("resolveAgentSkillPathFor — posix", () => {
     const agent = AGENT_REGISTRY.find((a) => a.id === "claude-code")!;
     assert.equal(
       resolveAgentSkillPathFor(agent, SKILL, HOME, p),
-      path.join(HOME, ".claude", "skills", SKILL)
+      path.join(HOME, ".claude", "skills", SKILL),
     );
   });
 
@@ -33,7 +33,7 @@ describe("resolveAgentSkillPathFor — posix", () => {
     const agent = AGENT_REGISTRY.find((a) => a.id === "codex")!;
     assert.equal(
       resolveAgentSkillPathFor(agent, SKILL, HOME, p),
-      path.join(HOME, ".codex", "skills", SKILL)
+      path.join(HOME, ".codex", "skills", SKILL),
     );
   });
 
@@ -41,7 +41,7 @@ describe("resolveAgentSkillPathFor — posix", () => {
     const agent = AGENT_REGISTRY.find((a) => a.id === "gemini-cli")!;
     assert.equal(
       resolveAgentSkillPathFor(agent, SKILL, HOME, p),
-      path.join(HOME, ".gemini", "skills", SKILL)
+      path.join(HOME, ".gemini", "skills", SKILL),
     );
   });
 
@@ -49,7 +49,7 @@ describe("resolveAgentSkillPathFor — posix", () => {
     const agent = AGENT_REGISTRY.find((a) => a.id === "antigravity")!;
     assert.equal(
       resolveAgentSkillPathFor(agent, SKILL, HOME, p),
-      path.join(HOME, ".gemini", "antigravity", "skills", SKILL)
+      path.join(HOME, ".gemini", "antigravity", "skills", SKILL),
     );
   });
 
@@ -57,7 +57,7 @@ describe("resolveAgentSkillPathFor — posix", () => {
     const agent = AGENT_REGISTRY.find((a) => a.id === "opencode")!;
     assert.equal(
       resolveAgentSkillPathFor(agent, SKILL, HOME, p),
-      path.join(HOME, ".config", "opencode", "skills", SKILL)
+      path.join(HOME, ".config", "opencode", "skills", SKILL),
     );
   });
 
@@ -65,7 +65,7 @@ describe("resolveAgentSkillPathFor — posix", () => {
     const agent = AGENT_REGISTRY.find((a) => a.id === "github-copilot")!;
     assert.equal(
       resolveAgentSkillPathFor(agent, SKILL, HOME, p),
-      path.join(HOME, ".copilot", "skills", SKILL)
+      path.join(HOME, ".copilot", "skills", SKILL),
     );
   });
 });
@@ -81,7 +81,7 @@ describe("resolveAgentSkillPathFor — windows", () => {
     const agent = AGENT_REGISTRY.find((a) => a.id === "claude-code")!;
     assert.equal(
       resolveAgentSkillPathFor(agent, SKILL, HOME, p),
-      path.join(HOME, ".claude", "skills", SKILL)
+      path.join(HOME, ".claude", "skills", SKILL),
     );
   });
 
@@ -93,7 +93,7 @@ describe("resolveAgentSkillPathFor — windows", () => {
       process.env["APPDATA"] = appdata;
       assert.equal(
         resolveAgentSkillPathFor(agent, SKILL, HOME, p),
-        path.join(appdata, "opencode", "skills", SKILL)
+        path.join(appdata, "opencode", "skills", SKILL),
       );
     } finally {
       if (saved === undefined) delete process.env["APPDATA"];
@@ -108,7 +108,7 @@ describe("resolveAgentSkillPathFor — windows", () => {
       delete process.env["APPDATA"];
       assert.equal(
         resolveAgentSkillPathFor(agent, SKILL, HOME, p),
-        path.join(HOME, "AppData", "Roaming", "opencode", "skills", SKILL)
+        path.join(HOME, "AppData", "Roaming", "opencode", "skills", SKILL),
       );
     } finally {
       if (saved === undefined) delete process.env["APPDATA"];
@@ -120,7 +120,7 @@ describe("resolveAgentSkillPathFor — windows", () => {
     const agent = AGENT_REGISTRY.find((a) => a.id === "antigravity")!;
     assert.equal(
       resolveAgentSkillPathFor(agent, SKILL, HOME, p),
-      path.join(HOME, ".gemini", "antigravity", "skills", SKILL)
+      path.join(HOME, ".gemini", "antigravity", "skills", SKILL),
     );
   });
 
@@ -128,7 +128,7 @@ describe("resolveAgentSkillPathFor — windows", () => {
     const agent = AGENT_REGISTRY.find((a) => a.id === "github-copilot")!;
     assert.equal(
       resolveAgentSkillPathFor(agent, SKILL, HOME, p),
-      path.join(HOME, ".copilot", "skills", SKILL)
+      path.join(HOME, ".copilot", "skills", SKILL),
     );
   });
 });
@@ -142,14 +142,17 @@ describe("resolveAgentDetectPathFor — posix", () => {
 
   it("claude-code", () => {
     const agent = AGENT_REGISTRY.find((a) => a.id === "claude-code")!;
-    assert.equal(resolveAgentDetectPathFor(agent, HOME, p), path.join(HOME, ".claude"));
+    assert.equal(
+      resolveAgentDetectPathFor(agent, HOME, p),
+      path.join(HOME, ".claude"),
+    );
   });
 
   it("opencode uses .config/opencode", () => {
     const agent = AGENT_REGISTRY.find((a) => a.id === "opencode")!;
     assert.equal(
       resolveAgentDetectPathFor(agent, HOME, p),
-      path.join(HOME, ".config", "opencode")
+      path.join(HOME, ".config", "opencode"),
     );
   });
 
@@ -157,7 +160,7 @@ describe("resolveAgentDetectPathFor — posix", () => {
     const agent = AGENT_REGISTRY.find((a) => a.id === "antigravity")!;
     assert.equal(
       resolveAgentDetectPathFor(agent, HOME, p),
-      path.join(HOME, ".gemini", "antigravity")
+      path.join(HOME, ".gemini", "antigravity"),
     );
   });
 });
@@ -177,7 +180,7 @@ describe("resolveAgentDetectPathFor — windows", () => {
       process.env["APPDATA"] = appdata;
       assert.equal(
         resolveAgentDetectPathFor(agent, HOME, p),
-        path.join(appdata, "opencode")
+        path.join(appdata, "opencode"),
       );
     } finally {
       if (saved === undefined) delete process.env["APPDATA"];
@@ -187,7 +190,10 @@ describe("resolveAgentDetectPathFor — windows", () => {
 
   it("claude-code uses home (same template as posix)", () => {
     const agent = AGENT_REGISTRY.find((a) => a.id === "claude-code")!;
-    assert.equal(resolveAgentDetectPathFor(agent, HOME, p), path.join(HOME, ".claude"));
+    assert.equal(
+      resolveAgentDetectPathFor(agent, HOME, p),
+      path.join(HOME, ".claude"),
+    );
   });
 });
 
@@ -200,34 +206,44 @@ describe("lookupHomeForUserWith — getent (linux)", () => {
   const noopRead = readFileSync; // won't be called in success cases
 
   it("returns home from valid getent output", () => {
-    const execFileFn = ((_cmd: string, _args: readonly string[], _opts: object) =>
-      "alice:x:1000:1000::/home/alice:/bin/bash\n") as typeof execFileSync;
+    const execFileFn = ((
+      _cmd: string,
+      _args: readonly string[],
+      _opts: object,
+    ) => "alice:x:1000:1000::/home/alice:/bin/bash\n") as typeof execFileSync;
     assert.equal(
       lookupHomeForUserWith("alice", platform, execFileFn, noopRead),
-      "/home/alice"
+      "/home/alice",
     );
   });
 
   it("falls through on getent failure and reads /etc/passwd", () => {
-    const execFileFn = ((_cmd: string, _args: readonly string[], _opts: object) => {
+    const execFileFn = ((
+      _cmd: string,
+      _args: readonly string[],
+      _opts: object,
+    ) => {
       throw new Error("getent: command not found");
     }) as unknown as typeof execFileSync;
     const readFileFn = ((_p: string, _enc: string) =>
       "root:x:0:0:root:/root:/bin/bash\nalice:x:1000:1000::/home/alice:/bin/bash\n") as typeof readFileSync;
     assert.equal(
       lookupHomeForUserWith("alice", platform, execFileFn, readFileFn),
-      "/home/alice"
+      "/home/alice",
     );
   });
 
   it("falls through when getent returns malformed output (no 6th field)", () => {
-    const execFileFn = ((_cmd: string, _args: readonly string[], _opts: object) =>
-      "badinput") as typeof execFileSync;
+    const execFileFn = ((
+      _cmd: string,
+      _args: readonly string[],
+      _opts: object,
+    ) => "badinput") as typeof execFileSync;
     const readFileFn = ((_p: string, _enc: string) =>
       "alice:x:1000:1000::/home/alice:/bin/bash\n") as typeof readFileSync;
     assert.equal(
       lookupHomeForUserWith("alice", platform, execFileFn, readFileFn),
-      "/home/alice"
+      "/home/alice",
     );
   });
 });
@@ -240,34 +256,44 @@ describe("lookupHomeForUserWith — dscl (darwin)", () => {
   const platform = "darwin" as NodeJS.Platform;
 
   it("returns home from valid dscl output", () => {
-    const execFileFn = ((_cmd: string, _args: readonly string[], _opts: object) =>
-      "NFSHomeDirectory: /Users/alice\n") as typeof execFileSync;
+    const execFileFn = ((
+      _cmd: string,
+      _args: readonly string[],
+      _opts: object,
+    ) => "NFSHomeDirectory: /Users/alice\n") as typeof execFileSync;
     assert.equal(
       lookupHomeForUserWith("alice", platform, execFileFn, readFileSync),
-      "/Users/alice"
+      "/Users/alice",
     );
   });
 
   it("falls through on dscl failure and reads /etc/passwd", () => {
-    const execFileFn = ((_cmd: string, _args: readonly string[], _opts: object) => {
+    const execFileFn = ((
+      _cmd: string,
+      _args: readonly string[],
+      _opts: object,
+    ) => {
       throw new Error("dscl: record not found");
     }) as unknown as typeof execFileSync;
     const readFileFn = ((_p: string, _enc: string) =>
       "alice:x:1000:1000::/Users/alice:/bin/zsh\n") as typeof readFileSync;
     assert.equal(
       lookupHomeForUserWith("alice", platform, execFileFn, readFileFn),
-      "/Users/alice"
+      "/Users/alice",
     );
   });
 
   it("falls through when dscl returns non-absolute home", () => {
-    const execFileFn = ((_cmd: string, _args: readonly string[], _opts: object) =>
-      "NFSHomeDirectory: \n") as typeof execFileSync;
+    const execFileFn = ((
+      _cmd: string,
+      _args: readonly string[],
+      _opts: object,
+    ) => "NFSHomeDirectory: \n") as typeof execFileSync;
     const readFileFn = ((_p: string, _enc: string) =>
       "alice:x:1000:1000::/Users/alice:/bin/zsh\n") as typeof readFileSync;
     assert.equal(
       lookupHomeForUserWith("alice", platform, execFileFn, readFileFn),
-      "/Users/alice"
+      "/Users/alice",
     );
   });
 });
@@ -278,7 +304,11 @@ describe("lookupHomeForUserWith — dscl (darwin)", () => {
 
 describe("lookupHomeForUserWith — /etc/passwd fallback", () => {
   const platform = "linux" as NodeJS.Platform;
-  const throwExec = ((_cmd: string, _args: readonly string[], _opts: object) => {
+  const throwExec = ((
+    _cmd: string,
+    _args: readonly string[],
+    _opts: object,
+  ) => {
     throw new Error("getent absent");
   }) as unknown as typeof execFileSync;
 
@@ -287,7 +317,7 @@ describe("lookupHomeForUserWith — /etc/passwd fallback", () => {
       "root:x:0:0:root:/root:/bin/bash\nalice:x:1000:1000::/home/alice:/bin/bash\nbob:x:1001:1001::/home/bob:/bin/bash\n") as typeof readFileSync;
     assert.equal(
       lookupHomeForUserWith("bob", platform, throwExec, readFileFn),
-      "/home/bob"
+      "/home/bob",
     );
   });
 
@@ -297,7 +327,7 @@ describe("lookupHomeForUserWith — /etc/passwd fallback", () => {
     // looking up "alice", should not return bob's home
     assert.equal(
       lookupHomeForUserWith("alice", platform, throwExec, readFileFn),
-      "/home/alice"
+      "/home/alice",
     );
   });
 
@@ -307,7 +337,8 @@ describe("lookupHomeForUserWith — /etc/passwd fallback", () => {
       "alice:x:1000:1000:::") as typeof readFileSync;
     assert.throws(
       () => lookupHomeForUserWith("alice", platform, throwExec, readFileFn),
-      (err: unknown) => err instanceof UserError && err.code === "RESOLVE_FAILED"
+      (err: unknown) =>
+        err instanceof UserError && err.code === "RESOLVE_FAILED",
     );
   });
 });
@@ -318,7 +349,11 @@ describe("lookupHomeForUserWith — /etc/passwd fallback", () => {
 
 describe("lookupHomeForUserWith — all methods fail", () => {
   it("throws UserError with code RESOLVE_FAILED", () => {
-    const throwExec = ((_cmd: string, _args: readonly string[], _opts: object) => {
+    const throwExec = ((
+      _cmd: string,
+      _args: readonly string[],
+      _opts: object,
+    ) => {
       throw new Error("no exec");
     }) as unknown as typeof execFileSync;
     const throwRead = ((_p: string, _enc: string) => {
@@ -331,7 +366,7 @@ describe("lookupHomeForUserWith — all methods fail", () => {
         assert.equal(err.code, "RESOLVE_FAILED");
         assert.match(err.message, /Cannot determine home directory/);
         return true;
-      }
+      },
     );
   });
 });

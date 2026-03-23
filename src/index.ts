@@ -36,7 +36,14 @@ function parseCLI(argv: string[]): CliOptions {
   const args = argv.slice(2);
 
   if (args.length === 0) {
-    return { command: "help", directory: "", dryRun: false, agents: null, verbose: false, debug: false };
+    return {
+      command: "help",
+      directory: "",
+      dryRun: false,
+      agents: null,
+      verbose: false,
+      debug: false,
+    };
   }
 
   let parsed: ReturnType<typeof parseArgs>;
@@ -46,10 +53,10 @@ function parseCLI(argv: string[]): CliOptions {
       allowPositionals: true,
       options: {
         "dry-run": { type: "boolean", default: false },
-        "verbose": { type: "boolean", default: false },
-        "debug": { type: "boolean", default: false },
-        "help": { type: "boolean", default: false },
-        "agents": { type: "string" },
+        verbose: { type: "boolean", default: false },
+        debug: { type: "boolean", default: false },
+        help: { type: "boolean", default: false },
+        agents: { type: "string" },
       },
     });
   } catch (err) {
@@ -59,7 +66,14 @@ function parseCLI(argv: string[]): CliOptions {
   const { values, positionals } = parsed;
 
   if (values.help) {
-    return { command: "help", directory: "", dryRun: false, agents: null, verbose: false, debug: false };
+    return {
+      command: "help",
+      directory: "",
+      dryRun: false,
+      agents: null,
+      verbose: false,
+      debug: false,
+    };
   }
 
   let command: "deploy" | "revert" = "deploy";
@@ -74,7 +88,10 @@ function parseCLI(argv: string[]): CliOptions {
   }
   const rawDir = pos[0];
   if (!rawDir) {
-    throw new UserError("INVALID_ARGS", "Missing required <directory> argument");
+    throw new UserError(
+      "INVALID_ARGS",
+      "Missing required <directory> argument",
+    );
   }
 
   let agents: AgentId[] | null = null;
@@ -82,7 +99,10 @@ function parseCLI(argv: string[]): CliOptions {
     const ids = values.agents.split(",").map((s) => s.trim());
     for (const id of ids) {
       if (!AGENT_IDS.includes(id as AgentId)) {
-        throw new UserError("INVALID_ARGS", `Unknown agent: "${id}". Valid agents: ${AGENT_IDS.join(", ")}`);
+        throw new UserError(
+          "INVALID_ARGS",
+          `Unknown agent: "${id}". Valid agents: ${AGENT_IDS.join(", ")}`,
+        );
       }
     }
     agents = ids as AgentId[];
@@ -120,7 +140,9 @@ async function main(): Promise<number> {
       detectedAgents = await detectInstalledAgents(home);
       if (detectedAgents.length === 0) {
         logger.info("No supported AI agents detected on this system.");
-        logger.info(`Install one of: ${AGENT_REGISTRY.map((a) => a.displayName).join(", ")}`);
+        logger.info(
+          `Install one of: ${AGENT_REGISTRY.map((a) => a.displayName).join(", ")}`,
+        );
         return 0;
       }
       if (options.verbose) {
@@ -128,21 +150,34 @@ async function main(): Promise<number> {
       }
     }
 
-    const actions = await planDeploy(manifest, options.directory, detectedAgents, home);
+    const actions = await planDeploy(
+      manifest,
+      options.directory,
+      detectedAgents,
+      home,
+    );
     if (actions.length === 0) {
       logger.info("No skills to deploy for detected agents.");
       return 0;
     }
 
-    logger.info(`${dryRunPrefix(options.dryRun)}Deploying ${actions.length} skill(s):`);
-    const { succeeded, failed } = await executeDeploy(actions, options.dryRun, options.verbose);
+    logger.info(
+      `${dryRunPrefix(options.dryRun)}Deploying ${actions.length} skill(s):`,
+    );
+    const { succeeded, failed } = await executeDeploy(
+      actions,
+      options.dryRun,
+      options.verbose,
+    );
 
     logger.info("");
     if (failed.length > 0) {
       logger.info(`${succeeded} succeeded, ${failed.length} failed`);
       return 1;
     } else {
-      logger.info(`${succeeded} skill(s) deployed${options.dryRun ? " (dry-run)" : ""}`);
+      logger.info(
+        `${succeeded} skill(s) deployed${options.dryRun ? " (dry-run)" : ""}`,
+      );
     }
   } else {
     const actions = options.agents
@@ -153,8 +188,14 @@ async function main(): Promise<number> {
       return 0;
     }
 
-    logger.info(`${dryRunPrefix(options.dryRun)}Reverting ${actions.length} skill(s):`);
-    const { succeeded, skipped } = await executeRevert(actions, options.dryRun, options.verbose);
+    logger.info(
+      `${dryRunPrefix(options.dryRun)}Reverting ${actions.length} skill(s):`,
+    );
+    const { succeeded, skipped } = await executeRevert(
+      actions,
+      options.dryRun,
+      options.verbose,
+    );
 
     logger.info("");
     const parts = [`${succeeded} removed`];
