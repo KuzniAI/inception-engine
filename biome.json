@@ -24,7 +24,48 @@
   "linter": {
     "enabled": true,
     "rules": {
-      "recommended": true
+      "recommended": true,
+      "complexity": {
+        "noExcessiveCognitiveComplexity": "warn",
+        "noVoid": "error",
+        "useSimplifiedLogicExpression": "warn"
+      },
+      "correctness": {
+        "noUnusedImports": "error",
+        "noUnusedVariables": "error",
+        "noUnusedFunctionParameters": "warn",
+        "noUndeclaredDependencies": "error"
+      },
+      "performance": {
+        "noAccumulatingSpread": "warn",
+        "noBarrelFile": "error",
+        "noReExportAll": "error"
+      },
+      "style": {
+        "noDefaultExport": "off",
+        "noEnum": "error",
+        "noNamespace": "error",
+        "noNegationElse": "warn",
+        "noParameterAssign": "error",
+        "useCollapsedElseIf": "warn",
+        "useCollapsedIf": "warn",
+        "useConsistentBuiltinInstantiation": "error",
+        "useConst": "error",
+        "useDefaultParameterLast": "warn",
+        "useExplicitLengthCheck": "warn",
+        "useForOf": "warn",
+        "useNodejsImportProtocol": "error",
+        "useThrowNewError": "error",
+        "useThrowOnlyError": "error"
+      },
+      "suspicious": {
+        "noConsole": "off",
+        "noEmptyBlockStatements": "error",
+        "noEvolvingTypes": "error",
+        "noExplicitAny": "warn",
+        "noImplicitAnyLet": "error",
+        "noImportCycles": "error"
+      }
     }
   }
 }

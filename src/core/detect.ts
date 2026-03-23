@@ -27,7 +27,9 @@ async function isAgentInstalled(
   try {
     await access(detectPath);
     return true;
-  } catch {}
+  } catch {
+    // path does not exist — fall through to binary detection
+  }
 
   if (agent.detectBinary) {
     return isBinaryInPath(agent.detectBinary);
