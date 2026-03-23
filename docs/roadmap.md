@@ -1,85 +1,73 @@
 # Inception Engine: Roadmap
 
-This document tracks the gap between the current implementation and the strategic vision defined in `docs/north-star.md`.
+This roadmap is ordered against the strategic direction in `docs/north-star.md`, but it prioritizes the refactors and quality work that remove current safety, portability, and enterprise-readiness blockers first.
 
-The current codebase is a cross-platform skill deployer with detection, path resolution, and revert support. It is not yet a full customization engine for persistent instruction files, MCP manifests, subagents, or execution hooks.
+It intentionally focuses on code quality, known issues, OS and agent portability, and compliance-oriented behavior rather than feature-count gaps.
 
-## Features
+## Suggested Implementation Order
 
-### Customization Vectors
-- **Global System Instructions**:
-  - Implement synchronization for `CLAUDE.md`, `AGENTS.md`, `GEMINI.md`, and supported GitHub Copilot instruction surfaces across detected agent home directories.
-  - Add file-level ownership proofs so single-file customizations can be reverted safely.
-  - Implement Gemini CLI / Antigravity collision mitigation for the shared `~/.gemini/GEMINI.md` path.
-- **Model Context Protocol (MCP)**:
-  - Parse and validate `mcpServers` from `inception.json` instead of treating them as opaque arrays.
-  - Implement standard-to-OpenCode transformation for `opencode.json`, including `type: "local"`, merged `command`/`args`, `environment`, and `{env:VAR}` rewriting.
-  - Add Codex MCP integration based on currently documented config surfaces instead of assuming older or undocumented asset formats.
-  - Detect and warn when GitHub Copilot enterprise policy overrides will block local MCP configuration.
-- **Subagent Topologies**:
-  - Support agent and subagent assets only where the vendor's file format and install surface are currently documented strongly enough to implement safely.
-  - Design adapter-based translation only after each target agent schema is validated; avoid assuming a universal cross-agent subagent format.
-  - Extend the agent registry and deployment planner to target subagent install locations in addition to skill directories.
-- **Execution Hooks**:
-  - Deploy GitHub Copilot lifecycle hooks via its JSON schema.
-  - Emulate hooks in OpenCode by patching `opencode.json` with `permission: { "bash": "ask" }` and related safe-by-default behavior.
-  - Introduce file/config patching primitives so hooks and MCP changes are not limited to directory copies or symlinks.
+1. **Replace the current ownership model before expanding deploy surfaces**
+   - Move ownership and provenance out of the source skill directory. On POSIX, `writeTotem` currently writes `.inception-totem` into the source tree during symlink deploy, which dirties the repo, requires write access to the checkout, and leaves artifacts behind after revert (`src/core/ownership.ts`, `src/core/deploy.ts`, `src/core/revert.ts`).
+   - Strengthen ownership validation so deploy and revert do not trust any file that merely starts with `inception-engine`; the proof must bind to the expected source, skill, agent, and asset type.
+   - Make the new ownership scheme work for symlinks, copied directories, single files, and future config patches without depending on repo mutation.
 
-### UX Improvements
-- **Dry-run Enhancements**:
-  - Show exact file/config transformations for JSON, TOML, and Markdown outputs instead of only path-level action summaries.
-  - Surface overwrite, replace, merge, and delete decisions before execution.
-- **Agent-Specific Filters**:
-  - Show which manifest entries apply to which agents before deployment.
-  - Distinguish detected agents, requested agents, unsupported vectors, and skipped work items.
-- **Token Linter**:
-  - Warn when global plus workspace instructions exceed configurable heuristic thresholds instead of treating any fixed token number as a stable vendor limit.
-  - Call out agent-specific constraints only where the current documentation or direct product behavior supports them.
-- **Permission Manifest**:
-  - Print a clear summary of every file and config location that will be created, patched, replaced, or removed, especially when operating outside skill directories.
+2. **Break the directory-only deploy and revert assumptions**
+   - Refactor `DeployAction`, `RevertAction`, and the planner/executor split so the engine can represent directory copy or symlink, file write, and structured config patch as distinct action types (`src/types.ts`, `src/core/deploy.ts`, `src/core/revert.ts`).
+   - Keep dry-run and revert logic action-aware so later work does not get bolted onto the current skill-directory path model.
 
-## Issues
+3. **Make manifest parsing strict and lossless**
+   - Replace `unknown[]` parsing with schema-backed validation for every top-level section. `mcpServers` and `agentRules` currently accept any array and silently fall back to `[]` when the type is wrong (`src/config/manifest.ts`, `src/types.ts`).
+   - Reject duplicate `skill.name` values and deduplicate per-skill agent IDs before planning to prevent target collisions and repeated writes.
+   - Validate that each skill source is a readable directory containing `SKILL.md` during planning, not only an existing path during execution.
 
-### Divergences from North Star
-- **Manifest Stagnation**: `inception.json` currently accepts `mcpServers` and `agentRules`, but the deployment engine ignores them entirely.
-- **Instruction-File Gap**: The engine does not yet install or update persistent instruction files such as `CLAUDE.md`, `AGENTS.md`, `GEMINI.md`, or supported Copilot instruction files.
-- **Subagent Gap**: The engine does not yet model or deploy any agent or subagent assets despite them being a north-star vector where vendor support is sufficiently documented.
-- **Execution-Hook Gap**: The engine does not yet patch `opencode.json` or deploy Copilot lifecycle hooks.
-- **Gemini/Antigravity Collision**: The codebase does not yet implement mitigation for the shared `~/.gemini/GEMINI.md` path.
-- **OpenCode Windows Paths**: `%APPDATA%\opencode\...` support exists for skills, but the same path logic must extend to instructions, hooks, MCP, and subagents.
-- **Skill-Only Scope**: The current engine is still a skill-directory installer and lacks the file-level manipulation required for persistent instructions and config patching.
+4. **Centralize portability rules before adding more agent surfaces**
+   - Replace ad hoc placeholder substitution with a platform and config-root resolver that supports `XDG_CONFIG_HOME`, Windows `%APPDATA%`, and agent-specific overrides (`src/core/resolve.ts`, `src/config/agents.ts`).
+   - Add provenance metadata to `AGENT_REGISTRY` so each path and binary assumption is tracked as documented, implementation-only, or provisional, matching the confidence model in `docs/north-star.md`.
+   - Review permission-setting behavior for cross-platform and enterprise environments; `chmod(0o644)` is POSIX-centric and is not a meaningful policy model on Windows.
 
-### Security Posture
-- **OpenCode Autonomy Risk**: OpenCode remains effectively fast-by-default until `permission: "ask"` behavior is injected into `opencode.json`.
-- **SUDO_USER Validation**: `SUDO_USER` lookup exists, but inherited or externally injected environment values can still steer deployment into the wrong user's home directory unless provenance is checked more strictly.
-- **Symlink TOCTOU/Injection Risk**: Deploy and revert still rely on pre-checks that can be invalidated between `lstat`, `readlink`, `rm`, `unlink`, and create operations.
-- **Insecure File Permissions**: The engine does not explicitly set or verify permissions on deployed files and config artifacts.
+5. **Make automation and enterprise failures explicit**
+   - Change revert and deploy result handling so any failed destructive step is surfaced as a failure count and a non-zero exit code (`src/core/revert.ts`, `src/index.ts`).
+   - Differentiate permission, policy, and missing-file errors. `loadManifest` and deploy source checks currently collapse several I/O failures into “not found” style messages, which is not sufficient for locked-down environments.
+   - Add an enterprise or policy preflight layer before touching agent-managed config so later work has a place to warn about local-config overrides and policy blocks.
 
-### Interoperability
-- **Variable Syntax Mapping**: The engine must translate `${VAR}` to `{env:VAR}` where required so MCP definitions behave consistently across agents.
-- **Cross-Platform Ownership Proofs**: ~~`.inception-totem` works only for copied directories;~~ file-level and patched-config ownership tracking is still missing.
-- **Enterprise Registry Blocking**: GitHub Copilot may ignore local MCP configuration when org policies are active; the tool should detect and warn about that state.
-- **XDG Base Directory Support**: On Linux/POSIX, config paths should respect `XDG_CONFIG_HOME` and related XDG variables instead of always defaulting to `{home}/.config`.
-- **Shell-Specific Escaping**: `isBinaryViaCommandV` relies on a POSIX shell fallback that should be verified across minimal and unusual environments.
-- **External Surface Drift**: Some agent configuration surfaces change quickly; roadmap work should be gated on current vendor documentation rather than historical assumptions.
+6. **Close the validation gaps with platform-realistic tests**
+   - Add CLI end-to-end tests that exercise `src/index.ts` result codes and user-visible reporting.
+   - Add Windows-realistic coverage for copy deploy or revert, ownership handling, and `%APPDATA%` path behavior.
+   - Add detection-path tests for `where.exe`, missing `which`, and `/bin/sh` fallback, plus ownership tests that verify source trees remain unmodified after deploy and revert.
 
-### Performance
-- **Synchronous I/O in Resolver**: `resolve.ts` uses synchronous `execFileSync` and `readFileSync` for home directory lookup.
-- **Sequential Execution**: `executeDeploy` and `executeRevert` process actions sequentially and should eventually batch independent filesystem work.
-- **Redundant I/O Calls**: Deploy and revert perform repeated `access`, `lstat`, and path checks that could be consolidated.
+## Roadmap Items
 
-### Coding Practices and Dependencies
-- **Implicit Casting in Manifest**: `loadManifest` still relies on loose casting for manifest parsing instead of schema-backed validation.
-- **Manifest Uniqueness Rules**: `skill.name` values are not enforced as unique, and duplicate agent IDs are not deduplicated, which can create target-path collisions and duplicate actions.
-- **Skill Source Contract Validation**: Deploy verifies only that the source exists; it does not verify that the source is a directory with a valid `SKILL.md`.
-- **Naming Rule Drift**: README guidance and runtime validation disagree on allowed `skill.name` formats, which should be reconciled and made portable.
-- **Test Asset Management**: Tests manually create and delete temporary directories instead of using a more robust fixture lifecycle.
+### Ownership and Reversibility
 
-### CLI Reliability
-- **Revert Exit Codes**: `revert` can log failures and still exit successfully, which makes automation unreliable.
-- **Error Specificity**: Manifest read failures and source access failures are currently collapsed into generic messages, which obscures permission and I/O problems.
+- **Source-Tree Mutation on POSIX**: `writeTotem` writes `.inception-totem` into the source skill directory during symlink deploy. That dirties the source repo, requires write access to the source checkout, and leaves ownership artifacts behind after revert (`src/core/ownership.ts`, `src/core/deploy.ts`, `src/core/revert.ts`).
+- **Weak Ownership Proof**: `isOwnedByInceptionEngine` treats any `.inception-totem` starting with `inception-engine` as sufficient. It does not verify that the stored `source`, `skill`, or `agent` matches the action being executed (`src/core/ownership.ts`).
+- **Directory-Only Ownership Semantics**: The current totem model assumes every managed asset is a directory or a symlinked directory. That is not a safe base for file-level instructions or config patching (`src/types.ts`, `src/core/ownership.ts`, `src/core/deploy.ts`, `src/core/revert.ts`).
+- **TOCTOU Race Window**: Backup, ownership check, removal, and recreate are split across multiple `lstat`, `readlink`, `rename`, `rm`, and `unlink` steps, so path state can change between validation and mutation (`src/core/deploy.ts`, `src/core/revert.ts`).
 
-### Testing
-- **CLI Coverage Gap**: The main CLI flow is not covered by end-to-end tests.
-- **Binary Detection Coverage Gap**: Detection fallback behavior for `which`, `where.exe`, and `command -v` is only lightly exercised.
-- **Windows Deployment Coverage Gap**: Real copy-based deploy/revert behavior and `.inception-totem` ownership handling are not meaningfully tested on Windows.
+### Manifest and Planning Quality
+
+- **Lossy Manifest Parsing**: `mcpServers` and `agentRules` are stored as `unknown[]`; wrong types are silently converted to empty arrays, and entry shape is never validated (`src/config/manifest.ts`, `src/types.ts`).
+- **Target Collision Risk**: `skill.name` is not enforced as unique and duplicate agent IDs are not deduplicated, so one manifest can plan repeated writes to the same target path (`src/config/manifest.ts`, `src/core/deploy.ts`, `src/core/revert.ts`).
+- **Late Skill Contract Failure**: The planner validates repository escape, but deploy only checks `access()` on the source path. It does not require a readable directory with `SKILL.md`, so malformed skill entries fail late and with generic messaging (`src/core/deploy.ts`).
+- **Error Specificity Gap**: Manifest read failures and source-access failures are collapsed into generic “no file” or “source not found” errors even when the real cause is permissions or I/O policy (`src/config/manifest.ts`, `src/core/deploy.ts`).
+
+### Portability and Agent-Surface Hygiene
+
+- **POSIX Config Root Hardcoding**: POSIX agent paths use hardcoded `{home}/.config` conventions instead of honoring XDG variables. That will break user-managed config roots and some containerized setups (`src/config/agents.ts`, `src/core/resolve.ts`).
+- **Registry Confidence Not Captured in Code**: `AGENT_REGISTRY` contains agent paths and binary names, but it does not record whether each surface is doc-backed, implementation-only, or provisional. That makes the code drift away from the confidence model in `docs/north-star.md` (`src/config/agents.ts`).
+- **Environment Provenance Risk**: `resolveHome` trusts `SUDO_USER` whenever it is present, even though externally injected environment state can redirect deployment in automation (`src/core/resolve.ts`).
+- **Windows and Enterprise Permission Model Gap**: The code assumes a Unix-style `chmod` step and a filesystem-control model that does not map cleanly to Windows ACLs or enterprise-managed agent directories (`src/core/ownership.ts`, `src/core/deploy.ts`).
+- **Packaging Portability**: `package.json` requires Node `>=23.6.0`, which is higher than many enterprise LTS baselines. Reassess the true runtime minimum or document the dependency clearly before broader rollout.
+
+### Automation and Enterprise Readiness
+
+- **Revert Exit-Code Reliability**: `executeRevert` converts destructive failures into “skip” outcomes, and `runRevert` still exits `0`. That makes CI and fleet automation unable to distinguish success from partial failure (`src/core/revert.ts`, `src/index.ts`).
+- **No Enterprise Preflight Abstraction**: The current CLI has nowhere to surface policy or local-config authority checks before future config or file patch work. Add a preflight or reporting layer before broadening beyond skill directories (`src/index.ts`, future planner and report modules).
+- **Dry-Run Precision Gap**: Current dry-run output is path and action oriented only. Before config or file mutations are added, the reporting model needs a structured way to show exact planned changes instead of directory-level summaries (`src/core/deploy.ts`, `src/logger.ts`).
+
+### Testing and Validation
+
+- **CLI End-to-End Coverage Gap**: The main command path in `src/index.ts` is not exercised by integration tests, so exit codes and user-facing summaries can drift.
+- **Binary Detection Coverage Gap**: Tests do not meaningfully exercise `where.exe`, missing `which`, or the `/bin/sh` `command -v` fallback (`src/core/detect.ts`, `test/detect.test.ts`).
+- **Windows Deployment Coverage Gap**: The copy-based deploy or revert path and Windows ownership behavior are not covered by realistic Windows tests (`src/core/deploy.ts`, `src/core/revert.ts`, `test/deploy.test.ts`, `test/revert.test.ts`).
+- **Source-Immutability Coverage Gap**: There is no regression test that fails if deploy or revert mutates the checked-out source tree on POSIX. The ownership refactor should add one.
