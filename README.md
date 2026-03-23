@@ -2,6 +2,8 @@
 
 Plant skills directly into the minds of your installed AI coding agents — Claude Code, Codex, Gemini CLI, Antigravity, OpenCode, and GitHub Copilot. One command. They'll think they thought of it themselves.
 
+Today, inception-engine is a skills deployer. It does not yet manage persistent instruction files, MCP configuration, subagents, or agent-specific config patching.
+
 ## Quick Start
 
 ```bash
@@ -26,9 +28,11 @@ Managed skills overwrite their previous version. If a target exists but was not 
 | Claude Code | `claude-code` | `~/.claude/skills/` | Yes | Yes | Yes |
 | OpenAI Codex | `codex` | `~/.codex/skills/` | Yes | Yes | Yes |
 | Gemini CLI | `gemini-cli` | `~/.gemini/skills/` | Yes | Yes | Yes |
-| Antigravity | `antigravity` | `~/.gemini/antigravity/skills/` | Yes | Yes | Yes |
+| Antigravity | `antigravity` | `~/.gemini/antigravity/skills/` | Yes* | Yes* | Yes* |
 | OpenCode | `opencode` | `~/.config/opencode/skills/` | Yes | Yes | Yes* |
 | GitHub Copilot | `github-copilot` | `~/.copilot/skills/` | Yes | Yes | Yes |
+
+\* Antigravity support is currently based on the implementation's registry path assumptions and local validation, not a strong official doc set equivalent to the other agents.
 
 \* OpenCode on Windows uses `%APPDATA%\opencode\skills\`.
 
@@ -37,8 +41,8 @@ Managed skills overwrite their previous version. If a target exists but was not 
 | Feature | Status |
 |---|---|
 | Skills (SKILL.md) | Supported |
-| MCP Servers | Planned |
-| Agent Rules | Planned |
+| MCP Servers | Accepted in manifest, not implemented |
+| Agent Rules | Accepted in manifest, not implemented |
 
 ## Manifest Format
 
@@ -60,9 +64,11 @@ Create an `inception.json` file at the root of your skills directory:
 
 Each skill entry has:
 
-- **name** - Unique skill identifier (lowercase, hyphens allowed)
+- **name** - Unique skill identifier using letters, digits, dots, underscores, or hyphens; it must not start with a dot
 - **path** - Relative path to the skill directory within the repo
 - **agents** - Array of agent IDs to deploy this skill to. If an agent isn't installed, it's skipped.
+
+`mcpServers` and `agentRules` are currently parsed for forward compatibility, but the deployment engine ignores them today.
 
 ## Creating Skills
 

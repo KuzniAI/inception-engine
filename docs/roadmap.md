@@ -8,17 +8,17 @@ The current codebase is a cross-platform skill deployer with detection, path res
 
 ### Customization Vectors
 - **Global System Instructions**:
-  - Implement synchronization for `CLAUDE.md`, `AGENTS.md`, `GEMINI.md`, and GitHub Copilot instruction files across detected agent home directories.
+  - Implement synchronization for `CLAUDE.md`, `AGENTS.md`, `GEMINI.md`, and supported GitHub Copilot instruction surfaces across detected agent home directories.
   - Add file-level ownership proofs so single-file customizations can be reverted safely.
   - Implement Gemini CLI / Antigravity collision mitigation for the shared `~/.gemini/GEMINI.md` path.
 - **Model Context Protocol (MCP)**:
   - Parse and validate `mcpServers` from `inception.json` instead of treating them as opaque arrays.
   - Implement standard-to-OpenCode transformation for `opencode.json`, including `type: "local"`, merged `command`/`args`, `environment`, and `{env:VAR}` rewriting.
-  - Generate Codex `openai.yaml` assets just in time for skill and subagent dependencies.
+  - Add Codex MCP integration based on currently documented config surfaces instead of assuming older or undocumented asset formats.
   - Detect and warn when GitHub Copilot enterprise policy overrides will block local MCP configuration.
 - **Subagent Topologies**:
-  - Support Codex TOML subagents and Markdown + YAML subagents for Claude/OpenCode.
-  - Add transpilation from Codex TOML into Claude/OpenCode-compatible Markdown formats.
+  - Support agent and subagent assets only where the vendor's file format and install surface are currently documented strongly enough to implement safely.
+  - Design adapter-based translation only after each target agent schema is validated; avoid assuming a universal cross-agent subagent format.
   - Extend the agent registry and deployment planner to target subagent install locations in addition to skill directories.
 - **Execution Hooks**:
   - Deploy GitHub Copilot lifecycle hooks via its JSON schema.
@@ -33,8 +33,8 @@ The current codebase is a cross-platform skill deployer with detection, path res
   - Show which manifest entries apply to which agents before deployment.
   - Distinguish detected agents, requested agents, unsupported vectors, and skipped work items.
 - **Token Linter**:
-  - Warn when global plus workspace instructions exceed the north-star safety threshold of roughly 4,000 tokens or 65KB.
-  - Call out agent-specific constraints such as Claude's reduced instruction headroom.
+  - Warn when global plus workspace instructions exceed configurable heuristic thresholds instead of treating any fixed token number as a stable vendor limit.
+  - Call out agent-specific constraints only where the current documentation or direct product behavior supports them.
 - **Permission Manifest**:
   - Print a clear summary of every file and config location that will be created, patched, replaced, or removed, especially when operating outside skill directories.
 
@@ -42,8 +42,8 @@ The current codebase is a cross-platform skill deployer with detection, path res
 
 ### Divergences from North Star
 - **Manifest Stagnation**: `inception.json` currently accepts `mcpServers` and `agentRules`, but the deployment engine ignores them entirely.
-- **Instruction-File Gap**: The engine does not yet install or update persistent instruction files such as `CLAUDE.md`, `AGENTS.md`, `GEMINI.md`, or Copilot org instructions.
-- **Subagent Gap**: The engine does not yet model or deploy any subagent assets despite subagents being a core north-star vector.
+- **Instruction-File Gap**: The engine does not yet install or update persistent instruction files such as `CLAUDE.md`, `AGENTS.md`, `GEMINI.md`, or supported Copilot instruction files.
+- **Subagent Gap**: The engine does not yet model or deploy any agent or subagent assets despite them being a north-star vector where vendor support is sufficiently documented.
 - **Execution-Hook Gap**: The engine does not yet patch `opencode.json` or deploy Copilot lifecycle hooks.
 - **Gemini/Antigravity Collision**: The codebase does not yet implement mitigation for the shared `~/.gemini/GEMINI.md` path.
 - **OpenCode Windows Paths**: `%APPDATA%\opencode\...` support exists for skills, but the same path logic must extend to instructions, hooks, MCP, and subagents.
@@ -61,6 +61,7 @@ The current codebase is a cross-platform skill deployer with detection, path res
 - **Enterprise Registry Blocking**: GitHub Copilot may ignore local MCP configuration when org policies are active; the tool should detect and warn about that state.
 - **XDG Base Directory Support**: On Linux/POSIX, config paths should respect `XDG_CONFIG_HOME` and related XDG variables instead of always defaulting to `{home}/.config`.
 - **Shell-Specific Escaping**: `isBinaryViaCommandV` relies on a POSIX shell fallback that should be verified across minimal and unusual environments.
+- **External Surface Drift**: Some agent configuration surfaces change quickly; roadmap work should be gated on current vendor documentation rather than historical assumptions.
 
 ### Performance
 - **Synchronous I/O in Resolver**: `resolve.ts` uses synchronous `execFileSync` and `readFileSync` for home directory lookup.
