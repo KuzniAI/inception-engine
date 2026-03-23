@@ -1,0 +1,5 @@
+Review @tsconfig.json and @biome.json Do you think I'm using modern and strict enough settings? Research TS 6.0 and how it changes defaults.
+
+---
+
+VS Code can't work with  target: ES2025. Revert it maybe?
