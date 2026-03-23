@@ -1,0 +1,1 @@
+I have updated typescript to 6.0 and I can't even pass typecheck.
