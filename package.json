@@ -34,14 +34,13 @@
     "node": ">=23.6.0"
   },
   "scripts": {
+    "typecheck": "tsc --noEmit",
     "build": "tsc",
     "format": "biome format --write .",
     "lint": "biome lint . --max-diagnostics none",
-    "check": "biome lint . --max-diagnostics none",
-    "typecheck": "tsc --noEmit",
     "dev": "node src/index.ts",
     "test": "node --test test/*.test.ts",
-    "prepublishOnly": "npm run build"
+    "prepublishOnly": "npm run typecheck && npm run build"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.4.8",
