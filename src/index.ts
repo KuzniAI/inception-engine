@@ -11,7 +11,7 @@ import { executeRevert, planRevert, planRevertAll } from "./core/revert.ts";
 import type { ErrorCode } from "./errors.ts";
 import { UserError } from "./errors.ts";
 import { dryRunPrefix, logger } from "./logger.ts";
-import type { AgentId, CliOptions } from "./types.ts";
+import type { AgentId, CliOptions, Manifest } from "./types.ts";
 import { AGENT_IDS } from "./types.ts";
 
 const USAGE = `
@@ -130,79 +130,93 @@ async function main(): Promise<number> {
   const home = resolveHome();
 
   if (options.command === "deploy") {
-    let detectedAgents: AgentId[];
-    if (options.agents) {
-      detectedAgents = options.agents;
-      if (options.verbose) {
-        logger.info(`Using specified agents: ${detectedAgents.join(", ")}`);
-      }
-    } else {
-      detectedAgents = await detectInstalledAgents(home);
-      if (detectedAgents.length === 0) {
-        logger.info("No supported AI agents detected on this system.");
-        logger.info(
-          `Install one of: ${AGENT_REGISTRY.map((a) => a.displayName).join(", ")}`,
-        );
-        return 0;
-      }
-      if (options.verbose) {
-        logger.info(`Detected agents: ${detectedAgents.join(", ")}`);
-      }
-    }
+    return runDeploy(options, manifest, home);
+  }
+  return runRevert(options, manifest, home);
+}
 
-    const actions = await planDeploy(
-      manifest,
-      options.directory,
-      detectedAgents,
-      home,
-    );
-    if (actions.length === 0) {
-      logger.info("No skills to deploy for detected agents.");
-      return 0;
-    }
-
-    logger.info(
-      `${dryRunPrefix(options.dryRun)}Deploying ${actions.length} skill(s):`,
-    );
-    const { succeeded, failed } = await executeDeploy(
-      actions,
-      options.dryRun,
-      options.verbose,
-    );
-
-    logger.info("");
-    if (failed.length > 0) {
-      logger.info(`${succeeded} succeeded, ${failed.length} failed`);
-      return 1;
-    } else {
-      logger.info(
-        `${succeeded} skill(s) deployed${options.dryRun ? " (dry-run)" : ""}`,
-      );
+async function runDeploy(
+  options: CliOptions,
+  manifest: Manifest,
+  home: string,
+): Promise<number> {
+  let detectedAgents: AgentId[];
+  if (options.agents) {
+    detectedAgents = options.agents;
+    if (options.verbose) {
+      logger.info(`Using specified agents: ${detectedAgents.join(", ")}`);
     }
   } else {
-    const actions = options.agents
-      ? planRevert(manifest, options.agents, home)
-      : planRevertAll(manifest, home);
-    if (actions.length === 0) {
-      logger.info("No skills to revert.");
+    detectedAgents = await detectInstalledAgents(home);
+    if (detectedAgents.length === 0) {
+      logger.info("No supported AI agents detected on this system.");
+      logger.info(
+        `Install one of: ${AGENT_REGISTRY.map((a) => a.displayName).join(", ")}`,
+      );
       return 0;
     }
-
-    logger.info(
-      `${dryRunPrefix(options.dryRun)}Reverting ${actions.length} skill(s):`,
-    );
-    const { succeeded, skipped } = await executeRevert(
-      actions,
-      options.dryRun,
-      options.verbose,
-    );
-
-    logger.info("");
-    const parts = [`${succeeded} removed`];
-    if (skipped > 0) parts.push(`${skipped} skipped`);
-    logger.info(`${parts.join(", ")}${options.dryRun ? " (dry-run)" : ""}`);
+    if (options.verbose) {
+      logger.info(`Detected agents: ${detectedAgents.join(", ")}`);
+    }
   }
 
+  const actions = await planDeploy(
+    manifest,
+    options.directory,
+    detectedAgents,
+    home,
+  );
+  if (actions.length === 0) {
+    logger.info("No skills to deploy for detected agents.");
+    return 0;
+  }
+
+  logger.info(
+    `${dryRunPrefix(options.dryRun)}Deploying ${actions.length} skill(s):`,
+  );
+  const { succeeded, failed } = await executeDeploy(
+    actions,
+    options.dryRun,
+    options.verbose,
+  );
+
+  logger.info("");
+  if (failed.length > 0) {
+    logger.info(`${succeeded} succeeded, ${failed.length} failed`);
+    return 1;
+  }
+  logger.info(
+    `${succeeded} skill(s) deployed${options.dryRun ? " (dry-run)" : ""}`,
+  );
+  return 0;
+}
+
+async function runRevert(
+  options: CliOptions,
+  manifest: Manifest,
+  home: string,
+): Promise<number> {
+  const actions = options.agents
+    ? planRevert(manifest, options.agents, home)
+    : planRevertAll(manifest, home);
+  if (actions.length === 0) {
+    logger.info("No skills to revert.");
+    return 0;
+  }
+
+  logger.info(
+    `${dryRunPrefix(options.dryRun)}Reverting ${actions.length} skill(s):`,
+  );
+  const { succeeded, skipped } = await executeRevert(
+    actions,
+    options.dryRun,
+    options.verbose,
+  );
+
+  logger.info("");
+  const parts = [`${succeeded} removed`];
+  if (skipped > 0) parts.push(`${skipped} skipped`);
+  logger.info(`${parts.join(", ")}${options.dryRun ? " (dry-run)" : ""}`);
   return 0;
 }
 

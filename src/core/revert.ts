@@ -55,51 +55,62 @@ export async function executeRevert(
   let skipped = 0;
 
   for (const action of actions) {
-    const label = `${action.skill} -> ${action.agent}`;
-
-    let stat: Awaited<ReturnType<typeof lstat>>;
-    try {
-      stat = await lstat(action.target);
-    } catch {
-      logger.skip(label, "(not found, skipping)");
+    const result = await executeRevertAction(action, dryRun, verbose);
+    if (result === "skip") {
       skipped++;
-      continue;
-    }
-
-    if (!(await isOwnedByInceptionEngine(action.target, stat))) {
-      logger.warn(
-        label,
-        `skipping: ${action.target} does not have inception-engine ownership proof — not managed by inception-engine`,
-      );
-      skipped++;
-      continue;
-    }
-
-    if (dryRun) {
-      logger.plan(label);
-      if (verbose) {
-        logger.detail(`would remove: ${action.target}`);
-      }
+    } else {
       succeeded++;
-      continue;
-    }
-
-    try {
-      if (stat.isSymbolicLink()) {
-        await unlink(action.target);
-      } else {
-        await rm(action.target, { recursive: true });
-      }
-      logger.ok(label);
-      if (verbose) {
-        logger.detail(`removed: ${action.target}`);
-      }
-      succeeded++;
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
-      logger.fail(label, msg);
     }
   }
 
   return { succeeded, skipped };
+}
+
+async function executeRevertAction(
+  action: RevertAction,
+  dryRun: boolean,
+  verbose: boolean,
+): Promise<"ok" | "skip"> {
+  const label = `${action.skill} -> ${action.agent}`;
+
+  let stat: Awaited<ReturnType<typeof lstat>>;
+  try {
+    stat = await lstat(action.target);
+  } catch {
+    logger.skip(label, "(not found, skipping)");
+    return "skip";
+  }
+
+  if (!(await isOwnedByInceptionEngine(action.target, stat))) {
+    logger.warn(
+      label,
+      `skipping: ${action.target} does not have inception-engine ownership proof — not managed by inception-engine`,
+    );
+    return "skip";
+  }
+
+  if (dryRun) {
+    logger.plan(label);
+    if (verbose) {
+      logger.detail(`would remove: ${action.target}`);
+    }
+    return "ok";
+  }
+
+  try {
+    if (stat.isSymbolicLink()) {
+      await unlink(action.target);
+    } else {
+      await rm(action.target, { recursive: true });
+    }
+    logger.ok(label);
+    if (verbose) {
+      logger.detail(`removed: ${action.target}`);
+    }
+    return "ok";
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    logger.fail(label, msg);
+    return "skip";
+  }
 }

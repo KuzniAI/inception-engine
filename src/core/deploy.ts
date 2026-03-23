@@ -37,29 +37,7 @@ export async function planDeploy(
 
   for (const skill of manifest.skills) {
     const source = path.resolve(sourceDir, skill.path);
-
-    if (!source.startsWith(resolvedSourceDir + path.sep)) {
-      throw new UserError(
-        "DEPLOY_FAILED",
-        `Skill path "${skill.path}" resolves outside the repository root: ${source}`,
-      );
-    }
-
-    try {
-      const realSource = await realpath(source);
-      if (
-        realSource !== realRoot &&
-        !realSource.startsWith(realRoot + path.sep)
-      ) {
-        throw new UserError(
-          "DEPLOY_FAILED",
-          `Skill path "${skill.path}" resolves outside the repository root via symlink: ${source} -> ${realSource}`,
-        );
-      }
-    } catch (err) {
-      if (err instanceof UserError) throw err;
-      // Source doesn't exist yet — will be caught during execute
-    }
+    await validateSourcePath(source, skill.path, resolvedSourceDir, realRoot);
 
     for (const agentId of skill.agents) {
       if (!detectedAgents.includes(agentId)) continue;
@@ -115,61 +93,7 @@ export async function executeDeploy(
     }
 
     try {
-      const backupPath = await backupExisting(action.target, verbose);
-      await mkdir(path.dirname(action.target), { recursive: true });
-
-      try {
-        // Final TOCTOU check: ensure nothing appeared at the target after backup
-        try {
-          await lstat(action.target);
-          throw new Error(
-            `Target path appeared unexpectedly after backup: ${action.target}`,
-          );
-        } catch (err) {
-          if (
-            err instanceof Error &&
-            err.message.startsWith("Target path appeared")
-          )
-            throw err;
-          // ENOENT is expected — target should not exist after backup
-        }
-
-        if (action.method === "symlink") {
-          await symlink(action.source, action.target, "dir");
-          await writeTotem(action.source, {
-            source: action.source,
-            skill: action.skill,
-            agent: action.agent,
-          });
-        } else {
-          await cp(action.source, action.target, { recursive: true });
-          await writeTotem(action.target, {
-            source: action.source,
-            skill: action.skill,
-            agent: action.agent,
-          });
-        }
-      } catch (createErr) {
-        // Rollback: restore backup if creation failed
-        if (backupPath) {
-          try {
-            await rename(backupPath, action.target);
-          } catch {
-            // Best-effort rollback
-          }
-        }
-        throw createErr;
-      }
-
-      // Success: remove backup
-      if (backupPath) {
-        await removeTarget(backupPath);
-      }
-
-      logger.ok(label);
-      if (verbose) {
-        logger.detail(`${action.method}: ${action.source} -> ${action.target}`);
-      }
+      await executeDeployAction(action, verbose);
       succeeded++;
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
@@ -179,6 +103,99 @@ export async function executeDeploy(
   }
 
   return { succeeded, failed };
+}
+
+async function validateSourcePath(
+  source: string,
+  skillPath: string,
+  resolvedSourceDir: string,
+  realRoot: string,
+): Promise<void> {
+  if (!source.startsWith(resolvedSourceDir + path.sep)) {
+    throw new UserError(
+      "DEPLOY_FAILED",
+      `Skill path "${skillPath}" resolves outside the repository root: ${source}`,
+    );
+  }
+
+  try {
+    const realSource = await realpath(source);
+    if (
+      realSource !== realRoot &&
+      !realSource.startsWith(realRoot + path.sep)
+    ) {
+      throw new UserError(
+        "DEPLOY_FAILED",
+        `Skill path "${skillPath}" resolves outside the repository root via symlink: ${source} -> ${realSource}`,
+      );
+    }
+  } catch (err) {
+    if (err instanceof UserError) throw err;
+    // Source doesn't exist yet — will be caught during execute
+  }
+}
+
+async function assertTargetAbsent(targetPath: string): Promise<void> {
+  try {
+    await lstat(targetPath);
+    throw new Error(
+      `Target path appeared unexpectedly after backup: ${targetPath}`,
+    );
+  } catch (err) {
+    if (err instanceof Error && err.message.startsWith("Target path appeared"))
+      throw err;
+    // ENOENT is expected — target should not exist after backup
+  }
+}
+
+async function createDeployTarget(action: DeployAction): Promise<void> {
+  if (action.method === "symlink") {
+    await symlink(action.source, action.target, "dir");
+    await writeTotem(action.source, {
+      source: action.source,
+      skill: action.skill,
+      agent: action.agent,
+    });
+  } else {
+    await cp(action.source, action.target, { recursive: true });
+    await writeTotem(action.target, {
+      source: action.source,
+      skill: action.skill,
+      agent: action.agent,
+    });
+  }
+}
+
+async function executeDeployAction(
+  action: DeployAction,
+  verbose: boolean,
+): Promise<void> {
+  const label = `${action.skill} -> ${action.agent}`;
+  const backupPath = await backupExisting(action.target, verbose);
+  await mkdir(path.dirname(action.target), { recursive: true });
+
+  try {
+    await assertTargetAbsent(action.target);
+    await createDeployTarget(action);
+  } catch (createErr) {
+    if (backupPath) {
+      try {
+        await rename(backupPath, action.target);
+      } catch {
+        // Best-effort rollback
+      }
+    }
+    throw createErr;
+  }
+
+  if (backupPath) {
+    await removeTarget(backupPath);
+  }
+
+  logger.ok(label);
+  if (verbose) {
+    logger.detail(`${action.method}: ${action.source} -> ${action.target}`);
+  }
 }
 
 async function backupExisting(

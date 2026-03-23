@@ -24,36 +24,66 @@ export function lookupHomeForUserWith(
   execFileFn: typeof execFileSync,
   readFileFn: typeof readFileSync,
 ): string {
-  // Method 1: getent passwd (Linux/POSIX — handles LDAP, NIS, local via NSS)
   if (platform !== "darwin") {
-    try {
-      const out = execFileFn("getent", ["passwd", username], {
-        encoding: "utf8",
-        stdio: ["ignore", "pipe", "ignore"],
-      }).trim();
-      const home = (out as string).split(":")[5];
-      if (typeof home === "string" && home.startsWith("/")) return home;
-    } catch {
-      // getent unavailable or user not found — try next method
-    }
+    const home = lookupViaGetent(username, execFileFn);
+    if (home) return home;
   }
 
-  // Method 2: dscl (macOS directory services)
   if (platform === "darwin") {
-    try {
-      const out = execFileFn(
-        "dscl",
-        [".", "-read", `/Users/${username}`, "NFSHomeDirectory"],
-        { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] },
-      ).trim();
-      const home = (out as string).replace(/^NFSHomeDirectory:\s*/, "").trim();
-      if (home.startsWith("/")) return home;
-    } catch {
-      // dscl unavailable or user record not found — try next method
-    }
+    const home = lookupViaDscl(username, execFileFn);
+    if (home) return home;
   }
 
-  // Method 3: parse /etc/passwd directly (universal POSIX fallback)
+  const home = lookupViaEtcPasswd(username, readFileFn);
+  if (home) return home;
+
+  throw new UserError(
+    "RESOLVE_FAILED",
+    `Cannot determine home directory for user "${username}". ` +
+      `Tried getent, dscl, and /etc/passwd. ` +
+      `Run without sudo, or set HOME to the correct path before invoking with sudo.`,
+  );
+}
+
+function lookupViaGetent(
+  username: string,
+  execFileFn: typeof execFileSync,
+): string | null {
+  try {
+    const out = execFileFn("getent", ["passwd", username], {
+      encoding: "utf8",
+      stdio: ["ignore", "pipe", "ignore"],
+    }).trim();
+    const home = (out as string).split(":")[5];
+    if (typeof home === "string" && home.startsWith("/")) return home;
+  } catch {
+    // getent unavailable or user not found
+  }
+  return null;
+}
+
+function lookupViaDscl(
+  username: string,
+  execFileFn: typeof execFileSync,
+): string | null {
+  try {
+    const out = execFileFn(
+      "dscl",
+      [".", "-read", `/Users/${username}`, "NFSHomeDirectory"],
+      { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] },
+    ).trim();
+    const home = (out as string).replace(/^NFSHomeDirectory:\s*/, "").trim();
+    if (home.startsWith("/")) return home;
+  } catch {
+    // dscl unavailable or user record not found
+  }
+  return null;
+}
+
+function lookupViaEtcPasswd(
+  username: string,
+  readFileFn: typeof readFileSync,
+): string | null {
   try {
     const passwd = readFileFn("/etc/passwd", "utf8") as string;
     for (const line of passwd.split("\n")) {
@@ -64,15 +94,9 @@ export function lookupHomeForUserWith(
       }
     }
   } catch {
-    // /etc/passwd unavailable — fall through to error
+    // /etc/passwd unavailable
   }
-
-  throw new UserError(
-    "RESOLVE_FAILED",
-    `Cannot determine home directory for user "${username}". ` +
-      `Tried getent, dscl, and /etc/passwd. ` +
-      `Run without sudo, or set HOME to the correct path before invoking with sudo.`,
-  );
+  return null;
 }
 
 function lookupHomeForUser(username: string): string {
