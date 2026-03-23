@@ -1,0 +1,5 @@
+I need you modify your @CLAUDE.md so that you use `npm run format` after modifying TS files.
+
+---
+
+Now I need you to a add rule to run `npm run lint` after implementing some changes and act on it's results
