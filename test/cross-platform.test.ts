@@ -14,6 +14,12 @@ import { UserError } from "../src/errors.ts";
 const HOME = "/home/u";
 const SKILL = "s";
 
+function getAgent(id: string) {
+  const agent = AGENT_REGISTRY.find((a) => a.id === id);
+  assert.ok(agent, `agent "${id}" not found in AGENT_REGISTRY`);
+  return agent;
+}
+
 // ---------------------------------------------------------------------------
 // resolveAgentSkillPathFor — POSIX
 // ---------------------------------------------------------------------------
@@ -22,7 +28,7 @@ describe("resolveAgentSkillPathFor — posix", () => {
   const p = "posix" as const;
 
   it("claude-code", () => {
-    const agent = AGENT_REGISTRY.find((a) => a.id === "claude-code")!;
+    const agent = getAgent("claude-code");
     assert.equal(
       resolveAgentSkillPathFor(agent, SKILL, HOME, p),
       path.join(HOME, ".claude", "skills", SKILL),
@@ -30,7 +36,7 @@ describe("resolveAgentSkillPathFor — posix", () => {
   });
 
   it("codex", () => {
-    const agent = AGENT_REGISTRY.find((a) => a.id === "codex")!;
+    const agent = getAgent("codex");
     assert.equal(
       resolveAgentSkillPathFor(agent, SKILL, HOME, p),
       path.join(HOME, ".codex", "skills", SKILL),
@@ -38,7 +44,7 @@ describe("resolveAgentSkillPathFor — posix", () => {
   });
 
   it("gemini-cli", () => {
-    const agent = AGENT_REGISTRY.find((a) => a.id === "gemini-cli")!;
+    const agent = getAgent("gemini-cli");
     assert.equal(
       resolveAgentSkillPathFor(agent, SKILL, HOME, p),
       path.join(HOME, ".gemini", "skills", SKILL),
@@ -46,7 +52,7 @@ describe("resolveAgentSkillPathFor — posix", () => {
   });
 
   it("antigravity", () => {
-    const agent = AGENT_REGISTRY.find((a) => a.id === "antigravity")!;
+    const agent = getAgent("antigravity");
     assert.equal(
       resolveAgentSkillPathFor(agent, SKILL, HOME, p),
       path.join(HOME, ".gemini", "antigravity", "skills", SKILL),
@@ -54,7 +60,7 @@ describe("resolveAgentSkillPathFor — posix", () => {
   });
 
   it("opencode", () => {
-    const agent = AGENT_REGISTRY.find((a) => a.id === "opencode")!;
+    const agent = getAgent("opencode");
     assert.equal(
       resolveAgentSkillPathFor(agent, SKILL, HOME, p),
       path.join(HOME, ".config", "opencode", "skills", SKILL),
@@ -62,7 +68,7 @@ describe("resolveAgentSkillPathFor — posix", () => {
   });
 
   it("github-copilot", () => {
-    const agent = AGENT_REGISTRY.find((a) => a.id === "github-copilot")!;
+    const agent = getAgent("github-copilot");
     assert.equal(
       resolveAgentSkillPathFor(agent, SKILL, HOME, p),
       path.join(HOME, ".copilot", "skills", SKILL),
@@ -78,7 +84,7 @@ describe("resolveAgentSkillPathFor — windows", () => {
   const p = "windows" as const;
 
   it("claude-code uses home (same template as posix)", () => {
-    const agent = AGENT_REGISTRY.find((a) => a.id === "claude-code")!;
+    const agent = getAgent("claude-code");
     assert.equal(
       resolveAgentSkillPathFor(agent, SKILL, HOME, p),
       path.join(HOME, ".claude", "skills", SKILL),
@@ -86,7 +92,7 @@ describe("resolveAgentSkillPathFor — windows", () => {
   });
 
   it("opencode uses APPDATA when set", () => {
-    const agent = AGENT_REGISTRY.find((a) => a.id === "opencode")!;
+    const agent = getAgent("opencode");
     const appdata = "C:\\Users\\u\\AppData\\Roaming";
     const saved = process.env.APPDATA;
     try {
@@ -102,7 +108,7 @@ describe("resolveAgentSkillPathFor — windows", () => {
   });
 
   it("opencode falls back to home/AppData/Roaming when APPDATA is unset", () => {
-    const agent = AGENT_REGISTRY.find((a) => a.id === "opencode")!;
+    const agent = getAgent("opencode");
     const saved = process.env.APPDATA;
     try {
       delete process.env.APPDATA;
@@ -117,7 +123,7 @@ describe("resolveAgentSkillPathFor — windows", () => {
   });
 
   it("antigravity uses home (same template as posix)", () => {
-    const agent = AGENT_REGISTRY.find((a) => a.id === "antigravity")!;
+    const agent = getAgent("antigravity");
     assert.equal(
       resolveAgentSkillPathFor(agent, SKILL, HOME, p),
       path.join(HOME, ".gemini", "antigravity", "skills", SKILL),
@@ -125,7 +131,7 @@ describe("resolveAgentSkillPathFor — windows", () => {
   });
 
   it("github-copilot uses home (same template as posix)", () => {
-    const agent = AGENT_REGISTRY.find((a) => a.id === "github-copilot")!;
+    const agent = getAgent("github-copilot");
     assert.equal(
       resolveAgentSkillPathFor(agent, SKILL, HOME, p),
       path.join(HOME, ".copilot", "skills", SKILL),
@@ -141,7 +147,7 @@ describe("resolveAgentDetectPathFor — posix", () => {
   const p = "posix" as const;
 
   it("claude-code", () => {
-    const agent = AGENT_REGISTRY.find((a) => a.id === "claude-code")!;
+    const agent = getAgent("claude-code");
     assert.equal(
       resolveAgentDetectPathFor(agent, HOME, p),
       path.join(HOME, ".claude"),
@@ -149,7 +155,7 @@ describe("resolveAgentDetectPathFor — posix", () => {
   });
 
   it("opencode uses .config/opencode", () => {
-    const agent = AGENT_REGISTRY.find((a) => a.id === "opencode")!;
+    const agent = getAgent("opencode");
     assert.equal(
       resolveAgentDetectPathFor(agent, HOME, p),
       path.join(HOME, ".config", "opencode"),
@@ -157,7 +163,7 @@ describe("resolveAgentDetectPathFor — posix", () => {
   });
 
   it("antigravity has nested detect path", () => {
-    const agent = AGENT_REGISTRY.find((a) => a.id === "antigravity")!;
+    const agent = getAgent("antigravity");
     assert.equal(
       resolveAgentDetectPathFor(agent, HOME, p),
       path.join(HOME, ".gemini", "antigravity"),
@@ -173,7 +179,7 @@ describe("resolveAgentDetectPathFor — windows", () => {
   const p = "windows" as const;
 
   it("opencode uses APPDATA when set", () => {
-    const agent = AGENT_REGISTRY.find((a) => a.id === "opencode")!;
+    const agent = getAgent("opencode");
     const appdata = "C:\\Users\\u\\AppData\\Roaming";
     const saved = process.env.APPDATA;
     try {
@@ -189,7 +195,7 @@ describe("resolveAgentDetectPathFor — windows", () => {
   });
 
   it("claude-code uses home (same template as posix)", () => {
-    const agent = AGENT_REGISTRY.find((a) => a.id === "claude-code")!;
+    const agent = getAgent("claude-code");
     assert.equal(
       resolveAgentDetectPathFor(agent, HOME, p),
       path.join(HOME, ".claude"),

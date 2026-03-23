@@ -10,9 +10,15 @@ import {
 } from "../src/core/resolve.ts";
 import { UserError } from "../src/errors.ts";
 
+function getAgent(id: string) {
+  const agent = AGENT_REGISTRY.find((a) => a.id === id);
+  assert.ok(agent, `agent "${id}" not found in AGENT_REGISTRY`);
+  return agent;
+}
+
 describe("resolveAgentSkillPath", () => {
   it("resolves Claude Code skill path", () => {
-    const claude = AGENT_REGISTRY.find((a) => a.id === "claude-code")!;
+    const claude = getAgent("claude-code");
     const result = resolveAgentSkillPath(claude, "my-skill", "/Users/test");
     assert.equal(
       result,
@@ -21,14 +27,14 @@ describe("resolveAgentSkillPath", () => {
   });
 
   it("resolves OpenCode skill path with home", () => {
-    const opencode = AGENT_REGISTRY.find((a) => a.id === "opencode")!;
+    const opencode = getAgent("opencode");
     const result = resolveAgentSkillPath(opencode, "test-skill", "/home/user");
     // On non-Windows the posix template is used; cross-platform template tests live in cross-platform.test.ts
     assert.ok(result.includes("opencode") && result.includes("test-skill"));
   });
 
   it("resolves Antigravity nested path", () => {
-    const antigravity = AGENT_REGISTRY.find((a) => a.id === "antigravity")!;
+    const antigravity = getAgent("antigravity");
     const result = resolveAgentSkillPath(antigravity, "my-skill", "/home/user");
     assert.equal(
       result,
