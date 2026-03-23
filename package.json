@@ -35,12 +35,16 @@
   },
   "scripts": {
     "build": "tsc",
+    "format": "biome format --write .",
+    "lint": "biome lint . --max-diagnostics none",
+    "check": "biome lint . --max-diagnostics none",
     "typecheck": "tsc --noEmit",
     "dev": "node src/index.ts",
     "test": "node --test test/*.test.ts",
     "prepublishOnly": "npm run build"
   },
   "devDependencies": {
+    "@biomejs/biome": "^2.4.8",
     "@types/node": "^25.5.0",
     "typescript": "^5.8.0"
   }
