@@ -33,7 +33,7 @@
       "correctness": {
         "noUnusedImports": "error",
         "noUnusedVariables": "error",
-        "noUnusedFunctionParameters": "warn",
+        "noUnusedFunctionParameters": "error",
         "noUndeclaredDependencies": "error"
       },
       "performance": {
@@ -43,8 +43,6 @@
       },
       "style": {
         "noDefaultExport": "off",
-        "noEnum": "error",
-        "noNamespace": "error",
         "noNegationElse": "warn",
         "noParameterAssign": "error",
         "useCollapsedElseIf": "warn",
@@ -62,7 +60,7 @@
         "noConsole": "off",
         "noEmptyBlockStatements": "error",
         "noEvolvingTypes": "error",
-        "noExplicitAny": "warn",
+        "noExplicitAny": "error",
         "noImplicitAnyLet": "error",
         "noImportCycles": "error"
       }
