@@ -34,8 +34,8 @@ describe("loadManifest", () => {
 
       const manifest = await loadManifest(dir);
       assert.equal(manifest.skills.length, 1);
-      assert.equal(manifest.skills[0]!.name, "test-skill");
-      assert.deepEqual(manifest.skills[0]!.agents, ["claude-code"]);
+      assert.equal(manifest.skills[0]?.name, "test-skill");
+      assert.deepEqual(manifest.skills[0]?.agents, ["claude-code"]);
       assert.deepEqual(manifest.mcpServers, []);
       assert.deepEqual(manifest.agentRules, []);
     } finally {
@@ -182,7 +182,7 @@ describe("loadManifest", () => {
         }),
       );
       const manifest = await loadManifest(dir);
-      assert.equal(manifest.skills[0]!.name, "valid-name_1.0");
+      assert.equal(manifest.skills[0]?.name, "valid-name_1.0");
     } finally {
       rmSync(dir, { recursive: true });
     }

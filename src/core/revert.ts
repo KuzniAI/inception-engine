@@ -1,5 +1,5 @@
-import { lstat, unlink, rm } from "node:fs/promises";
-import { AGENT_REGISTRY, AGENT_REGISTRY_BY_ID } from "../config/agents.ts";
+import { lstat, rm, unlink } from "node:fs/promises";
+import { AGENT_REGISTRY_BY_ID } from "../config/agents.ts";
 import { logger } from "../logger.ts";
 import type { AgentId, Manifest, RevertAction } from "../types.ts";
 import { isOwnedByInceptionEngine } from "./ownership.ts";

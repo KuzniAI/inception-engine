@@ -40,8 +40,8 @@ describe("planRevert", () => {
   it("creates revert actions for detected agents", () => {
     const actions = planRevert(testManifest, ["claude-code"], "/home/test");
     assert.equal(actions.length, 1);
-    assert.equal(actions[0]!.skill, "test-skill");
-    assert.equal(actions[0]!.agent, "claude-code");
+    assert.equal(actions[0]?.skill, "test-skill");
+    assert.equal(actions[0]?.agent, "claude-code");
   });
 
   it("skips agents not detected", () => {
@@ -80,7 +80,7 @@ describe("executeRevert", () => {
     const sourceDir = makeTmpDir();
     try {
       const actions = planRevert(testManifest, ["claude-code"], home);
-      const target = actions[0]!.target;
+      const target = actions[0]?.target;
 
       // Source must contain .inception-totem for ownership check
       writeFileSync(
@@ -105,7 +105,7 @@ describe("executeRevert", () => {
     const home = makeTmpDir();
     try {
       const actions = planRevert(testManifest, ["claude-code"], home);
-      const target = actions[0]!.target;
+      const target = actions[0]?.target;
 
       mkdirSync(target, { recursive: true });
       writeFileSync(path.join(target, "SKILL.md"), "test");
@@ -140,7 +140,7 @@ describe("executeRevert", () => {
     const sourceDir = makeTmpDir();
     try {
       const actions = planRevert(testManifest, ["claude-code"], home);
-      const target = actions[0]!.target;
+      const target = actions[0]?.target;
 
       writeFileSync(
         path.join(sourceDir, ".inception-totem"),
@@ -163,7 +163,7 @@ describe("executeRevert", () => {
     const sourceDir = makeTmpDir();
     try {
       const actions = planRevert(testManifest, ["claude-code"], home);
-      const target = actions[0]!.target;
+      const target = actions[0]?.target;
 
       // Only SKILL.md, no .inception-totem — should be treated as unmanaged
       writeFileSync(path.join(sourceDir, "SKILL.md"), "---");
@@ -184,7 +184,7 @@ describe("executeRevert", () => {
     const home = makeTmpDir();
     try {
       const actions = planRevert(testManifest, ["claude-code"], home);
-      const target = actions[0]!.target;
+      const target = actions[0]?.target;
 
       mkdirSync(target, { recursive: true });
       writeFileSync(

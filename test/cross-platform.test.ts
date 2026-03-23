@@ -88,31 +88,31 @@ describe("resolveAgentSkillPathFor — windows", () => {
   it("opencode uses APPDATA when set", () => {
     const agent = AGENT_REGISTRY.find((a) => a.id === "opencode")!;
     const appdata = "C:\\Users\\u\\AppData\\Roaming";
-    const saved = process.env["APPDATA"];
+    const saved = process.env.APPDATA;
     try {
-      process.env["APPDATA"] = appdata;
+      process.env.APPDATA = appdata;
       assert.equal(
         resolveAgentSkillPathFor(agent, SKILL, HOME, p),
         path.join(appdata, "opencode", "skills", SKILL),
       );
     } finally {
-      if (saved === undefined) delete process.env["APPDATA"];
-      else process.env["APPDATA"] = saved;
+      if (saved === undefined) delete process.env.APPDATA;
+      else process.env.APPDATA = saved;
     }
   });
 
   it("opencode falls back to home/AppData/Roaming when APPDATA is unset", () => {
     const agent = AGENT_REGISTRY.find((a) => a.id === "opencode")!;
-    const saved = process.env["APPDATA"];
+    const saved = process.env.APPDATA;
     try {
-      delete process.env["APPDATA"];
+      delete process.env.APPDATA;
       assert.equal(
         resolveAgentSkillPathFor(agent, SKILL, HOME, p),
         path.join(HOME, "AppData", "Roaming", "opencode", "skills", SKILL),
       );
     } finally {
-      if (saved === undefined) delete process.env["APPDATA"];
-      else process.env["APPDATA"] = saved;
+      if (saved === undefined) delete process.env.APPDATA;
+      else process.env.APPDATA = saved;
     }
   });
 
@@ -175,16 +175,16 @@ describe("resolveAgentDetectPathFor — windows", () => {
   it("opencode uses APPDATA when set", () => {
     const agent = AGENT_REGISTRY.find((a) => a.id === "opencode")!;
     const appdata = "C:\\Users\\u\\AppData\\Roaming";
-    const saved = process.env["APPDATA"];
+    const saved = process.env.APPDATA;
     try {
-      process.env["APPDATA"] = appdata;
+      process.env.APPDATA = appdata;
       assert.equal(
         resolveAgentDetectPathFor(agent, HOME, p),
         path.join(appdata, "opencode"),
       );
     } finally {
-      if (saved === undefined) delete process.env["APPDATA"];
-      else process.env["APPDATA"] = saved;
+      if (saved === undefined) delete process.env.APPDATA;
+      else process.env.APPDATA = saved;
     }
   });
 

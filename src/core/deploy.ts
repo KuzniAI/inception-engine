@@ -198,7 +198,7 @@ async function backupExisting(
     );
   }
 
-  const backupPath = targetPath + ".inception-backup";
+  const backupPath = `${targetPath}.inception-backup`;
 
   // Clean up any stale backup from a previous failed attempt
   try {

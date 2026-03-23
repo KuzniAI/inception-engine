@@ -13,7 +13,7 @@ import {
 import os from "node:os";
 import path from "node:path";
 import { describe, it } from "node:test";
-import { planDeploy, executeDeploy } from "../src/core/deploy.ts";
+import { executeDeploy, planDeploy } from "../src/core/deploy.ts";
 import { UserError } from "../src/errors.ts";
 import { logger } from "../src/logger.ts";
 import type { Manifest } from "../src/types.ts";
@@ -62,8 +62,8 @@ describe("planDeploy", () => {
         "/home/test",
       );
       assert.equal(actions.length, 1);
-      assert.equal(actions[0]!.agent, "claude-code");
-      assert.equal(actions[0]!.skill, "test-skill");
+      assert.equal(actions[0]?.agent, "claude-code");
+      assert.equal(actions[0]?.skill, "test-skill");
     } finally {
       rmSync(sourceDir, { recursive: true });
     }
@@ -119,10 +119,10 @@ describe("executeDeploy", () => {
       assert.equal(succeeded, 1);
       assert.equal(failed.length, 0);
 
-      const target = actions[0]!.target;
+      const target = actions[0]?.target;
       assert.ok(existsSync(target));
       assert.ok(lstatSync(target).isSymbolicLink());
-      assert.equal(readlinkSync(target), actions[0]!.source);
+      assert.equal(readlinkSync(target), actions[0]?.source);
     } finally {
       rmSync(sourceDir, { recursive: true });
       rmSync(home, { recursive: true, force: true });
@@ -170,7 +170,7 @@ describe("executeDeploy", () => {
       assert.equal(succeeded, 1);
       assert.equal(failed.length, 0);
 
-      const target = actions[0]!.target;
+      const target = actions[0]?.target;
       assert.ok(!existsSync(target));
     } finally {
       rmSync(sourceDir, { recursive: true });
@@ -215,7 +215,7 @@ describe("executeDeploy", () => {
 
       assert.equal(succeeded, 0);
       assert.equal(failed.length, 1);
-      assert.ok(failed[0]!.error.includes("Source not found"));
+      assert.ok(failed[0]?.error.includes("Source not found"));
     } finally {
       rmSync(home, { recursive: true, force: true });
     }
@@ -232,7 +232,7 @@ describe("executeDeploy", () => {
         ["claude-code"],
         home,
       );
-      const target = actions[0]!.target;
+      const target = actions[0]?.target;
 
       // Create an unmanaged directory at the target (no .inception-totem)
       mkdirSync(target, { recursive: true });
@@ -241,7 +241,7 @@ describe("executeDeploy", () => {
       const { succeeded, failed } = await executeDeploy(actions, false, false);
       assert.equal(succeeded, 0);
       assert.equal(failed.length, 1);
-      assert.ok(failed[0]!.error.includes("not managed by inception-engine"));
+      assert.ok(failed[0]?.error.includes("not managed by inception-engine"));
 
       // Original content should still be there
       assert.ok(existsSync(path.join(target, "something.txt")));
@@ -262,8 +262,8 @@ describe("executeDeploy", () => {
         ["claude-code"],
         home,
       );
-      const target = actions[0]!.target;
-      const backupPath = target + ".inception-backup";
+      const target = actions[0]?.target;
+      const backupPath = `${target}.inception-backup`;
 
       await executeDeploy(actions, false, false);
       await executeDeploy(actions, false, false);
@@ -294,8 +294,8 @@ describe("atomic redeploy behavior", () => {
         ["claude-code"],
         home,
       );
-      const target = actions[0]!.target;
-      const backupPath = target + ".inception-backup";
+      const target = actions[0]?.target;
+      const backupPath = `${target}.inception-backup`;
 
       // First deploy to establish managed target
       await executeDeploy(actions, false, false);
@@ -327,8 +327,8 @@ describe("atomic redeploy behavior", () => {
         ["claude-code"],
         home,
       );
-      const target = actions[0]!.target;
-      const backupPath = target + ".inception-backup";
+      const target = actions[0]?.target;
+      const backupPath = `${target}.inception-backup`;
 
       const { succeeded } = await executeDeploy(actions, false, false);
       assert.equal(succeeded, 1);
@@ -359,9 +359,9 @@ describe("atomic redeploy behavior", () => {
         ["claude-code"],
         home,
       );
-      const target = actions[0]!.target;
-      const backupPath = target + ".inception-backup";
-      const skillSource = actions[0]!.source;
+      const target = actions[0]?.target;
+      const backupPath = `${target}.inception-backup`;
+      const _skillSource = actions[0]?.source;
 
       // First deploy: establishes managed symlink and writes .inception-totem into source
       const { succeeded: firstSucceeded } = await executeDeploy(
@@ -442,7 +442,7 @@ describe("atomic redeploy behavior", () => {
       writeFileSync(path.join(unreadableSource, "SKILL.md"), "---");
       chmodSync(unreadableSource, 0o000);
 
-      const backupPath = target + ".inception-backup";
+      const backupPath = `${target}.inception-backup`;
       const failAction: import("../src/types.ts").DeployAction = {
         skill: "test-skill",
         agent: "claude-code",

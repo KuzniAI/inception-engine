@@ -50,27 +50,27 @@ describe("resolveAgentDetectPath", () => {
 
 describe("resolveHome", () => {
   it("returns os.homedir() when SUDO_USER is not set", () => {
-    const saved = process.env["SUDO_USER"];
+    const saved = process.env.SUDO_USER;
     try {
-      delete process.env["SUDO_USER"];
+      delete process.env.SUDO_USER;
       assert.equal(resolveHome(), os.homedir());
     } finally {
       if (saved === undefined) {
-        delete process.env["SUDO_USER"];
+        delete process.env.SUDO_USER;
       } else {
-        process.env["SUDO_USER"] = saved;
+        process.env.SUDO_USER = saved;
       }
     }
   });
 
   it("looks up real home when SUDO_USER matches the current user", () => {
     if (process.platform === "win32") return;
-    const currentUser = process.env["USER"] ?? os.userInfo().username;
+    const currentUser = process.env.USER ?? os.userInfo().username;
     if (!currentUser) return;
 
-    const saved = process.env["SUDO_USER"];
+    const saved = process.env.SUDO_USER;
     try {
-      process.env["SUDO_USER"] = currentUser;
+      process.env.SUDO_USER = currentUser;
       const result = resolveHome();
       assert.ok(
         typeof result === "string" && result.startsWith("/"),
@@ -78,18 +78,18 @@ describe("resolveHome", () => {
       );
     } finally {
       if (saved === undefined) {
-        delete process.env["SUDO_USER"];
+        delete process.env.SUDO_USER;
       } else {
-        process.env["SUDO_USER"] = saved;
+        process.env.SUDO_USER = saved;
       }
     }
   });
 
   it("throws UserError when SUDO_USER is a non-existent user", () => {
     if (process.platform === "win32") return;
-    const saved = process.env["SUDO_USER"];
+    const saved = process.env.SUDO_USER;
     try {
-      process.env["SUDO_USER"] = "__nonexistent_user_inception_engine_test__";
+      process.env.SUDO_USER = "__nonexistent_user_inception_engine_test__";
       assert.throws(
         () => resolveHome(),
         (err: unknown) => {
@@ -101,9 +101,9 @@ describe("resolveHome", () => {
       );
     } finally {
       if (saved === undefined) {
-        delete process.env["SUDO_USER"];
+        delete process.env.SUDO_USER;
       } else {
-        process.env["SUDO_USER"] = saved;
+        process.env.SUDO_USER = saved;
       }
     }
   });

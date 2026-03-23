@@ -10,7 +10,7 @@ export function resolveHome(): string {
     return os.homedir();
   }
 
-  const sudoUser = process.env["SUDO_USER"];
+  const sudoUser = process.env.SUDO_USER;
   if (sudoUser) {
     return lookupHomeForUser(sudoUser);
   }
@@ -129,8 +129,7 @@ function resolvePlaceholders(
   skillName: string,
   home: string,
 ): string {
-  const appdata =
-    process.env["APPDATA"] ?? path.join(home, "AppData", "Roaming");
+  const appdata = process.env.APPDATA ?? path.join(home, "AppData", "Roaming");
   const resolved = segments.map((seg) =>
     seg
       .replace("{home}", home)

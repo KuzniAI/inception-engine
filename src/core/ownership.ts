@@ -20,7 +20,7 @@ export function formatTotem(data: TotemData): string {
     `agent=${data.agent}`,
     `deployed=${new Date().toISOString()}`,
   ];
-  return lines.join("\n") + "\n";
+  return `${lines.join("\n")}\n`;
 }
 
 export async function writeTotem(
