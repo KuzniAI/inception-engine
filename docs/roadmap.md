@@ -6,42 +6,34 @@ It intentionally focuses on code quality, known issues, OS and agent portability
 
 ## Suggested Implementation Order
 
-1. **Replace the current ownership model before expanding deploy surfaces**
-   - Move ownership and provenance out of the source skill directory. On POSIX, `writeTotem` currently writes `.inception-totem` into the source tree during symlink deploy, which dirties the repo, requires write access to the checkout, and leaves artifacts behind after revert (`src/core/ownership.ts`, `src/core/deploy.ts`, `src/core/revert.ts`).
-   - Strengthen ownership validation so deploy and revert do not trust any file that merely starts with `inception-engine`; the proof must bind to the expected source, skill, agent, and asset type.
-   - Make the new ownership scheme work for symlinks, copied directories, single files, and future config patches without depending on repo mutation.
-
-2. **Break the directory-only deploy and revert assumptions**
-   - Refactor `DeployAction`, `RevertAction`, and the planner/executor split so the engine can represent directory copy or symlink, file write, and structured config patch as distinct action types (`src/types.ts`, `src/core/deploy.ts`, `src/core/revert.ts`).
-   - Keep dry-run and revert logic action-aware so later work does not get bolted onto the current skill-directory path model.
-
-3. **Make manifest parsing strict and lossless**
+1. **Make manifest parsing strict and lossless**
    - Replace `unknown[]` parsing with schema-backed validation for every top-level section. `mcpServers` and `agentRules` currently accept any array and silently fall back to `[]` when the type is wrong (`src/config/manifest.ts`, `src/types.ts`).
    - Reject duplicate `skill.name` values and deduplicate per-skill agent IDs before planning to prevent target collisions and repeated writes.
    - Validate that each skill source is a readable directory containing `SKILL.md` during planning, not only an existing path during execution.
 
-4. **Centralize portability rules before adding more agent surfaces**
+2. **Centralize portability rules before adding more agent surfaces**
    - Replace ad hoc placeholder substitution with a platform and config-root resolver that supports `XDG_CONFIG_HOME`, Windows `%APPDATA%`, and agent-specific overrides (`src/core/resolve.ts`, `src/config/agents.ts`).
    - Add provenance metadata to `AGENT_REGISTRY` so each path and binary assumption is tracked as documented, implementation-only, or provisional, matching the confidence model in `docs/north-star.md`.
    - Review permission-setting behavior for cross-platform and enterprise environments; `chmod(0o644)` is POSIX-centric and is not a meaningful policy model on Windows.
 
-5. **Make automation and enterprise failures explicit**
+3. **Make automation and enterprise failures explicit**
    - Change revert and deploy result handling so any failed destructive step is surfaced as a failure count and a non-zero exit code (`src/core/revert.ts`, `src/index.ts`).
    - Differentiate permission, policy, and missing-file errors. `loadManifest` and deploy source checks currently collapse several I/O failures into “not found” style messages, which is not sufficient for locked-down environments.
    - Add an enterprise or policy preflight layer before touching agent-managed config so later work has a place to warn about local-config overrides and policy blocks.
 
-6. **Close the validation gaps with platform-realistic tests**
+4. **Close the validation gaps with platform-realistic tests**
    - Add CLI end-to-end tests that exercise `src/index.ts` result codes and user-visible reporting.
    - Add Windows-realistic coverage for copy deploy or revert, ownership handling, and `%APPDATA%` path behavior.
    - Add detection-path tests for `where.exe`, missing `which`, and `/bin/sh` fallback, plus ownership tests that verify source trees remain unmodified after deploy and revert.
+
+5. **Generalize the action model before expanding beyond skill directories**
+   - Refactor `DeployAction`, `RevertAction`, and the planner/executor split so the engine can represent directory copy or symlink, file write, and structured config patch as distinct action types (`src/types.ts`, `src/core/deploy.ts`, `src/core/revert.ts`).
+   - Keep dry-run and revert logic action-aware so later work does not get bolted onto the current skill-directory path model.
 
 ## Roadmap Items
 
 ### Ownership and Reversibility
 
-- **Source-Tree Mutation on POSIX**: `writeTotem` writes `.inception-totem` into the source skill directory during symlink deploy. That dirties the source repo, requires write access to the source checkout, and leaves ownership artifacts behind after revert (`src/core/ownership.ts`, `src/core/deploy.ts`, `src/core/revert.ts`).
-- **Weak Ownership Proof**: `isOwnedByInceptionEngine` treats any `.inception-totem` starting with `inception-engine` as sufficient. It does not verify that the stored `source`, `skill`, or `agent` matches the action being executed (`src/core/ownership.ts`).
-- **Directory-Only Ownership Semantics**: The current totem model assumes every managed asset is a directory or a symlinked directory. That is not a safe base for file-level instructions or config patching (`src/types.ts`, `src/core/ownership.ts`, `src/core/deploy.ts`, `src/core/revert.ts`).
 - **TOCTOU Race Window**: Backup, ownership check, removal, and recreate are split across multiple `lstat`, `readlink`, `rename`, `rm`, and `unlink` steps, so path state can change between validation and mutation (`src/core/deploy.ts`, `src/core/revert.ts`).
 
 ### Manifest and Planning Quality
@@ -64,6 +56,11 @@ It intentionally focuses on code quality, known issues, OS and agent portability
 - **Revert Exit-Code Reliability**: `executeRevert` converts destructive failures into “skip” outcomes, and `runRevert` still exits `0`. That makes CI and fleet automation unable to distinguish success from partial failure (`src/core/revert.ts`, `src/index.ts`).
 - **No Enterprise Preflight Abstraction**: The current CLI has nowhere to surface policy or local-config authority checks before future config or file patch work. Add a preflight or reporting layer before broadening beyond skill directories (`src/index.ts`, future planner and report modules).
 - **Dry-Run Precision Gap**: Current dry-run output is path and action oriented only. Before config or file mutations are added, the reporting model needs a structured way to show exact planned changes instead of directory-level summaries (`src/core/deploy.ts`, `src/logger.ts`).
+
+### Future Deploy-Surface Expansion
+
+- **Directory-Only Action Model**: `DeployAction`, `RevertAction`, and the current planner or executor split are still centered on skill-directory deploys. Generalize them before adding single-file writes or structured config patches (`src/types.ts`, `src/core/deploy.ts`, `src/core/revert.ts`).
+- **Directory-Only Ownership Semantics**: The current registry model tracks directory symlink or copy deploys, but it is not yet a generalized ownership model for file-level instructions or config patching (`src/types.ts`, `src/core/ownership.ts`, `src/core/deploy.ts`, `src/core/revert.ts`).
 
 ### Testing and Validation
 
