@@ -4,7 +4,6 @@ import {
   existsSync,
   lstatSync,
   mkdirSync,
-  readFileSync,
   readlinkSync,
   rmSync,
   symlinkSync,
@@ -14,6 +13,7 @@ import os from "node:os";
 import path from "node:path";
 import { describe, it } from "node:test";
 import { executeDeploy, planDeploy } from "../src/core/deploy.ts";
+import { lookupDeployment } from "../src/core/ownership.ts";
 import { UserError } from "../src/errors.ts";
 import { logger } from "../src/logger.ts";
 import type { Manifest } from "../src/types.ts";
@@ -114,7 +114,12 @@ describe("executeDeploy", () => {
         ["claude-code"],
         home,
       );
-      const { succeeded, failed } = await executeDeploy(actions, false, false);
+      const { succeeded, failed } = await executeDeploy(
+        actions,
+        false,
+        false,
+        home,
+      );
 
       assert.equal(succeeded, 1);
       assert.equal(failed.length, 0);
@@ -129,7 +134,7 @@ describe("executeDeploy", () => {
     }
   });
 
-  it("writes structured .inception-totem in source on POSIX symlink deploy", async () => {
+  it("registers deployment in registry on POSIX symlink deploy", async () => {
     const sourceDir = makeTmpDir();
     const home = makeTmpDir();
     try {
@@ -140,14 +145,23 @@ describe("executeDeploy", () => {
         ["claude-code"],
         home,
       );
-      await executeDeploy(actions, false, false);
+      await executeDeploy(actions, false, false, home);
 
-      const totemPath = path.join(skillSource, ".inception-totem");
-      assert.ok(existsSync(totemPath));
-      const content = readFileSync(totemPath, "utf-8");
-      assert.ok(content.startsWith("inception-engine\n"));
-      assert.ok(content.includes("skill=test-skill"));
-      assert.ok(content.includes("agent=claude-code"));
+      const target = actions[0]?.target;
+
+      // Registry should have the entry
+      const entry = await lookupDeployment(home, target);
+      assert.ok(entry);
+      assert.equal(entry.skill, "test-skill");
+      assert.equal(entry.agent, "claude-code");
+      assert.equal(entry.source, skillSource);
+      assert.equal(entry.method, "symlink");
+
+      // No .inception-totem should exist in source
+      assert.ok(
+        !existsSync(path.join(skillSource, ".inception-totem")),
+        "no .inception-totem should be written to source directory",
+      );
     } finally {
       rmSync(sourceDir, { recursive: true });
       rmSync(home, { recursive: true, force: true });
@@ -165,7 +179,12 @@ describe("executeDeploy", () => {
         ["claude-code"],
         home,
       );
-      const { succeeded, failed } = await executeDeploy(actions, true, false);
+      const { succeeded, failed } = await executeDeploy(
+        actions,
+        true,
+        false,
+        home,
+      );
 
       assert.equal(succeeded, 1);
       assert.equal(failed.length, 0);
@@ -178,7 +197,7 @@ describe("executeDeploy", () => {
     }
   });
 
-  it("overwrites existing symlink (with ownership proof)", async () => {
+  it("overwrites existing symlink (with registry entry)", async () => {
     const sourceDir = makeTmpDir();
     const home = makeTmpDir();
     try {
@@ -190,9 +209,14 @@ describe("executeDeploy", () => {
         home,
       );
 
-      // Deploy twice - second should overwrite (first creates .inception-totem)
-      await executeDeploy(actions, false, false);
-      const { succeeded, failed } = await executeDeploy(actions, false, false);
+      // Deploy twice - second should overwrite (first creates registry entry)
+      await executeDeploy(actions, false, false, home);
+      const { succeeded, failed } = await executeDeploy(
+        actions,
+        false,
+        false,
+        home,
+      );
 
       assert.equal(succeeded, 1);
       assert.equal(failed.length, 0);
@@ -211,7 +235,12 @@ describe("executeDeploy", () => {
         ["claude-code"],
         home,
       );
-      const { succeeded, failed } = await executeDeploy(actions, false, false);
+      const { succeeded, failed } = await executeDeploy(
+        actions,
+        false,
+        false,
+        home,
+      );
 
       assert.equal(succeeded, 0);
       assert.equal(failed.length, 1);
@@ -234,11 +263,16 @@ describe("executeDeploy", () => {
       );
       const target = actions[0]?.target;
 
-      // Create an unmanaged directory at the target (no .inception-totem)
+      // Create an unmanaged directory at the target (no registry entry)
       mkdirSync(target, { recursive: true });
       writeFileSync(path.join(target, "something.txt"), "user content");
 
-      const { succeeded, failed } = await executeDeploy(actions, false, false);
+      const { succeeded, failed } = await executeDeploy(
+        actions,
+        false,
+        false,
+        home,
+      );
       assert.equal(succeeded, 0);
       assert.equal(failed.length, 1);
       assert.ok(failed[0]?.error.includes("not managed by inception-engine"));
@@ -265,8 +299,8 @@ describe("executeDeploy", () => {
       const target = actions[0]?.target;
       const backupPath = `${target}.inception-backup`;
 
-      await executeDeploy(actions, false, false);
-      await executeDeploy(actions, false, false);
+      await executeDeploy(actions, false, false, home);
+      await executeDeploy(actions, false, false, home);
 
       assert.ok(
         !existsSync(backupPath),
@@ -298,14 +332,19 @@ describe("atomic redeploy behavior", () => {
       const backupPath = `${target}.inception-backup`;
 
       // First deploy to establish managed target
-      await executeDeploy(actions, false, false);
+      await executeDeploy(actions, false, false, home);
 
       // Simulate a stale backup left by a previous crash
       mkdirSync(backupPath, { recursive: true });
       writeFileSync(path.join(backupPath, "stale.txt"), "leftover");
 
       // Redeploy should clean up the stale backup and succeed
-      const { succeeded, failed } = await executeDeploy(actions, false, false);
+      const { succeeded, failed } = await executeDeploy(
+        actions,
+        false,
+        false,
+        home,
+      );
       assert.equal(succeeded, 1);
       assert.equal(failed.length, 0);
       assert.ok(!existsSync(backupPath), "stale backup should be cleaned up");
@@ -330,7 +369,7 @@ describe("atomic redeploy behavior", () => {
       const target = actions[0]?.target;
       const backupPath = `${target}.inception-backup`;
 
-      const { succeeded } = await executeDeploy(actions, false, false);
+      const { succeeded } = await executeDeploy(actions, false, false, home);
       assert.equal(succeeded, 1);
       assert.ok(existsSync(target));
       assert.ok(
@@ -343,14 +382,10 @@ describe("atomic redeploy behavior", () => {
     }
   });
 
-  it("restores backup when totem write fails (totem file read-only)", async () => {
+  it("restores backup when registry write fails (registry file read-only)", async () => {
     const sourceDir = makeTmpDir();
     const home = makeTmpDir();
-    const totemPath = path.join(
-      sourceDir,
-      "skills/test-skill",
-      ".inception-totem",
-    );
+    const registryFile = path.join(home, ".inception-engine", "registry.json");
     try {
       createSkillSource(sourceDir, "skills/test-skill");
       const actions = await planDeploy(
@@ -361,23 +396,27 @@ describe("atomic redeploy behavior", () => {
       );
       const target = actions[0]?.target;
       const backupPath = `${target}.inception-backup`;
-      const _skillSource = actions[0]?.source;
 
-      // First deploy: establishes managed symlink and writes .inception-totem into source
+      // First deploy: establishes managed symlink and registry entry
       const { succeeded: firstSucceeded } = await executeDeploy(
         actions,
         false,
         false,
+        home,
       );
       assert.equal(firstSucceeded, 1);
       const originalLink = readlinkSync(target);
 
-      // Make .inception-totem read-only so writeTotem fails on the next attempt.
-      // The ownership check (readFile) still passes since the file remains readable;
-      // only the write (writeFile) will throw EACCES.
-      chmodSync(totemPath, 0o444);
+      // Make registry file read-only so registerDeployment fails on the next attempt.
+      // The lookupDeployment (read) still works; only the write will throw EACCES.
+      chmodSync(registryFile, 0o444);
 
-      const { succeeded, failed } = await executeDeploy(actions, false, false);
+      const { succeeded, failed } = await executeDeploy(
+        actions,
+        false,
+        false,
+        home,
+      );
 
       // Deploy must report failure
       assert.equal(succeeded, 0);
@@ -402,7 +441,7 @@ describe("atomic redeploy behavior", () => {
       );
     } finally {
       try {
-        chmodSync(totemPath, 0o644);
+        chmodSync(registryFile, 0o644);
       } catch {
         /* best effort */
       }
@@ -431,6 +470,7 @@ describe("atomic redeploy behavior", () => {
         [firstAction],
         false,
         false,
+        home,
       );
       assert.equal(firstSucceeded, 1);
       assert.ok(existsSync(target));
@@ -455,6 +495,7 @@ describe("atomic redeploy behavior", () => {
         [failAction],
         false,
         false,
+        home,
       );
 
       // Deploy must report failure
@@ -470,8 +511,8 @@ describe("atomic redeploy behavior", () => {
       // Original managed directory must be restored with its content intact
       assert.ok(existsSync(target), "original target must be restored");
       assert.ok(
-        existsSync(path.join(target, ".inception-totem")),
-        "restored target must have original .inception-totem",
+        existsSync(path.join(target, "SKILL.md")),
+        "restored target must have original content",
       );
     } finally {
       try {

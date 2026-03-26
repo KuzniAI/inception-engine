@@ -1,64 +1,87 @@
-import type { Stats } from "node:fs";
-import { access, chmod, readFile, readlink, writeFile } from "node:fs/promises";
+import { chmod, mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import type { AgentId } from "../types.ts";
 
-const TOTEM_FILE = ".inception-totem";
-const TOTEM_HEADER = "inception-engine";
+const REGISTRY_DIR = ".inception-engine";
+const REGISTRY_FILE = "registry.json";
 
-export interface TotemData {
+export interface RegistryEntry {
   source: string;
   skill: string;
   agent: AgentId;
+  method: "symlink" | "copy";
+  deployed: string;
 }
 
-export function formatTotem(data: TotemData): string {
-  const lines = [
-    TOTEM_HEADER,
-    `source=${data.source}`,
-    `skill=${data.skill}`,
-    `agent=${data.agent}`,
-    `deployed=${new Date().toISOString()}`,
-  ];
-  return `${lines.join("\n")}\n`;
+interface Registry {
+  version: 1;
+  deployments: Record<string, RegistryEntry>;
 }
 
-export async function writeTotem(
-  directory: string,
-  data: TotemData,
+export function registryPath(home: string): string {
+  return path.join(home, REGISTRY_DIR, REGISTRY_FILE);
+}
+
+async function loadRegistry(home: string): Promise<Registry> {
+  try {
+    const content = await readFile(registryPath(home), "utf-8");
+    const parsed = JSON.parse(content);
+    if (
+      parsed &&
+      typeof parsed === "object" &&
+      parsed.version === 1 &&
+      parsed.deployments &&
+      typeof parsed.deployments === "object"
+    ) {
+      return parsed as Registry;
+    }
+    return emptyRegistry();
+  } catch {
+    return emptyRegistry();
+  }
+}
+
+async function saveRegistry(home: string, registry: Registry): Promise<void> {
+  const dir = path.join(home, REGISTRY_DIR);
+  await mkdir(dir, { recursive: true });
+  const filePath = registryPath(home);
+  await writeFile(filePath, `${JSON.stringify(registry, null, 2)}\n`);
+  if (process.platform !== "win32") {
+    await chmod(filePath, 0o644);
+  }
+}
+
+function emptyRegistry(): Registry {
+  return { version: 1, deployments: {} };
+}
+
+export async function registerDeployment(
+  home: string,
+  targetPath: string,
+  entry: Omit<RegistryEntry, "deployed">,
 ): Promise<void> {
-  const totemPath = path.join(directory, TOTEM_FILE);
-  await writeFile(totemPath, formatTotem(data));
-  await chmod(totemPath, 0o644);
+  const registry = await loadRegistry(home);
+  registry.deployments[targetPath] = {
+    ...entry,
+    deployed: new Date().toISOString(),
+  };
+  await saveRegistry(home, registry);
 }
 
-export async function isOwnedByInceptionEngine(
+export async function unregisterDeployment(
+  home: string,
   targetPath: string,
-  stat: Stats,
-): Promise<boolean> {
-  const totemLocation = stat.isSymbolicLink()
-    ? await resolveSymlinkTotemPath(targetPath)
-    : path.join(targetPath, TOTEM_FILE);
-
-  if (!totemLocation) return false;
-
-  try {
-    const content = await readFile(totemLocation, "utf-8");
-    return content.startsWith(TOTEM_HEADER);
-  } catch {
-    return false;
-  }
+): Promise<void> {
+  const registry = await loadRegistry(home);
+  if (!(targetPath in registry.deployments)) return;
+  delete registry.deployments[targetPath];
+  await saveRegistry(home, registry);
 }
 
-async function resolveSymlinkTotemPath(
+export async function lookupDeployment(
+  home: string,
   targetPath: string,
-): Promise<string | null> {
-  try {
-    const linkTarget = await readlink(targetPath);
-    const resolved = path.resolve(path.dirname(targetPath), linkTarget);
-    await access(resolved);
-    return path.join(resolved, TOTEM_FILE);
-  } catch {
-    return null;
-  }
+): Promise<RegistryEntry | null> {
+  const registry = await loadRegistry(home);
+  return registry.deployments[targetPath] ?? null;
 }

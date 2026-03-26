@@ -2,7 +2,7 @@ import { lstat, rm, unlink } from "node:fs/promises";
 import { AGENT_REGISTRY_BY_ID } from "../config/agents.ts";
 import { logger } from "../logger.ts";
 import type { AgentId, Manifest, RevertAction } from "../types.ts";
-import { isOwnedByInceptionEngine } from "./ownership.ts";
+import { lookupDeployment, unregisterDeployment } from "./ownership.ts";
 import { resolveAgentSkillPath } from "./resolve.ts";
 
 export function planRevert(
@@ -50,12 +50,13 @@ export async function executeRevert(
   actions: RevertAction[],
   dryRun: boolean,
   verbose: boolean,
+  home: string,
 ): Promise<{ succeeded: number; skipped: number }> {
   let succeeded = 0;
   let skipped = 0;
 
   for (const action of actions) {
-    const result = await executeRevertAction(action, dryRun, verbose);
+    const result = await executeRevertAction(action, dryRun, verbose, home);
     if (result === "skip") {
       skipped++;
     } else {
@@ -70,6 +71,7 @@ async function executeRevertAction(
   action: RevertAction,
   dryRun: boolean,
   verbose: boolean,
+  home: string,
 ): Promise<"ok" | "skip"> {
   const label = `${action.skill} -> ${action.agent}`;
 
@@ -81,10 +83,10 @@ async function executeRevertAction(
     return "skip";
   }
 
-  if (!(await isOwnedByInceptionEngine(action.target, stat))) {
+  if (!(await lookupDeployment(home, action.target))) {
     logger.warn(
       label,
-      `skipping: ${action.target} does not have inception-engine ownership proof — not managed by inception-engine`,
+      `skipping: ${action.target} is not in the deployment registry — not managed by inception-engine`,
     );
     return "skip";
   }
@@ -103,6 +105,7 @@ async function executeRevertAction(
     } else {
       await rm(action.target, { recursive: true });
     }
+    await unregisterDeployment(home, action.target);
     logger.ok(label);
     if (verbose) {
       logger.detail(`removed: ${action.target}`);

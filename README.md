@@ -161,15 +161,15 @@ Revert targets all agents listed in the manifest by default (regardless of detec
 
 ### Ownership Tracking and Safe Revert
 
-inception-engine writes a structured `.inception-totem` marker file during every deploy so that `revert` and future deploys never touch content they did not create. The totem contains metadata (source path, skill name, agent ID, deploy timestamp) and is validated on both revert and redeploy.
+inception-engine maintains a centralized deployment registry at `~/.inception-engine/registry.json`. Each deploy records the target path, source path, skill name, agent ID, deploy method, and timestamp. No files are written to the source repository.
 
-- **POSIX (symlink)**: `.inception-totem` is written inside the skill source directory. On revert, the tool resolves the symlink target and checks for a valid `.inception-totem` there. Only symlinks whose resolved target contains a valid totem are removed.
+- **Registry-based ownership**: On revert, the registry is checked before removing any target. Only targets with a valid registry entry are removed. On redeploy, unmanaged targets are never replaced.
 
-- **Windows (copy)**: `.inception-totem` is written inside each deployed skill directory. On revert, this file must be present and valid for the directory to be removed.
-
-- **Deploy safety**: Before overwriting an existing target, the engine checks for a valid `.inception-totem`. If the target exists but is not managed by inception-engine, the deploy is skipped with an error — the unmanaged content is never removed.
+- **Strong binding**: Each registry entry binds a specific target path to its source, skill, agent, and deploy method. A target is only considered managed if all fields match — a stray entry or a different deployment cannot satisfy the check.
 
 - **Atomic redeploy**: When overwriting an existing managed target, the engine renames the old target to a backup, creates the new deployment, and only removes the backup on success. If the new deployment fails, the backup is restored.
+
+- **Cross-platform**: The registry uses the same resolved home directory as the rest of the tool, including sudo scenarios on POSIX and elevated PowerShell on Windows.
 
 ## Running with Privilege Escalation
 
@@ -193,7 +193,7 @@ On Windows, `%APPDATA%` is used to locate agent config directories (currently on
 
 ### Future: mixed asset layouts on Windows
 
-Windows deployment currently uses directory-level copy (one `cp -r` per skill). This works correctly for the present skill model where each skill is a single directory. If file-based assets or mixed (file + directory) skill layouts are added in the future, the copy strategy in `src/core/deploy.ts` will need revisiting — including `.inception-totem` placement and revert logic.
+Windows deployment currently uses directory-level copy (one `cp -r` per skill). This works correctly for the present skill model where each skill is a single directory. If file-based assets or mixed (file + directory) skill layouts are added in the future, the copy strategy in `src/core/deploy.ts` will need revisiting.
 
 ## Requirements
 

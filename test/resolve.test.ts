@@ -47,7 +47,10 @@ describe("resolveAgentDetectPath", () => {
   it("resolves detect path for each agent", () => {
     for (const agent of AGENT_REGISTRY) {
       const result = resolveAgentDetectPath(agent, "/home/user");
-      assert.ok(path.isAbsolute(result), `expected absolute path, got: ${result}`);
+      assert.ok(
+        path.isAbsolute(result),
+        `expected absolute path, got: ${result}`,
+      );
       assert.ok(!result.includes("{home}"));
       assert.ok(!result.includes("{name}"));
     }

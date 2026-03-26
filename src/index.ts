@@ -178,6 +178,7 @@ async function runDeploy(
     actions,
     options.dryRun,
     options.verbose,
+    home,
   );
 
   logger.info("");
@@ -211,6 +212,7 @@ async function runRevert(
     actions,
     options.dryRun,
     options.verbose,
+    home,
   );
 
   logger.info("");

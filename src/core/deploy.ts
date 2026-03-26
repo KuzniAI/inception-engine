@@ -1,4 +1,3 @@
-import type { Stats } from "node:fs";
 import {
   access,
   cp,
@@ -15,7 +14,7 @@ import { AGENT_REGISTRY_BY_ID } from "../config/agents.ts";
 import { UserError } from "../errors.ts";
 import { logger } from "../logger.ts";
 import type { AgentId, DeployAction, Manifest } from "../types.ts";
-import { isOwnedByInceptionEngine, writeTotem } from "./ownership.ts";
+import { lookupDeployment, registerDeployment } from "./ownership.ts";
 import { getDeployMethod, resolveAgentSkillPath } from "./resolve.ts";
 
 export async function planDeploy(
@@ -64,6 +63,7 @@ export async function executeDeploy(
   actions: DeployAction[],
   dryRun: boolean,
   verbose: boolean,
+  home: string,
 ): Promise<{
   succeeded: number;
   failed: Array<{ action: DeployAction; error: string }>;
@@ -93,7 +93,7 @@ export async function executeDeploy(
     }
 
     try {
-      await executeDeployAction(action, verbose);
+      await executeDeployAction(action, verbose, home);
       succeeded++;
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
@@ -148,35 +148,35 @@ async function assertTargetAbsent(targetPath: string): Promise<void> {
   }
 }
 
-async function createDeployTarget(action: DeployAction): Promise<void> {
+async function createDeployTarget(
+  action: DeployAction,
+  home: string,
+): Promise<void> {
   if (action.method === "symlink") {
     await symlink(action.source, action.target, "dir");
-    await writeTotem(action.source, {
-      source: action.source,
-      skill: action.skill,
-      agent: action.agent,
-    });
   } else {
     await cp(action.source, action.target, { recursive: true });
-    await writeTotem(action.target, {
-      source: action.source,
-      skill: action.skill,
-      agent: action.agent,
-    });
   }
+  await registerDeployment(home, action.target, {
+    source: action.source,
+    skill: action.skill,
+    agent: action.agent,
+    method: action.method,
+  });
 }
 
 async function executeDeployAction(
   action: DeployAction,
   verbose: boolean,
+  home: string,
 ): Promise<void> {
   const label = `${action.skill} -> ${action.agent}`;
-  const backupPath = await backupExisting(action.target, verbose);
+  const backupPath = await backupExisting(action.target, verbose, home);
   await mkdir(path.dirname(action.target), { recursive: true });
 
   try {
     await assertTargetAbsent(action.target);
-    await createDeployTarget(action);
+    await createDeployTarget(action, home);
   } catch (createErr) {
     if (backupPath) {
       try {
@@ -201,15 +201,15 @@ async function executeDeployAction(
 async function backupExisting(
   targetPath: string,
   verbose: boolean,
+  home: string,
 ): Promise<string | null> {
-  let stat: Stats;
   try {
-    stat = await lstat(targetPath);
+    await lstat(targetPath);
   } catch {
     return null;
   }
 
-  if (!(await isOwnedByInceptionEngine(targetPath, stat))) {
+  if (!(await lookupDeployment(home, targetPath))) {
     throw new Error(
       `Target "${targetPath}" exists but is not managed by inception-engine — refusing to overwrite`,
     );

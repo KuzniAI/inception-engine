@@ -1,18 +1,13 @@
 import assert from "node:assert/strict";
-import {
-  lstatSync,
-  mkdirSync,
-  rmSync,
-  symlinkSync,
-  writeFileSync,
-} from "node:fs";
+import { existsSync, mkdirSync, readFileSync, rmSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { describe, it } from "node:test";
 import {
-  formatTotem,
-  isOwnedByInceptionEngine,
-  writeTotem,
+  lookupDeployment,
+  registerDeployment,
+  registryPath,
+  unregisterDeployment,
 } from "../src/core/ownership.ts";
 
 function makeTmpDir(): string {
@@ -24,124 +19,176 @@ function makeTmpDir(): string {
   return dir;
 }
 
-describe("formatTotem", () => {
-  it("starts with inception-engine header", () => {
-    const content = formatTotem({
-      source: "/a/b",
-      skill: "test",
-      agent: "claude-code",
-    });
-    assert.ok(content.startsWith("inception-engine\n"));
-  });
-
-  it("includes source, skill, agent, and deployed fields", () => {
-    const content = formatTotem({
-      source: "/a/b",
-      skill: "my-skill",
-      agent: "codex",
-    });
-    assert.ok(content.includes("source=/a/b"));
-    assert.ok(content.includes("skill=my-skill"));
-    assert.ok(content.includes("agent=codex"));
-    assert.ok(content.includes("deployed="));
-  });
-});
-
-describe("writeTotem", () => {
-  it("creates .inception-totem with correct content", async () => {
-    const dir = makeTmpDir();
+describe("registerDeployment", () => {
+  it("creates registry file and adds entry", async () => {
+    const home = makeTmpDir();
     try {
-      await writeTotem(dir, {
-        source: "/src",
-        skill: "s",
+      const target = "/fake/target/skill";
+      await registerDeployment(home, target, {
+        source: "/fake/source/skill",
+        skill: "my-skill",
         agent: "claude-code",
+        method: "symlink",
       });
-      const { readFileSync, statSync } = await import("node:fs");
-      const content = readFileSync(path.join(dir, ".inception-totem"), "utf-8");
-      assert.ok(content.startsWith("inception-engine\n"));
-      // Verify permissions (0o644)
-      if (process.platform !== "win32") {
-        const mode = statSync(path.join(dir, ".inception-totem")).mode & 0o777;
-        assert.equal(mode, 0o644);
-      }
+
+      assert.ok(existsSync(registryPath(home)));
+
+      const registry = JSON.parse(readFileSync(registryPath(home), "utf-8"));
+      assert.equal(registry.version, 1);
+      assert.ok(registry.deployments[target]);
+      assert.equal(registry.deployments[target].skill, "my-skill");
+      assert.equal(registry.deployments[target].agent, "claude-code");
+      assert.equal(registry.deployments[target].source, "/fake/source/skill");
+      assert.equal(registry.deployments[target].method, "symlink");
+      assert.ok(registry.deployments[target].deployed);
     } finally {
-      rmSync(dir, { recursive: true });
+      rmSync(home, { recursive: true });
+    }
+  });
+
+  it("overwrites existing entry for same target", async () => {
+    const home = makeTmpDir();
+    try {
+      const target = "/fake/target/skill";
+      await registerDeployment(home, target, {
+        source: "/old/source",
+        skill: "my-skill",
+        agent: "claude-code",
+        method: "symlink",
+      });
+      await registerDeployment(home, target, {
+        source: "/new/source",
+        skill: "my-skill",
+        agent: "claude-code",
+        method: "symlink",
+      });
+
+      const registry = JSON.parse(readFileSync(registryPath(home), "utf-8"));
+      assert.equal(registry.deployments[target].source, "/new/source");
+    } finally {
+      rmSync(home, { recursive: true });
+    }
+  });
+
+  it("preserves other entries when adding a new one", async () => {
+    const home = makeTmpDir();
+    try {
+      await registerDeployment(home, "/target/a", {
+        source: "/src/a",
+        skill: "a",
+        agent: "claude-code",
+        method: "symlink",
+      });
+      await registerDeployment(home, "/target/b", {
+        source: "/src/b",
+        skill: "b",
+        agent: "codex",
+        method: "copy",
+      });
+
+      const registry = JSON.parse(readFileSync(registryPath(home), "utf-8"));
+      assert.ok(registry.deployments["/target/a"]);
+      assert.ok(registry.deployments["/target/b"]);
+    } finally {
+      rmSync(home, { recursive: true });
     }
   });
 });
 
-describe("isOwnedByInceptionEngine", () => {
-  if (process.platform === "win32") return;
-
-  it("returns true for directory with valid .inception-totem", async () => {
-    const dir = makeTmpDir();
+describe("unregisterDeployment", () => {
+  it("removes the entry for the given target", async () => {
+    const home = makeTmpDir();
     try {
-      writeFileSync(
-        path.join(dir, ".inception-totem"),
-        "inception-engine\nsource=/x\n",
-      );
-      const stat = lstatSync(dir);
-      assert.equal(await isOwnedByInceptionEngine(dir, stat), true);
+      await registerDeployment(home, "/target/a", {
+        source: "/src/a",
+        skill: "a",
+        agent: "claude-code",
+        method: "symlink",
+      });
+      await unregisterDeployment(home, "/target/a");
+
+      const entry = await lookupDeployment(home, "/target/a");
+      assert.equal(entry, null);
     } finally {
-      rmSync(dir, { recursive: true });
+      rmSync(home, { recursive: true });
     }
   });
 
-  it("returns false for directory without .inception-totem", async () => {
-    const dir = makeTmpDir();
+  it("is a no-op if target is not in registry", async () => {
+    const home = makeTmpDir();
     try {
-      const stat = lstatSync(dir);
-      assert.equal(await isOwnedByInceptionEngine(dir, stat), false);
+      await registerDeployment(home, "/target/a", {
+        source: "/src/a",
+        skill: "a",
+        agent: "claude-code",
+        method: "symlink",
+      });
+      // Should not throw
+      await unregisterDeployment(home, "/target/nonexistent");
+
+      const entry = await lookupDeployment(home, "/target/a");
+      assert.ok(entry);
     } finally {
-      rmSync(dir, { recursive: true });
+      rmSync(home, { recursive: true });
+    }
+  });
+});
+
+describe("lookupDeployment", () => {
+  it("returns the entry when target is registered", async () => {
+    const home = makeTmpDir();
+    try {
+      await registerDeployment(home, "/target/skill", {
+        source: "/src/skill",
+        skill: "my-skill",
+        agent: "codex",
+        method: "copy",
+      });
+
+      const entry = await lookupDeployment(home, "/target/skill");
+      assert.ok(entry);
+      assert.equal(entry.source, "/src/skill");
+      assert.equal(entry.skill, "my-skill");
+      assert.equal(entry.agent, "codex");
+      assert.equal(entry.method, "copy");
+      assert.ok(entry.deployed);
+    } finally {
+      rmSync(home, { recursive: true });
     }
   });
 
-  it("returns false for directory with invalid .inception-totem content", async () => {
-    const dir = makeTmpDir();
+  it("returns null when target is not registered", async () => {
+    const home = makeTmpDir();
     try {
-      writeFileSync(
-        path.join(dir, ".inception-totem"),
-        "not-inception-engine\n",
-      );
-      const stat = lstatSync(dir);
-      assert.equal(await isOwnedByInceptionEngine(dir, stat), false);
+      const entry = await lookupDeployment(home, "/nonexistent");
+      assert.equal(entry, null);
     } finally {
-      rmSync(dir, { recursive: true });
+      rmSync(home, { recursive: true });
     }
   });
 
-  it("returns true for symlink whose target has valid .inception-totem", async () => {
-    const sourceDir = makeTmpDir();
-    const linkParent = makeTmpDir();
-    const linkPath = path.join(linkParent, "link");
+  it("returns null when registry file does not exist", async () => {
+    const home = makeTmpDir();
     try {
-      writeFileSync(
-        path.join(sourceDir, ".inception-totem"),
-        "inception-engine\nsource=/x\n",
-      );
-      symlinkSync(sourceDir, linkPath, "dir");
-      const stat = lstatSync(linkPath);
-      assert.equal(await isOwnedByInceptionEngine(linkPath, stat), true);
+      const entry = await lookupDeployment(home, "/anything");
+      assert.equal(entry, null);
     } finally {
-      rmSync(linkParent, { recursive: true, force: true });
-      rmSync(sourceDir, { recursive: true });
+      rmSync(home, { recursive: true });
     }
   });
 
-  it("returns false for symlink whose target lacks .inception-totem", async () => {
-    const sourceDir = makeTmpDir();
-    const linkParent = makeTmpDir();
-    const linkPath = path.join(linkParent, "link");
+  it("returns null when registry file is corrupted", async () => {
+    const home = makeTmpDir();
     try {
-      // Source has SKILL.md but no .inception-totem — should NOT be treated as owned
-      writeFileSync(path.join(sourceDir, "SKILL.md"), "---");
-      symlinkSync(sourceDir, linkPath, "dir");
-      const stat = lstatSync(linkPath);
-      assert.equal(await isOwnedByInceptionEngine(linkPath, stat), false);
+      const dir = path.dirname(registryPath(home));
+      mkdirSync(dir, { recursive: true });
+      const { writeFileSync } = await import("node:fs");
+      writeFileSync(registryPath(home), "not valid json!!!");
+
+      const entry = await lookupDeployment(home, "/anything");
+      assert.equal(entry, null);
     } finally {
-      rmSync(linkParent, { recursive: true, force: true });
-      rmSync(sourceDir, { recursive: true });
+      rmSync(home, { recursive: true });
     }
   });
 });

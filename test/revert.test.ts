@@ -9,6 +9,7 @@ import {
 import os from "node:os";
 import path from "node:path";
 import { describe, it } from "node:test";
+import { lookupDeployment, registerDeployment } from "../src/core/ownership.ts";
 import {
   executeRevert,
   planRevert,
@@ -75,33 +76,44 @@ describe("planRevertAll", () => {
 describe("executeRevert", () => {
   if (process.platform === "win32") return;
 
-  it("removes a symlink with valid .inception-totem", async () => {
+  it("removes a symlink registered in the deployment registry", async () => {
     const home = makeTmpDir();
     const sourceDir = makeTmpDir();
     try {
       const actions = planRevert(testManifest, ["claude-code"], home);
       const target = actions[0]?.target;
 
-      // Source must contain .inception-totem for ownership check
-      writeFileSync(
-        path.join(sourceDir, ".inception-totem"),
-        "inception-engine\nsource=/x\n",
-      );
+      // Create symlink and register in registry
       mkdirSync(path.dirname(target), { recursive: true });
       symlinkSync(sourceDir, target, "dir");
+      await registerDeployment(home, target, {
+        source: sourceDir,
+        skill: "test-skill",
+        agent: "claude-code",
+        method: "symlink",
+      });
       assert.ok(existsSync(target));
 
-      const { succeeded, skipped } = await executeRevert(actions, false, false);
+      const { succeeded, skipped } = await executeRevert(
+        actions,
+        false,
+        false,
+        home,
+      );
       assert.equal(succeeded, 1);
       assert.equal(skipped, 0);
       assert.ok(!existsSync(target));
+
+      // Registry entry should be removed
+      const entry = await lookupDeployment(home, target);
+      assert.equal(entry, null);
     } finally {
       rmSync(home, { recursive: true, force: true });
       rmSync(sourceDir, { recursive: true });
     }
   });
 
-  it("removes a copied directory with valid .inception-totem", async () => {
+  it("removes a copied directory registered in the deployment registry", async () => {
     const home = makeTmpDir();
     try {
       const actions = planRevert(testManifest, ["claude-code"], home);
@@ -109,15 +121,26 @@ describe("executeRevert", () => {
 
       mkdirSync(target, { recursive: true });
       writeFileSync(path.join(target, "SKILL.md"), "test");
-      writeFileSync(
-        path.join(target, ".inception-totem"),
-        "inception-engine\nsource=/x\n",
-      );
+      await registerDeployment(home, target, {
+        source: "/original/source",
+        skill: "test-skill",
+        agent: "claude-code",
+        method: "copy",
+      });
 
-      const { succeeded, skipped } = await executeRevert(actions, false, false);
+      const { succeeded, skipped } = await executeRevert(
+        actions,
+        false,
+        false,
+        home,
+      );
       assert.equal(succeeded, 1);
       assert.equal(skipped, 0);
       assert.ok(!existsSync(target));
+
+      // Registry entry should be removed
+      const entry = await lookupDeployment(home, target);
+      assert.equal(entry, null);
     } finally {
       rmSync(home, { recursive: true, force: true });
     }
@@ -127,7 +150,12 @@ describe("executeRevert", () => {
     const home = makeTmpDir();
     try {
       const actions = planRevert(testManifest, ["claude-code"], home);
-      const { succeeded, skipped } = await executeRevert(actions, false, false);
+      const { succeeded, skipped } = await executeRevert(
+        actions,
+        false,
+        false,
+        home,
+      );
       assert.equal(succeeded, 0);
       assert.equal(skipped, 1);
     } finally {
@@ -142,35 +170,46 @@ describe("executeRevert", () => {
       const actions = planRevert(testManifest, ["claude-code"], home);
       const target = actions[0]?.target;
 
-      writeFileSync(
-        path.join(sourceDir, ".inception-totem"),
-        "inception-engine\nsource=/x\n",
-      );
       mkdirSync(path.dirname(target), { recursive: true });
       symlinkSync(sourceDir, target, "dir");
+      await registerDeployment(home, target, {
+        source: sourceDir,
+        skill: "test-skill",
+        agent: "claude-code",
+        method: "symlink",
+      });
 
-      const { succeeded } = await executeRevert(actions, true, false);
+      const { succeeded } = await executeRevert(actions, true, false, home);
       assert.equal(succeeded, 1);
       assert.ok(existsSync(target), "symlink should still exist after dry-run");
+
+      // Registry entry should still exist after dry-run
+      const entry = await lookupDeployment(home, target);
+      assert.ok(entry, "registry entry should still exist after dry-run");
     } finally {
       rmSync(home, { recursive: true, force: true });
       rmSync(sourceDir, { recursive: true });
     }
   });
 
-  it("skips symlink whose target has SKILL.md but no .inception-totem", async () => {
+  it("skips target that exists but is not in registry", async () => {
     const home = makeTmpDir();
     const sourceDir = makeTmpDir();
     try {
       const actions = planRevert(testManifest, ["claude-code"], home);
       const target = actions[0]?.target;
 
-      // Only SKILL.md, no .inception-totem — should be treated as unmanaged
+      // Create symlink but do NOT register — should be treated as unmanaged
       writeFileSync(path.join(sourceDir, "SKILL.md"), "---");
       mkdirSync(path.dirname(target), { recursive: true });
       symlinkSync(sourceDir, target, "dir");
 
-      const { succeeded, skipped } = await executeRevert(actions, false, false);
+      const { succeeded, skipped } = await executeRevert(
+        actions,
+        false,
+        false,
+        home,
+      );
       assert.equal(succeeded, 0);
       assert.equal(skipped, 1);
       assert.ok(existsSync(target), "symlink should still exist — not managed");
@@ -180,24 +219,26 @@ describe("executeRevert", () => {
     }
   });
 
-  it("skips directory with invalid .inception-totem content", async () => {
+  it("skips directory that exists but is not in registry", async () => {
     const home = makeTmpDir();
     try {
       const actions = planRevert(testManifest, ["claude-code"], home);
       const target = actions[0]?.target;
 
       mkdirSync(target, { recursive: true });
-      writeFileSync(
-        path.join(target, ".inception-totem"),
-        "not-inception-engine\n",
-      );
+      writeFileSync(path.join(target, "SKILL.md"), "user content");
 
-      const { succeeded, skipped } = await executeRevert(actions, false, false);
+      const { succeeded, skipped } = await executeRevert(
+        actions,
+        false,
+        false,
+        home,
+      );
       assert.equal(succeeded, 0);
       assert.equal(skipped, 1);
       assert.ok(
         existsSync(target),
-        "directory should still exist — invalid totem",
+        "directory should still exist — not in registry",
       );
     } finally {
       rmSync(home, { recursive: true, force: true });
