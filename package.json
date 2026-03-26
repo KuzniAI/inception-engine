@@ -36,7 +36,7 @@
   "scripts": {
     "build": "tsc",
     "typecheck": "tsc --noEmit",
-    "format": "biome format --write .",
+    "fmt": "biome format --write .",
     "lint": "biome lint . --max-diagnostics none",
     "dev": "node src/index.ts",
     "test": "node --test test/*.test.ts",
