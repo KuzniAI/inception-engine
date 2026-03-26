@@ -1,0 +1,4 @@
+I want to replace current ownership model with something else before expanding
+- Move ownership and provenance out of the source skill directory. On POSIX, `writeTotem` currently writes `.inception-totem` into the source tree during symlink deploy, which dirties the repo, requires write access to the checkout, and leaves artifacts behind after revert (`src/core/ownership.ts`, `src/core/deploy.ts`, `src/core/revert.ts`).
+   - Strengthen ownership validation so deploy and revert do not trust any file that merely starts with `inception-engine`; the proof must bind to the expected source, skill, agent, and asset type.
+   - Make the new ownership scheme work for symlinks, copied directories, single files, and future config patches without depending on repo mutation.
