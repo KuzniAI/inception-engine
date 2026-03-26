@@ -1,0 +1,3 @@
+What do you think about this review remark? Plan the response or fix
+
+deploy and revert still authorize ownership by target-path presence alone, not by a bound proof of source/skill/agent/asset type. In src/core/deploy.ts:212 and src/core/revert.ts:86, the code only checks whether lookupDeployment(home, targetPath) returns any entry. It never verifies that the entry matches the expected source, skill, agent, or even the actual on-disk object being replaced/removed. That means a stale or forged registry entry for the same target path is enough to authorize overwrite/delete, which does not satisfy the roadmap requirement to strengthen proof binding.
