@@ -8,6 +8,7 @@ import {
   registerDeployment,
   registryPath,
   unregisterDeployment,
+  verifyDeployment,
 } from "../src/core/ownership.ts";
 
 function makeTmpDir(): string {
@@ -186,6 +187,113 @@ describe("lookupDeployment", () => {
       writeFileSync(registryPath(home), "not valid json!!!");
 
       const entry = await lookupDeployment(home, "/anything");
+      assert.equal(entry, null);
+    } finally {
+      rmSync(home, { recursive: true });
+    }
+  });
+});
+
+describe("verifyDeployment", () => {
+  it("returns entry when all fields match", async () => {
+    const home = makeTmpDir();
+    try {
+      const target = "/target/skill";
+      await registerDeployment(home, target, {
+        source: "/src/skill",
+        skill: "my-skill",
+        agent: "claude-code",
+        method: "symlink",
+      });
+
+      const entry = await verifyDeployment(home, target, {
+        source: "/src/skill",
+        skill: "my-skill",
+        agent: "claude-code",
+      });
+      assert.ok(entry);
+      assert.equal(entry.source, "/src/skill");
+      assert.equal(entry.skill, "my-skill");
+      assert.equal(entry.agent, "claude-code");
+    } finally {
+      rmSync(home, { recursive: true });
+    }
+  });
+
+  it("returns null when source does not match", async () => {
+    const home = makeTmpDir();
+    try {
+      const target = "/target/skill";
+      await registerDeployment(home, target, {
+        source: "/src/skill",
+        skill: "my-skill",
+        agent: "claude-code",
+        method: "symlink",
+      });
+
+      const entry = await verifyDeployment(home, target, {
+        source: "/different/source",
+        skill: "my-skill",
+        agent: "claude-code",
+      });
+      assert.equal(entry, null);
+    } finally {
+      rmSync(home, { recursive: true });
+    }
+  });
+
+  it("returns null when skill does not match", async () => {
+    const home = makeTmpDir();
+    try {
+      const target = "/target/skill";
+      await registerDeployment(home, target, {
+        source: "/src/skill",
+        skill: "my-skill",
+        agent: "claude-code",
+        method: "symlink",
+      });
+
+      const entry = await verifyDeployment(home, target, {
+        source: "/src/skill",
+        skill: "different-skill",
+        agent: "claude-code",
+      });
+      assert.equal(entry, null);
+    } finally {
+      rmSync(home, { recursive: true });
+    }
+  });
+
+  it("returns null when agent does not match", async () => {
+    const home = makeTmpDir();
+    try {
+      const target = "/target/skill";
+      await registerDeployment(home, target, {
+        source: "/src/skill",
+        skill: "my-skill",
+        agent: "claude-code",
+        method: "symlink",
+      });
+
+      const entry = await verifyDeployment(home, target, {
+        source: "/src/skill",
+        skill: "my-skill",
+        agent: "codex",
+      });
+      assert.equal(entry, null);
+    } finally {
+      rmSync(home, { recursive: true });
+    }
+  });
+
+  it("returns null when no entry exists", async () => {
+    const home = makeTmpDir();
+    try {
+      const entry = await verifyDeployment(home, "/nonexistent", {
+        source: "/src/skill",
+        skill: "my-skill",
+        agent: "claude-code",
+      });
       assert.equal(entry, null);
     } finally {
       rmSync(home, { recursive: true });

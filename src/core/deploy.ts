@@ -14,7 +14,7 @@ import { AGENT_REGISTRY_BY_ID } from "../config/agents.ts";
 import { UserError } from "../errors.ts";
 import { logger } from "../logger.ts";
 import type { AgentId, DeployAction, Manifest } from "../types.ts";
-import { lookupDeployment, registerDeployment } from "./ownership.ts";
+import { registerDeployment, verifyDeployment } from "./ownership.ts";
 import { getDeployMethod, resolveAgentSkillPath } from "./resolve.ts";
 
 export async function planDeploy(
@@ -171,7 +171,11 @@ async function executeDeployAction(
   home: string,
 ): Promise<void> {
   const label = `${action.skill} -> ${action.agent}`;
-  const backupPath = await backupExisting(action.target, verbose, home);
+  const backupPath = await backupExisting(action.target, verbose, home, {
+    source: action.source,
+    skill: action.skill,
+    agent: action.agent,
+  });
   await mkdir(path.dirname(action.target), { recursive: true });
 
   try {
@@ -202,6 +206,7 @@ async function backupExisting(
   targetPath: string,
   verbose: boolean,
   home: string,
+  expected: { source: string; skill: string; agent: AgentId },
 ): Promise<string | null> {
   try {
     await lstat(targetPath);
@@ -209,7 +214,7 @@ async function backupExisting(
     return null;
   }
 
-  if (!(await lookupDeployment(home, targetPath))) {
+  if (!(await verifyDeployment(home, targetPath, expected))) {
     throw new Error(
       `Target "${targetPath}" exists but is not managed by inception-engine — refusing to overwrite`,
     );

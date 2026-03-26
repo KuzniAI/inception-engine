@@ -244,4 +244,39 @@ describe("executeRevert", () => {
       rmSync(home, { recursive: true, force: true });
     }
   });
+
+  it("skips target whose registry entry has mismatched skill or agent", async () => {
+    const home = makeTmpDir();
+    const sourceDir = makeTmpDir();
+    try {
+      const actions = planRevert(testManifest, ["claude-code"], home);
+      const target = actions[0]?.target;
+
+      // Create symlink and register under a different skill/agent
+      mkdirSync(path.dirname(target), { recursive: true });
+      symlinkSync(sourceDir, target, "dir");
+      await registerDeployment(home, target, {
+        source: sourceDir,
+        skill: "different-skill",
+        agent: "codex",
+        method: "symlink",
+      });
+
+      const { succeeded, skipped } = await executeRevert(
+        actions,
+        false,
+        false,
+        home,
+      );
+      assert.equal(succeeded, 0);
+      assert.equal(skipped, 1);
+      assert.ok(
+        existsSync(target),
+        "symlink should still exist — registry entry does not match",
+      );
+    } finally {
+      rmSync(home, { recursive: true, force: true });
+      rmSync(sourceDir, { recursive: true });
+    }
+  });
 });

@@ -13,7 +13,7 @@ import os from "node:os";
 import path from "node:path";
 import { describe, it } from "node:test";
 import { executeDeploy, planDeploy } from "../src/core/deploy.ts";
-import { lookupDeployment } from "../src/core/ownership.ts";
+import { lookupDeployment, registerDeployment } from "../src/core/ownership.ts";
 import { UserError } from "../src/errors.ts";
 import { logger } from "../src/logger.ts";
 import type { Manifest } from "../src/types.ts";
@@ -279,6 +279,47 @@ describe("executeDeploy", () => {
 
       // Original content should still be there
       assert.ok(existsSync(path.join(target, "something.txt")));
+    } finally {
+      rmSync(sourceDir, { recursive: true });
+      rmSync(home, { recursive: true, force: true });
+    }
+  });
+
+  it("refuses to overwrite target with mismatched registry entry", async () => {
+    const sourceDir = makeTmpDir();
+    const home = makeTmpDir();
+    try {
+      createSkillSource(sourceDir, "skills/test-skill");
+      const actions = await planDeploy(
+        testManifest,
+        sourceDir,
+        ["claude-code"],
+        home,
+      );
+      const target = actions[0]?.target;
+
+      // Create a directory at the target and register it under a different source/skill
+      mkdirSync(target, { recursive: true });
+      writeFileSync(path.join(target, "SKILL.md"), "other content");
+      await registerDeployment(home, target, {
+        source: "/completely/different/source",
+        skill: "different-skill",
+        agent: "codex",
+        method: "symlink",
+      });
+
+      const { succeeded, failed } = await executeDeploy(
+        actions,
+        false,
+        false,
+        home,
+      );
+      assert.equal(succeeded, 0);
+      assert.equal(failed.length, 1);
+      assert.ok(failed[0]?.error.includes("not managed by inception-engine"));
+
+      // Original content should still be there
+      assert.ok(existsSync(path.join(target, "SKILL.md")));
     } finally {
       rmSync(sourceDir, { recursive: true });
       rmSync(home, { recursive: true, force: true });

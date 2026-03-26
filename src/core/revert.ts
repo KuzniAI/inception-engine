@@ -83,7 +83,8 @@ async function executeRevertAction(
     return "skip";
   }
 
-  if (!(await lookupDeployment(home, action.target))) {
+  const entry = await lookupDeployment(home, action.target);
+  if (!entry || entry.skill !== action.skill || entry.agent !== action.agent) {
     logger.warn(
       label,
       `skipping: ${action.target} is not in the deployment registry — not managed by inception-engine`,
