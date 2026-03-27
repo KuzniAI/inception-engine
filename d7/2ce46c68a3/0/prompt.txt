@@ -1,0 +1,16 @@
+Plan a work on next item on roadmap
+
+**Centralize portability rules before adding more agent surfaces**
+   - Replace ad hoc placeholder substitution with a platform and config-root resolver that supports `XDG_CONFIG_HOME`, Windows `%APPDATA%`, and agent-specific overrides (`src/core/resolve.ts`, `src/config/agents.ts`).
+   - Add provenance metadata to `AGENT_REGISTRY` so each path and binary assumption is tracked as documented, implementation-only, or provisional, matching the confidence model in `docs/north-star.md`.
+   - Review permission-setting behavior for cross-platform and enterprise environments; `chmod(0o644)` is POSIX-centric and is not a meaningful policy model on Windows.
+
+---
+
+You can continue now
+
+---
+
+I have these two remarks from code review:
+1. The blocker is that the portability story is still broken in resolveHome(). Running npm test -- --test-name-pattern='resolve|cross-platform|ownership' leaves one failure in test/resolve.test.ts (line 75): with SUDO_USER set to the current user, resolveHome() throws RESOLVE_FAILED instead of resolving a usable home directory. That matches the unresolved “Environment Provenance Risk” noted later in the roadmap, so I would not treat crossed-out item 2 as fully complete yet.
+2. Residual gap: there is still no direct test around the POSIX chmod/Windows no-op behavior in src/core/ownership.ts, but that is a coverage gap, not a demonstrated implementation bug.
