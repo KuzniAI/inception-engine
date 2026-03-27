@@ -51,7 +51,9 @@ type RevertOutcome =
   | { outcome: "skip" }
   | { outcome: "fail"; error: string };
 
-function lstatOutcome(err: unknown): RevertOutcome {
+function lstatOutcome(
+  err: unknown,
+): { outcome: "skip" } | { outcome: "fail"; error: string } {
   if ((err as NodeJS.ErrnoException).code === "ENOENT") {
     return { outcome: "skip" };
   }
@@ -102,9 +104,9 @@ async function executeRevertAction(
     const result = lstatOutcome(err);
     if (result.outcome === "skip") {
       logger.skip(label, "(not found, skipping)");
-    } else {
-      logger.fail(label, result.error);
+      return result;
     }
+    logger.fail(label, result.error);
     return result;
   }
 
