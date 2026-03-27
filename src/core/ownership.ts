@@ -1,23 +1,16 @@
 import { chmod, mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
-import { RegistrySchema } from "../schemas/registry.ts";
+import {
+  RegistrySchema,
+  type Registry,
+  type RegistryEntry,
+} from "../schemas/registry.ts";
 import type { AgentId } from "../types.ts";
+
+export type { RegistryEntry } from "../schemas/registry.ts";
 
 const REGISTRY_DIR = ".inception-engine";
 const REGISTRY_FILE = "registry.json";
-
-export interface RegistryEntry {
-  source: string;
-  skill: string;
-  agent: AgentId;
-  method: "symlink" | "copy";
-  deployed: string;
-}
-
-interface Registry {
-  version: 1;
-  deployments: Record<string, RegistryEntry>;
-}
 
 export function registryPath(home: string): string {
   return path.join(home, REGISTRY_DIR, REGISTRY_FILE);
@@ -28,7 +21,7 @@ async function loadRegistry(home: string): Promise<Registry> {
     const content = await readFile(registryPath(home), "utf-8");
     const parsed = JSON.parse(content);
     const result = RegistrySchema.safeParse(parsed);
-    return result.success ? (result.data as Registry) : emptyRegistry();
+    return result.success ? result.data : emptyRegistry();
   } catch {
     return emptyRegistry();
   }

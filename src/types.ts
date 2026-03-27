@@ -1,31 +1,6 @@
-export type AgentId =
-  | "claude-code"
-  | "codex"
-  | "gemini-cli"
-  | "antigravity"
-  | "opencode"
-  | "github-copilot";
+import type { AgentId } from "./schemas/manifest.ts";
 
-export const AGENT_IDS: readonly AgentId[] = [
-  "claude-code",
-  "codex",
-  "gemini-cli",
-  "antigravity",
-  "opencode",
-  "github-copilot",
-] as const;
-
-export interface SkillEntry {
-  name: string;
-  path: string;
-  agents: AgentId[];
-}
-
-export interface Manifest {
-  skills: SkillEntry[];
-  mcpServers: unknown[];
-  agentRules: unknown[];
-}
+export type { AgentId, Manifest, SkillEntry } from "./schemas/manifest.ts";
 
 export interface AgentPaths {
   posix: string[];

@@ -11,10 +11,8 @@ import { executeRevert, planRevert, planRevertAll } from "./core/revert.ts";
 import type { ErrorCode } from "./errors.ts";
 import { UserError } from "./errors.ts";
 import { dryRunPrefix, logger } from "./logger.ts";
-import { AgentIdSchema } from "./schemas/manifest.ts";
-import { validate } from "./schemas/validate.ts";
+import { AGENT_IDS, AgentIdSchema } from "./schemas/manifest.ts";
 import type { AgentId, CliOptions, Manifest } from "./types.ts";
-import { AGENT_IDS } from "./types.ts";
 
 const USAGE = `
 inception-engine - Deploy AI agent skills
@@ -98,17 +96,19 @@ function parseCLI(argv: string[]): CliOptions {
 
   let agents: AgentId[] | null = null;
   if (typeof values.agents === "string") {
-    const ids = values.agents.split(",").map((s) => s.trim());
-    for (const id of ids) {
-      const r = validate(AgentIdSchema, id);
-      if (r.issues) {
-        throw new UserError(
-          "INVALID_ARGS",
-          `Unknown agent: "${id}". Valid agents: ${AGENT_IDS.join(", ")}`,
-        );
-      }
-    }
-    agents = ids as AgentId[];
+    agents = values.agents
+      .split(",")
+      .map((s) => s.trim())
+      .map((id) => {
+        const r = AgentIdSchema.safeParse(id);
+        if (!r.success) {
+          throw new UserError(
+            "INVALID_ARGS",
+            `Unknown agent: "${id}". Valid agents: ${AGENT_IDS.join(", ")}`,
+          );
+        }
+        return r.data;
+      });
   }
 
   return {

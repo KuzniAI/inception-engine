@@ -1,11 +1,27 @@
 import nodePath from "node:path";
 import { z } from "zod";
-import type { AgentId } from "../types.ts";
-import { AGENT_IDS } from "../types.ts";
+
+const AGENT_IDS = [
+  "claude-code",
+  "codex",
+  "gemini-cli",
+  "antigravity",
+  "opencode",
+  "github-copilot",
+] as const;
+
+export { AGENT_IDS };
 
 const SAFE_NAME_RE = /^[a-zA-Z0-9][a-zA-Z0-9._-]*$/;
 
-export const AgentIdSchema = z
+// Standalone schema used for type derivation and single-ID validation (e.g. index.ts).
+export const AgentIdSchema = z.enum(AGENT_IDS);
+export type AgentId = z.output<typeof AgentIdSchema>;
+
+// Used inside SkillEntrySchema.agents so that enum failures embed the received
+// value in the message (Zod 4's invalid_value issue omits the received value).
+// The .pipe(AgentIdSchema) at the end provides the AgentId output type.
+const agentIdElement = z
   .string()
   .superRefine((v, ctx) => {
     if (!(AGENT_IDS as readonly string[]).includes(v)) {
@@ -15,7 +31,7 @@ export const AgentIdSchema = z
       });
     }
   })
-  .transform((v) => v as AgentId);
+  .pipe(AgentIdSchema);
 
 export const SkillEntrySchema = z.object({
   name: z
@@ -35,7 +51,7 @@ export const SkillEntrySchema = z.object({
       message: "path must not escape the repository root",
     }),
   agents: z
-    .array(AgentIdSchema, { message: "agents must be a non-empty array" })
+    .array(agentIdElement, { message: "agents must be a non-empty array" })
     .min(1, { message: "agents must be a non-empty array" }),
 });
 
@@ -44,3 +60,6 @@ export const ManifestSchema = z.object({
   mcpServers: z.array(z.unknown()).catch([]),
   agentRules: z.array(z.unknown()).catch([]),
 });
+
+export type SkillEntry = z.infer<typeof SkillEntrySchema>;
+export type Manifest = z.infer<typeof ManifestSchema>;
