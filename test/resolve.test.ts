@@ -72,8 +72,8 @@ describe("resolveHome", () => {
     }
   });
 
-  it("looks up real home when SUDO_USER matches the current user", () => {
-    if (process.platform === "win32") return;
+  it("ignores SUDO_USER when not running as root and returns os.homedir()", () => {
+    if (process.platform === "win32" || process.getuid?.() === 0) return;
     const currentUser = process.env.USER ?? os.userInfo().username;
     if (!currentUser) return;
 
@@ -81,10 +81,7 @@ describe("resolveHome", () => {
     try {
       process.env.SUDO_USER = currentUser;
       const result = resolveHome();
-      assert.ok(
-        typeof result === "string" && result.startsWith("/"),
-        `expected absolute path, got: ${result}`,
-      );
+      assert.equal(result, os.homedir());
     } finally {
       if (saved === undefined) {
         delete process.env.SUDO_USER;
@@ -94,8 +91,8 @@ describe("resolveHome", () => {
     }
   });
 
-  it("throws UserError when SUDO_USER is a non-existent user", () => {
-    if (process.platform === "win32") return;
+  it("throws UserError when SUDO_USER is a non-existent user (only when running as root)", () => {
+    if (process.platform === "win32" || process.getuid?.() !== 0) return;
     const saved = process.env.SUDO_USER;
     try {
       process.env.SUDO_USER = "__nonexistent_user_inception_engine_test__";

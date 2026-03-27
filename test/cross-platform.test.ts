@@ -59,12 +59,49 @@ describe("resolveAgentSkillPathFor — posix", () => {
     );
   });
 
-  it("opencode", () => {
+  it("opencode defaults to home/.config when XDG_CONFIG_HOME is unset", () => {
     const agent = getAgent("opencode");
-    assert.equal(
-      resolveAgentSkillPathFor(agent, SKILL, HOME, p),
-      path.join(HOME, ".config", "opencode", "skills", SKILL),
-    );
+    const saved = process.env.XDG_CONFIG_HOME;
+    try {
+      delete process.env.XDG_CONFIG_HOME;
+      assert.equal(
+        resolveAgentSkillPathFor(agent, SKILL, HOME, p),
+        path.join(HOME, ".config", "opencode", "skills", SKILL),
+      );
+    } finally {
+      if (saved === undefined) delete process.env.XDG_CONFIG_HOME;
+      else process.env.XDG_CONFIG_HOME = saved;
+    }
+  });
+
+  it("opencode uses XDG_CONFIG_HOME when set to an absolute path", () => {
+    const agent = getAgent("opencode");
+    const saved = process.env.XDG_CONFIG_HOME;
+    try {
+      process.env.XDG_CONFIG_HOME = "/custom/config";
+      assert.equal(
+        resolveAgentSkillPathFor(agent, SKILL, HOME, p),
+        path.join("/custom/config", "opencode", "skills", SKILL),
+      );
+    } finally {
+      if (saved === undefined) delete process.env.XDG_CONFIG_HOME;
+      else process.env.XDG_CONFIG_HOME = saved;
+    }
+  });
+
+  it("opencode ignores relative XDG_CONFIG_HOME and falls back to home/.config", () => {
+    const agent = getAgent("opencode");
+    const saved = process.env.XDG_CONFIG_HOME;
+    try {
+      process.env.XDG_CONFIG_HOME = "relative/path";
+      assert.equal(
+        resolveAgentSkillPathFor(agent, SKILL, HOME, p),
+        path.join(HOME, ".config", "opencode", "skills", SKILL),
+      );
+    } finally {
+      if (saved === undefined) delete process.env.XDG_CONFIG_HOME;
+      else process.env.XDG_CONFIG_HOME = saved;
+    }
   });
 
   it("github-copilot", () => {
@@ -154,12 +191,34 @@ describe("resolveAgentDetectPathFor — posix", () => {
     );
   });
 
-  it("opencode uses .config/opencode", () => {
+  it("opencode detect path defaults to home/.config when XDG_CONFIG_HOME is unset", () => {
     const agent = getAgent("opencode");
-    assert.equal(
-      resolveAgentDetectPathFor(agent, HOME, p),
-      path.join(HOME, ".config", "opencode"),
-    );
+    const saved = process.env.XDG_CONFIG_HOME;
+    try {
+      delete process.env.XDG_CONFIG_HOME;
+      assert.equal(
+        resolveAgentDetectPathFor(agent, HOME, p),
+        path.join(HOME, ".config", "opencode"),
+      );
+    } finally {
+      if (saved === undefined) delete process.env.XDG_CONFIG_HOME;
+      else process.env.XDG_CONFIG_HOME = saved;
+    }
+  });
+
+  it("opencode detect path uses XDG_CONFIG_HOME when set to an absolute path", () => {
+    const agent = getAgent("opencode");
+    const saved = process.env.XDG_CONFIG_HOME;
+    try {
+      process.env.XDG_CONFIG_HOME = "/custom/config";
+      assert.equal(
+        resolveAgentDetectPathFor(agent, HOME, p),
+        path.join("/custom/config", "opencode"),
+      );
+    } finally {
+      if (saved === undefined) delete process.env.XDG_CONFIG_HOME;
+      else process.env.XDG_CONFIG_HOME = saved;
+    }
   });
 
   it("antigravity has nested detect path", () => {

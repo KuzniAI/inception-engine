@@ -32,12 +32,21 @@ export interface AgentPaths {
   windows: string[];
 }
 
+export type Confidence = "documented" | "implementation-only" | "provisional";
+
+export interface AgentProvenance {
+  skills: Confidence;
+  detectPaths: Confidence;
+  detectBinary: Confidence;
+}
+
 export interface AgentConfig {
   id: AgentId;
   displayName: string;
   skills: AgentPaths;
   detectPaths: AgentPaths;
   detectBinary: string | null;
+  provenance: AgentProvenance;
 }
 
 export interface DeployAction {

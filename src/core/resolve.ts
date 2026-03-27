@@ -11,7 +11,7 @@ export function resolveHome(): string {
   }
 
   const sudoUser = process.env.SUDO_USER;
-  if (sudoUser) {
+  if (sudoUser && process.getuid?.() === 0) {
     return lookupHomeForUser(sudoUser);
   }
 
@@ -154,11 +154,15 @@ function resolvePlaceholders(
   home: string,
 ): string {
   const appdata = process.env.APPDATA ?? path.join(home, "AppData", "Roaming");
+  const xdgRaw = process.env.XDG_CONFIG_HOME;
+  const xdgConfig =
+    xdgRaw && path.isAbsolute(xdgRaw) ? xdgRaw : path.join(home, ".config");
   const resolved = segments.map((seg) =>
     seg
       .replace("{home}", home)
       .replace("{name}", skillName)
-      .replace("{appdata}", appdata),
+      .replace("{appdata}", appdata)
+      .replace("{xdg_config}", xdgConfig),
   );
   return path.join(...resolved);
 }

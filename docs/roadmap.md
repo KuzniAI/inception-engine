@@ -11,22 +11,17 @@ It intentionally focuses on code quality, known issues, OS and agent portability
    - Reject duplicate `skill.name` values and deduplicate per-skill agent IDs before planning to prevent target collisions and repeated writes.
    - Validate that each skill source is a readable directory containing `SKILL.md` during planning, not only an existing path during execution.
 
-2. **Centralize portability rules before adding more agent surfaces**
-   - Replace ad hoc placeholder substitution with a platform and config-root resolver that supports `XDG_CONFIG_HOME`, Windows `%APPDATA%`, and agent-specific overrides (`src/core/resolve.ts`, `src/config/agents.ts`).
-   - Add provenance metadata to `AGENT_REGISTRY` so each path and binary assumption is tracked as documented, implementation-only, or provisional, matching the confidence model in `docs/north-star.md`.
-   - Review permission-setting behavior for cross-platform and enterprise environments; `chmod(0o644)` is POSIX-centric and is not a meaningful policy model on Windows.
-
-3. **Make automation and enterprise failures explicit**
+2. **Make automation and enterprise failures explicit**
    - Change revert and deploy result handling so any failed destructive step is surfaced as a failure count and a non-zero exit code (`src/core/revert.ts`, `src/index.ts`).
    - Differentiate permission, policy, and missing-file errors. `loadManifest` and deploy source checks currently collapse several I/O failures into “not found” style messages, which is not sufficient for locked-down environments.
    - Add an enterprise or policy preflight layer before touching agent-managed config so later work has a place to warn about local-config overrides and policy blocks.
 
-4. **Close the validation gaps with platform-realistic tests**
+3. **Close the validation gaps with platform-realistic tests**
    - Add CLI end-to-end tests that exercise `src/index.ts` result codes and user-visible reporting.
    - Add Windows-realistic coverage for copy deploy or revert, ownership handling, and `%APPDATA%` path behavior.
    - Add detection-path tests for `where.exe`, missing `which`, and `/bin/sh` fallback, plus ownership tests that verify source trees remain unmodified after deploy and revert.
 
-5. **Generalize the action model before expanding beyond skill directories**
+4. **Generalize the action model before expanding beyond skill directories**
    - Refactor `DeployAction`, `RevertAction`, and the planner/executor split so the engine can represent directory copy or symlink, file write, and structured config patch as distinct action types (`src/types.ts`, `src/core/deploy.ts`, `src/core/revert.ts`).
    - Keep dry-run and revert logic action-aware so later work does not get bolted onto the current skill-directory path model.
 
@@ -45,10 +40,6 @@ It intentionally focuses on code quality, known issues, OS and agent portability
 
 ### Portability and Agent-Surface Hygiene
 
-- **POSIX Config Root Hardcoding**: POSIX agent paths use hardcoded `{home}/.config` conventions instead of honoring XDG variables. That will break user-managed config roots and some containerized setups (`src/config/agents.ts`, `src/core/resolve.ts`).
-- **Registry Confidence Not Captured in Code**: `AGENT_REGISTRY` contains agent paths and binary names, but it does not record whether each surface is doc-backed, implementation-only, or provisional. That makes the code drift away from the confidence model in `docs/north-star.md` (`src/config/agents.ts`).
-- **Environment Provenance Risk**: `resolveHome` trusts `SUDO_USER` whenever it is present, even though externally injected environment state can redirect deployment in automation (`src/core/resolve.ts`).
-- **Windows and Enterprise Permission Model Gap**: The code assumes a Unix-style `chmod` step and a filesystem-control model that does not map cleanly to Windows ACLs or enterprise-managed agent directories (`src/core/ownership.ts`, `src/core/deploy.ts`).
 - **Packaging Portability**: `package.json` requires Node `>=23.6.0`, which is higher than many enterprise LTS baselines. Reassess the true runtime minimum or document the dependency clearly before broader rollout.
 
 ### Automation and Enterprise Readiness

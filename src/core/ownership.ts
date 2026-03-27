@@ -46,6 +46,14 @@ async function saveRegistry(home: string, registry: Registry): Promise<void> {
   await mkdir(dir, { recursive: true });
   const filePath = registryPath(home);
   await writeFile(filePath, `${JSON.stringify(registry, null, 2)}\n`);
+  await setFilePermissions(filePath);
+}
+
+/**
+ * Ensure the file is not world-writable regardless of umask.
+ * On Windows, the OS inherits ACLs from the parent directory — no-op is correct.
+ */
+async function setFilePermissions(filePath: string): Promise<void> {
   if (process.platform !== "win32") {
     await chmod(filePath, 0o644);
   }

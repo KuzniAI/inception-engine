@@ -185,7 +185,11 @@ On Windows, `os.homedir()` correctly resolves even in elevated PowerShell or cmd
 
 When run under `sudo` on POSIX, `SUDO_USER` is read as an advisory signal to identify the real user. The username is validated through OS directory services (`getent passwd` on Linux, `dscl` on macOS, `/etc/passwd` as a fallback) — it is never used as a raw path. This is standard practice for sudo-aware CLI tools.
 
-Automation edge case: if the tool runs inside a pipeline where `SUDO_USER` has been set externally in the environment before the process starts, the tool will look up that username's home directory. To avoid this in automation, either run without `sudo` or set `HOME` explicitly before invoking the tool.
+`SUDO_USER` is only consulted when the process is actually running as root (UID 0). If `SUDO_USER` is present in the environment but the process is not root — for example, as a stale shell variable from a prior `sudo` session or an externally injected value in automation — it is ignored and the standard home directory is used instead.
+
+### XDG_CONFIG_HOME support
+
+On POSIX, agents whose config lives under `~/.config/` (currently OpenCode) honor `$XDG_CONFIG_HOME` when it is set to an absolute path. If the variable is unset or contains a relative path (which the XDG Base Directory Specification disallows), the tool falls back to the standard `~/.config` default. This has no effect on Windows.
 
 ### Windows %APPDATA% fallback
 

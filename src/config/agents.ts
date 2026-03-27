@@ -13,6 +13,11 @@ export const AGENT_REGISTRY: readonly AgentConfig[] = [
       windows: ["{home}", ".claude"],
     },
     detectBinary: "claude",
+    provenance: {
+      skills: "documented",
+      detectPaths: "documented",
+      detectBinary: "documented",
+    },
   },
   {
     id: "codex",
@@ -26,6 +31,11 @@ export const AGENT_REGISTRY: readonly AgentConfig[] = [
       windows: ["{home}", ".codex"],
     },
     detectBinary: "codex",
+    provenance: {
+      skills: "documented",
+      detectPaths: "documented",
+      detectBinary: "documented",
+    },
   },
   {
     id: "gemini-cli",
@@ -39,6 +49,11 @@ export const AGENT_REGISTRY: readonly AgentConfig[] = [
       windows: ["{home}", ".gemini"],
     },
     detectBinary: "gemini",
+    provenance: {
+      skills: "documented",
+      detectPaths: "documented",
+      detectBinary: "documented",
+    },
   },
   {
     id: "antigravity",
@@ -52,19 +67,29 @@ export const AGENT_REGISTRY: readonly AgentConfig[] = [
       windows: ["{home}", ".gemini", "antigravity"],
     },
     detectBinary: null,
+    provenance: {
+      skills: "implementation-only",
+      detectPaths: "implementation-only",
+      detectBinary: "provisional",
+    },
   },
   {
     id: "opencode",
     displayName: "OpenCode",
     skills: {
-      posix: ["{home}", ".config", "opencode", "skills", "{name}"],
+      posix: ["{xdg_config}", "opencode", "skills", "{name}"],
       windows: ["{appdata}", "opencode", "skills", "{name}"],
     },
     detectPaths: {
-      posix: ["{home}", ".config", "opencode"],
+      posix: ["{xdg_config}", "opencode"],
       windows: ["{appdata}", "opencode"],
     },
     detectBinary: "opencode",
+    provenance: {
+      skills: "documented",
+      detectPaths: "documented",
+      detectBinary: "documented",
+    },
   },
   {
     id: "github-copilot",
@@ -78,6 +103,11 @@ export const AGENT_REGISTRY: readonly AgentConfig[] = [
       windows: ["{home}", ".copilot"],
     },
     detectBinary: "github-copilot",
+    provenance: {
+      skills: "documented",
+      detectPaths: "documented",
+      detectBinary: "documented",
+    },
   },
 ] as const;
 

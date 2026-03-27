@@ -71,6 +71,24 @@ describe("registerDeployment", () => {
     }
   });
 
+  it("sets registry file permissions to 0o644 on POSIX", async () => {
+    if (process.platform === "win32") return;
+    const home = makeTmpDir();
+    try {
+      await registerDeployment(home, "/fake/target", {
+        source: "/fake/source",
+        skill: "my-skill",
+        agent: "claude-code",
+        method: "symlink",
+      });
+      const { statSync } = await import("node:fs");
+      const stat = statSync(registryPath(home));
+      assert.equal(stat.mode & 0o777, 0o644);
+    } finally {
+      rmSync(home, { recursive: true });
+    }
+  });
+
   it("preserves other entries when adding a new one", async () => {
     const home = makeTmpDir();
     try {
