@@ -1,0 +1,1 @@
+There are multiple places in source code already where we are doing some input validation that might be handed over to Zod. Find them and plan rewrite with Zod 4. Asses using https://github.com/standard-schema/standard-schema to define those schemas and just use Zod as validator
