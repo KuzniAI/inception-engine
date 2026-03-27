@@ -1,0 +1,10 @@
+Plan a work on next item on roadmap
+
+**Centralize portability rules before adding more agent surfaces**
+   - Replace ad hoc placeholder substitution with a platform and config-root resolver that supports `XDG_CONFIG_HOME`, Windows `%APPDATA%`, and agent-specific overrides (`src/core/resolve.ts`, `src/config/agents.ts`).
+   - Add provenance metadata to `AGENT_REGISTRY` so each path and binary assumption is tracked as documented, implementation-only, or provisional, matching the confidence model in `docs/north-star.md`.
+   - Review permission-setting behavior for cross-platform and enterprise environments; `chmod(0o644)` is POSIX-centric and is not a meaningful policy model on Windows.
+
+---
+
+You can continue now
