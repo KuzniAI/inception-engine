@@ -1,0 +1,4 @@
+Work on this item from roadmap: **Make automation and enterprise failures explicit**
+   - Change revert and deploy result handling so any failed destructive step is surfaced as a failure count and a non-zero exit code (`src/core/revert.ts`, `src/index.ts`).
+   - Differentiate permission, policy, and missing-file errors. `loadManifest` and deploy source checks currently collapse several I/O failures into “not found” style messages, which is not sufficient for locked-down environments.
+   - Add an enterprise or policy preflight layer before touching agent-managed config so later work has a place to warn about local-config overrides and policy blocks.
