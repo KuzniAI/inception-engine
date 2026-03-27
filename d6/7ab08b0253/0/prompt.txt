@@ -1,0 +1,17 @@
+There are still a few clear simplification opportunities:
+
+src/types.ts:1 and src/schemas/manifest.ts:8 duplicate the AgentId contract. Now that Zod is the source of truth, you can define AGENT_IDS once and derive AgentIdSchema from it, ideally with z.enum(...), then export type AgentId = z.output<typeof AgentIdSchema>. That removes the current superRefine + .transform(... as AgentId) cast.
+
+src/config/manifest.ts:61 and src/core/ownership.ts:31 still need as Manifest / as Registry because the runtime schema types and TS interfaces are separate. If you derive Manifest, SkillEntry, Registry, and RegistryEntry from the schemas instead of hand-maintaining interfaces, those casts disappear and the schema layer becomes the real contract.
+
+src/index.ts:101 still does a manual split loop, ignores the schema’s error message, and finishes with agents = ids as AgentId[]. A small AgentIdListSchema or parseAgentList() helper could validate and return AgentId[] directly, removing both the loop and the cast.
+
+src/config/manifest.ts:30 has a local Zod-issue-to-UserError mapper. If more config files adopt schemas, extracting a shared formatter/parser helper would keep this migration pattern from spreading custom error plumbing file by file.
+
+---
+
+What’s left is mostly cleanup:
+
+src/schemas/validate.ts is now unused, and package.json still carries @standard-schema/spec only for that helper. Since the codebase now calls Zod directly everywhere, both the file and the dev dependency look removable.
+src/index.ts (line 98) still does an inline safeParse mapping for --agents. If you want to keep simplifying, that can move into a tiny schema/helper dedicated to comma-separated agent lists so CLI parsing stays declarative.
+src/schemas/manifest.ts (line 21) keeps both AgentIdSchema and agentIdElement to preserve the custom error text. That’s reasonable, but it is the main remaining “extra layer” in the schema module.
