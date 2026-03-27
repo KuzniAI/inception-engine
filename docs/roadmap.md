@@ -6,8 +6,8 @@ It intentionally focuses on code quality, known issues, OS and agent portability
 
 ## Suggested Implementation Order
 
-1. **Make manifest parsing strict and lossless**
-   - Replace `unknown[]` parsing with schema-backed validation for every top-level section. `mcpServers` and `agentRules` currently accept any array and silently fall back to `[]` when the type is wrong (`src/config/manifest.ts`, `src/types.ts`).
+1. **Finish strict manifest and planning validation**
+   - Tighten schema-backed validation for every top-level manifest section. `mcpServers` and `agentRules` are now parsed through Zod, but they still accept `unknown[]` and silently fall back to `[]` when the type is wrong (`src/config/manifest.ts`, `src/schemas/manifest.ts`).
    - Reject duplicate `skill.name` values and deduplicate per-skill agent IDs before planning to prevent target collisions and repeated writes.
    - Validate that each skill source is a readable directory containing `SKILL.md` during planning, not only an existing path during execution.
 
@@ -33,7 +33,7 @@ It intentionally focuses on code quality, known issues, OS and agent portability
 
 ### Manifest and Planning Quality
 
-- **Lossy Manifest Parsing**: `mcpServers` and `agentRules` are stored as `unknown[]`; wrong types are silently converted to empty arrays, and entry shape is never validated (`src/config/manifest.ts`, `src/types.ts`).
+- **Lossy Manifest Parsing**: `mcpServers` and `agentRules` still resolve to `unknown[]`; wrong types are silently converted to empty arrays, and entry shape is never validated (`src/config/manifest.ts`, `src/schemas/manifest.ts`).
 - **Target Collision Risk**: `skill.name` is not enforced as unique and duplicate agent IDs are not deduplicated, so one manifest can plan repeated writes to the same target path (`src/config/manifest.ts`, `src/core/deploy.ts`, `src/core/revert.ts`).
 - **Late Skill Contract Failure**: The planner validates repository escape, but deploy only checks `access()` on the source path. It does not require a readable directory with `SKILL.md`, so malformed skill entries fail late and with generic messaging (`src/core/deploy.ts`).
 - **Error Specificity Gap**: Manifest read failures and source-access failures are collapsed into generic “no file” or “source not found” errors even when the real cause is permissions or I/O policy (`src/config/manifest.ts`, `src/core/deploy.ts`).
@@ -51,7 +51,7 @@ It intentionally focuses on code quality, known issues, OS and agent portability
 ### Future Deploy-Surface Expansion
 
 - **Directory-Only Action Model**: `DeployAction`, `RevertAction`, and the current planner or executor split are still centered on skill-directory deploys. Generalize them before adding single-file writes or structured config patches (`src/types.ts`, `src/core/deploy.ts`, `src/core/revert.ts`).
-- **Directory-Only Ownership Semantics**: The current registry model tracks directory symlink or copy deploys, but it is not yet a generalized ownership model for file-level instructions or config patching (`src/types.ts`, `src/core/ownership.ts`, `src/core/deploy.ts`, `src/core/revert.ts`).
+- **Directory-Only Ownership Semantics**: The current registry model tracks directory symlink or copy deploys, but it is not yet a generalized ownership model for file-level instructions or config patching (`src/schemas/registry.ts`, `src/core/ownership.ts`, `src/core/deploy.ts`, `src/core/revert.ts`).
 
 ### Testing and Validation
 
