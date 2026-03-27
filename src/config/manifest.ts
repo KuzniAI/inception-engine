@@ -13,15 +13,22 @@ export async function loadManifest(directory: string): Promise<Manifest> {
     raw = await readFile(manifestPath, "utf-8");
   } catch (err) {
     const code = (err as NodeJS.ErrnoException).code;
+    if (code === "ENOENT") {
+      throw new UserError(
+        "MANIFEST_INVALID",
+        `No inception.json found in ${directory}. Are you pointing to the right repo?`,
+      );
+    }
     if (code === "EACCES" || code === "EPERM") {
       throw new UserError(
         "MANIFEST_INVALID",
         `Permission denied reading ${manifestPath}. Check file permissions.`,
       );
     }
+    const detail = err instanceof Error ? err.message : String(err);
     throw new UserError(
       "MANIFEST_INVALID",
-      `No inception.json found in ${directory}. Are you pointing to the right repo?`,
+      `Failed to read ${manifestPath}: ${detail}`,
     );
   }
 

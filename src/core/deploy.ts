@@ -19,9 +19,11 @@ import { getDeployMethod, resolveAgentSkillPath } from "./resolve.ts";
 
 function sourceAccessError(err: unknown, sourcePath: string): string {
   const code = (err as NodeJS.ErrnoException).code;
-  return code === "EACCES" || code === "EPERM"
-    ? `Permission denied accessing source: ${sourcePath}`
-    : `Source not found: ${sourcePath}`;
+  if (code === "ENOENT") return `Source not found: ${sourcePath}`;
+  if (code === "EACCES" || code === "EPERM")
+    return `Permission denied accessing source: ${sourcePath}`;
+  const detail = err instanceof Error ? err.message : String(err);
+  return `Failed to access source ${sourcePath}: ${detail}`;
 }
 
 export async function planDeploy(

@@ -51,6 +51,14 @@ type RevertOutcome =
   | { outcome: "skip" }
   | { outcome: "fail"; error: string };
 
+function lstatOutcome(err: unknown): RevertOutcome {
+  if ((err as NodeJS.ErrnoException).code === "ENOENT") {
+    return { outcome: "skip" };
+  }
+  const msg = err instanceof Error ? err.message : String(err);
+  return { outcome: "fail", error: msg };
+}
+
 export async function executeRevert(
   actions: RevertAction[],
   dryRun: boolean,
@@ -90,9 +98,14 @@ async function executeRevertAction(
   let stat: Awaited<ReturnType<typeof lstat>>;
   try {
     stat = await lstat(action.target);
-  } catch {
-    logger.skip(label, "(not found, skipping)");
-    return { outcome: "skip" };
+  } catch (err) {
+    const result = lstatOutcome(err);
+    if (result.outcome === "skip") {
+      logger.skip(label, "(not found, skipping)");
+    } else {
+      logger.fail(label, result.error);
+    }
+    return result;
   }
 
   const entry = await lookupDeployment(home, action.target);
