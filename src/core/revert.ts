@@ -46,25 +46,37 @@ export function planRevertAll(
   return actions;
 }
 
+type RevertOutcome =
+  | { outcome: "ok" }
+  | { outcome: "skip" }
+  | { outcome: "fail"; error: string };
+
 export async function executeRevert(
   actions: RevertAction[],
   dryRun: boolean,
   verbose: boolean,
   home: string,
-): Promise<{ succeeded: number; skipped: number }> {
+): Promise<{
+  succeeded: number;
+  skipped: number;
+  failed: Array<{ action: RevertAction; error: string }>;
+}> {
   let succeeded = 0;
   let skipped = 0;
+  const failed: Array<{ action: RevertAction; error: string }> = [];
 
   for (const action of actions) {
     const result = await executeRevertAction(action, dryRun, verbose, home);
-    if (result === "skip") {
+    if (result.outcome === "fail") {
+      failed.push({ action, error: result.error });
+    } else if (result.outcome === "skip") {
       skipped++;
     } else {
       succeeded++;
     }
   }
 
-  return { succeeded, skipped };
+  return { succeeded, skipped, failed };
 }
 
 async function executeRevertAction(
@@ -72,7 +84,7 @@ async function executeRevertAction(
   dryRun: boolean,
   verbose: boolean,
   home: string,
-): Promise<"ok" | "skip"> {
+): Promise<RevertOutcome> {
   const label = `${action.skill} -> ${action.agent}`;
 
   let stat: Awaited<ReturnType<typeof lstat>>;
@@ -80,7 +92,7 @@ async function executeRevertAction(
     stat = await lstat(action.target);
   } catch {
     logger.skip(label, "(not found, skipping)");
-    return "skip";
+    return { outcome: "skip" };
   }
 
   const entry = await lookupDeployment(home, action.target);
@@ -89,7 +101,7 @@ async function executeRevertAction(
       label,
       `skipping: ${action.target} is not in the deployment registry — not managed by inception-engine`,
     );
-    return "skip";
+    return { outcome: "skip" };
   }
 
   if (dryRun) {
@@ -97,7 +109,7 @@ async function executeRevertAction(
     if (verbose) {
       logger.detail(`would remove: ${action.target}`);
     }
-    return "ok";
+    return { outcome: "ok" };
   }
 
   try {
@@ -111,10 +123,10 @@ async function executeRevertAction(
     if (verbose) {
       logger.detail(`removed: ${action.target}`);
     }
-    return "ok";
+    return { outcome: "ok" };
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     logger.fail(label, msg);
-    return "skip";
+    return { outcome: "fail", error: msg };
   }
 }

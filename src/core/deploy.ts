@@ -17,6 +17,13 @@ import type { AgentId, DeployAction, Manifest } from "../types.ts";
 import { registerDeployment, verifyDeployment } from "./ownership.ts";
 import { getDeployMethod, resolveAgentSkillPath } from "./resolve.ts";
 
+function sourceAccessError(err: unknown, sourcePath: string): string {
+  const code = (err as NodeJS.ErrnoException).code;
+  return code === "EACCES" || code === "EPERM"
+    ? `Permission denied accessing source: ${sourcePath}`
+    : `Source not found: ${sourcePath}`;
+}
+
 export async function planDeploy(
   manifest: Manifest,
   sourceDir: string,
@@ -76,8 +83,8 @@ export async function executeDeploy(
 
     try {
       await access(action.source);
-    } catch {
-      const msg = `Source not found: ${action.source}`;
+    } catch (err) {
+      const msg = sourceAccessError(err, action.source);
       failed.push({ action, error: msg });
       logger.fail(label, msg);
       continue;

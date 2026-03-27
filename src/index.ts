@@ -7,6 +7,7 @@ import { loadManifest } from "./config/manifest.ts";
 import { executeDeploy, planDeploy } from "./core/deploy.ts";
 import { detectInstalledAgents } from "./core/detect.ts";
 import { resolveHome } from "./core/resolve.ts";
+import { runPreflight } from "./core/preflight.ts";
 import { executeRevert, planRevert, planRevertAll } from "./core/revert.ts";
 import type { ErrorCode } from "./errors.ts";
 import { UserError } from "./errors.ts";
@@ -124,6 +125,11 @@ async function main(): Promise<number> {
   const manifest = await loadManifest(options.directory);
   const home = resolveHome();
 
+  const preflightWarnings = await runPreflight(options, manifest, home);
+  for (const w of preflightWarnings) {
+    logger.warn("preflight", w.message);
+  }
+
   if (options.command === "deploy") {
     return runDeploy(options, manifest, home);
   }
@@ -203,7 +209,7 @@ async function runRevert(
   logger.info(
     `${dryRunPrefix(options.dryRun)}Reverting ${actions.length} skill(s):`,
   );
-  const { succeeded, skipped } = await executeRevert(
+  const { succeeded, skipped, failed } = await executeRevert(
     actions,
     options.dryRun,
     options.verbose,
@@ -211,6 +217,13 @@ async function runRevert(
   );
 
   logger.info("");
+  if (failed.length > 0) {
+    const parts = [`${succeeded} removed`];
+    if (skipped > 0) parts.push(`${skipped} skipped`);
+    parts.push(`${failed.length} failed`);
+    logger.info(`${parts.join(", ")}${options.dryRun ? " (dry-run)" : ""}`);
+    return 1;
+  }
   const parts = [`${succeeded} removed`];
   if (skipped > 0) parts.push(`${skipped} skipped`);
   logger.info(`${parts.join(", ")}${options.dryRun ? " (dry-run)" : ""}`);

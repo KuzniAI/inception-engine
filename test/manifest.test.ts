@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdirSync, rmSync, writeFileSync } from "node:fs";
+import { chmodSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { describe, it } from "node:test";
@@ -50,6 +50,25 @@ describe("loadManifest", () => {
       assert.match(err.message, /No inception\.json found/);
       return true;
     });
+  });
+
+  it("throws permission error when manifest is unreadable", async () => {
+    if (process.getuid?.() === 0) return; // root bypasses chmod
+    const dir = makeTmpDir();
+    const manifestPath = path.join(dir, "inception.json");
+    try {
+      writeFileSync(manifestPath, JSON.stringify({ skills: [] }));
+      chmodSync(manifestPath, 0o000);
+      await assert.rejects(loadManifest(dir), (err: unknown) => {
+        assert.ok(err instanceof UserError);
+        assert.equal(err.code, "MANIFEST_INVALID");
+        assert.match(err.message, /Permission denied reading/);
+        return true;
+      });
+    } finally {
+      chmodSync(manifestPath, 0o644);
+      rmSync(dir, { recursive: true });
+    }
   });
 
   it("throws on invalid JSON", async () => {

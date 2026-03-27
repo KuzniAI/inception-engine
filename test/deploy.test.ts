@@ -250,6 +250,40 @@ describe("executeDeploy", () => {
     }
   });
 
+  it("reports permission denied when source is unreadable", async () => {
+    if (process.getuid?.() === 0) return; // root bypasses chmod
+    const sourceDir = makeTmpDir();
+    const home = makeTmpDir();
+    // Chmod the parent so traversal into the skill source dir fails with EACCES
+    const skillsDir = path.join(sourceDir, "skills");
+    try {
+      createSkillSource(sourceDir, "skills/test-skill");
+      chmodSync(skillsDir, 0o000);
+      const actions = await planDeploy(
+        testManifest,
+        sourceDir,
+        ["claude-code"],
+        home,
+      );
+      const { succeeded, failed } = await executeDeploy(
+        actions,
+        false,
+        false,
+        home,
+      );
+      assert.equal(succeeded, 0);
+      assert.equal(failed.length, 1);
+      assert.match(
+        failed[0]?.error ?? "",
+        /Permission denied accessing source/,
+      );
+    } finally {
+      chmodSync(skillsDir, 0o755);
+      rmSync(sourceDir, { recursive: true });
+      rmSync(home, { recursive: true, force: true });
+    }
+  });
+
   it("refuses to overwrite unmanaged target", async () => {
     const sourceDir = makeTmpDir();
     const home = makeTmpDir();

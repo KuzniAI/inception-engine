@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import {
+  chmodSync,
   existsSync,
   mkdirSync,
   rmSync,
@@ -160,6 +161,43 @@ describe("executeRevert", () => {
       assert.equal(skipped, 1);
     } finally {
       rmSync(home, { recursive: true });
+    }
+  });
+
+  it("records a failure when removal is blocked by permissions", async () => {
+    if (process.getuid?.() === 0) return; // root bypasses chmod
+    const home = makeTmpDir();
+    const sourceDir = makeTmpDir();
+    const actions = planRevert(testManifest, ["claude-code"], home);
+    const target = actions[0]?.target ?? "";
+    const targetParent = path.dirname(target);
+    try {
+      // Create the target directory and register it
+      mkdirSync(target, { recursive: true });
+      writeFileSync(path.join(target, "SKILL.md"), "test");
+      await registerDeployment(home, target, {
+        source: sourceDir,
+        skill: "test-skill",
+        agent: "claude-code",
+        method: "copy",
+      });
+
+      // Make the parent directory non-writable so rm() fails
+      chmodSync(targetParent, 0o555);
+
+      const { succeeded, skipped, failed } = await executeRevert(
+        actions,
+        false,
+        false,
+        home,
+      );
+      assert.equal(succeeded, 0);
+      assert.equal(skipped, 0);
+      assert.equal(failed.length, 1);
+    } finally {
+      chmodSync(targetParent, 0o755);
+      rmSync(home, { recursive: true, force: true });
+      rmSync(sourceDir, { recursive: true, force: true });
     }
   });
 

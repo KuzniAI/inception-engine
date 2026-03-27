@@ -11,7 +11,14 @@ export async function loadManifest(directory: string): Promise<Manifest> {
   let raw: string;
   try {
     raw = await readFile(manifestPath, "utf-8");
-  } catch {
+  } catch (err) {
+    const code = (err as NodeJS.ErrnoException).code;
+    if (code === "EACCES" || code === "EPERM") {
+      throw new UserError(
+        "MANIFEST_INVALID",
+        `Permission denied reading ${manifestPath}. Check file permissions.`,
+      );
+    }
     throw new UserError(
       "MANIFEST_INVALID",
       `No inception.json found in ${directory}. Are you pointing to the right repo?`,
