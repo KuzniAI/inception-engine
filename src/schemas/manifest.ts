@@ -63,3 +63,11 @@ export const ManifestSchema = z.object({
 
 export type SkillEntry = z.infer<typeof SkillEntrySchema>;
 export type Manifest = z.infer<typeof ManifestSchema>;
+
+// Parses the --agents CLI flag: comma-separated agent IDs → AgentId[]
+export const AgentListSchema = z
+  .string()
+  .transform((s) => s.split(",").map((id) => id.trim()))
+  .pipe(
+    z.array(agentIdElement).min(1, { message: "agent list must not be empty" }),
+  );

@@ -11,7 +11,7 @@ import { executeRevert, planRevert, planRevertAll } from "./core/revert.ts";
 import type { ErrorCode } from "./errors.ts";
 import { UserError } from "./errors.ts";
 import { dryRunPrefix, logger } from "./logger.ts";
-import { AGENT_IDS, AgentIdSchema } from "./schemas/manifest.ts";
+import { AgentListSchema } from "./schemas/manifest.ts";
 import type { AgentId, CliOptions, Manifest } from "./types.ts";
 
 const USAGE = `
@@ -96,19 +96,11 @@ function parseCLI(argv: string[]): CliOptions {
 
   let agents: AgentId[] | null = null;
   if (typeof values.agents === "string") {
-    agents = values.agents
-      .split(",")
-      .map((s) => s.trim())
-      .map((id) => {
-        const r = AgentIdSchema.safeParse(id);
-        if (!r.success) {
-          throw new UserError(
-            "INVALID_ARGS",
-            `Unknown agent: "${id}". Valid agents: ${AGENT_IDS.join(", ")}`,
-          );
-        }
-        return r.data;
-      });
+    const r = AgentListSchema.safeParse(values.agents);
+    if (!r.success) {
+      throw new UserError("INVALID_ARGS", r.error.issues[0].message);
+    }
+    agents = r.data;
   }
 
   return {
