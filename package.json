@@ -42,8 +42,12 @@
     "test": "node --test test/*.test.ts",
     "prepublishOnly": "npm run typecheck && npm run lint && npm run build"
   },
+  "dependencies": {
+    "zod": "^4.0.0"
+  },
   "devDependencies": {
     "@biomejs/biome": "^2.4.8",
+    "@standard-schema/spec": "^1.0.0",
     "@types/node": "^25.5.0",
     "typescript": "^6.0.2"
   }

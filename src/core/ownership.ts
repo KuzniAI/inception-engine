@@ -1,5 +1,6 @@
 import { chmod, mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
+import { RegistrySchema } from "../schemas/registry.ts";
 import type { AgentId } from "../types.ts";
 
 const REGISTRY_DIR = ".inception-engine";
@@ -26,16 +27,8 @@ async function loadRegistry(home: string): Promise<Registry> {
   try {
     const content = await readFile(registryPath(home), "utf-8");
     const parsed = JSON.parse(content);
-    if (
-      parsed &&
-      typeof parsed === "object" &&
-      parsed.version === 1 &&
-      parsed.deployments &&
-      typeof parsed.deployments === "object"
-    ) {
-      return parsed as Registry;
-    }
-    return emptyRegistry();
+    const result = RegistrySchema.safeParse(parsed);
+    return result.success ? (result.data as Registry) : emptyRegistry();
   } catch {
     return emptyRegistry();
   }

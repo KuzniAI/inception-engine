@@ -1,8 +1,8 @@
 import { readFile } from "node:fs/promises";
 import path from "node:path";
+import { ManifestSchema } from "../schemas/manifest.ts";
 import { UserError } from "../errors.ts";
-import type { AgentId, Manifest, SkillEntry } from "../types.ts";
-import { AGENT_IDS } from "../types.ts";
+import type { Manifest } from "../types.ts";
 
 export async function loadManifest(directory: string): Promise<Manifest> {
   const manifestPath = path.join(directory, "inception.json");
@@ -27,104 +27,36 @@ export async function loadManifest(directory: string): Promise<Manifest> {
   return validateManifest(parsed, manifestPath);
 }
 
-function validateManifest(data: unknown, filePath: string): Manifest {
-  if (typeof data !== "object" || data === null || Array.isArray(data)) {
-    throw new UserError(
-      "MANIFEST_INVALID",
-      `${filePath}: manifest must be a JSON object`,
-    );
-  }
-
-  const obj = data as Record<string, unknown>;
-
-  if (!Array.isArray(obj.skills)) {
-    throw new UserError(
-      "MANIFEST_INVALID",
-      `${filePath}: "skills" must be an array`,
-    );
-  }
-
-  const skills: SkillEntry[] = obj.skills.map((entry: unknown, i: number) =>
-    validateSkillEntry(entry, i, filePath),
-  );
-
-  return {
-    skills,
-    mcpServers: Array.isArray(obj.mcpServers) ? obj.mcpServers : [],
-    agentRules: Array.isArray(obj.agentRules) ? obj.agentRules : [],
-  };
+function formatPath(segments: (string | number)[]): string {
+  if (segments.length === 0) return "";
+  return `${segments
+    .map((seg, i) => {
+      if (typeof seg === "number") return `[${seg}]`;
+      return i === 0 ? seg : `.${seg}`;
+    })
+    .join("")} `;
 }
 
-const SAFE_NAME_RE = /^[a-zA-Z0-9][a-zA-Z0-9._-]*$/;
+function validateManifest(data: unknown, filePath: string): Manifest {
+  const result = ManifestSchema.safeParse(data);
 
-function validateSkillEntry(
-  entry: unknown,
-  i: number,
-  filePath: string,
-): SkillEntry {
-  if (typeof entry !== "object" || entry === null || Array.isArray(entry)) {
-    throw new UserError(
-      "MANIFEST_INVALID",
-      `${filePath}: skills[${i}] must be an object`,
-    );
-  }
+  if (!result.success) {
+    const issue = result.error.issues[0];
 
-  const skill = entry as Record<string, unknown>;
-
-  if (typeof skill.name !== "string" || skill.name.length === 0) {
-    throw new UserError(
-      "MANIFEST_INVALID",
-      `${filePath}: skills[${i}].name must be a non-empty string`,
-    );
-  }
-
-  if (!SAFE_NAME_RE.test(skill.name as string)) {
-    throw new UserError(
-      "MANIFEST_INVALID",
-      `${filePath}: skills[${i}].name must contain only letters, digits, hyphens, underscores, and dots, and must not start with a dot`,
-    );
-  }
-
-  if (typeof skill.path !== "string" || skill.path.length === 0) {
-    throw new UserError(
-      "MANIFEST_INVALID",
-      `${filePath}: skills[${i}].path must be a non-empty string`,
-    );
-  }
-
-  if (path.isAbsolute(skill.path as string)) {
-    throw new UserError(
-      "MANIFEST_INVALID",
-      `${filePath}: skills[${i}].path must be a relative path`,
-    );
-  }
-
-  if (path.normalize(skill.path as string).startsWith("..")) {
-    throw new UserError(
-      "MANIFEST_INVALID",
-      `${filePath}: skills[${i}].path must not escape the repository root`,
-    );
-  }
-
-  if (!Array.isArray(skill.agents) || skill.agents.length === 0) {
-    throw new UserError(
-      "MANIFEST_INVALID",
-      `${filePath}: skills[${i}].agents must be a non-empty array`,
-    );
-  }
-
-  for (const agent of skill.agents) {
-    if (!AGENT_IDS.includes(agent as AgentId)) {
+    // Top-level "skills" key: missing or wrong type → uniform message
+    if (issue.path.length === 1 && issue.path[0] === "skills") {
       throw new UserError(
         "MANIFEST_INVALID",
-        `${filePath}: skills[${i}].agents contains unknown agent "${agent}". Valid agents: ${AGENT_IDS.join(", ")}`,
+        `${filePath}: "skills" must be an array`,
       );
     }
+
+    const prefix = formatPath(issue.path as (string | number)[]);
+    throw new UserError(
+      "MANIFEST_INVALID",
+      `${filePath}: ${prefix}${issue.message}`,
+    );
   }
 
-  return {
-    name: skill.name,
-    path: skill.path,
-    agents: skill.agents as AgentId[],
-  };
+  return result.data as Manifest;
 }
