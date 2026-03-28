@@ -1,6 +1,6 @@
 {
   "name": "@kuznai/inception-engine",
-  "version": "0.6.2",
+  "version": "0.7.0",
   "description": "Deploy AI agent skills from a git repo to user home directories",
   "license": "MIT",
   "author": "Damian Piątkowski",
