@@ -64,7 +64,7 @@ describe("planDeploy", () => {
     const sourceDir = makeTmpDir();
     try {
       createSkillSource(sourceDir, "skills/test-skill");
-      const actions = await planDeploy(
+      const { actions } = await planDeploy(
         testManifest,
         sourceDir,
         ["claude-code"],
@@ -82,7 +82,7 @@ describe("planDeploy", () => {
     const sourceDir = makeTmpDir();
     try {
       createSkillSource(sourceDir, "skills/test-skill");
-      const actions = await planDeploy(
+      const { actions } = await planDeploy(
         testManifest,
         sourceDir,
         ["claude-code", "codex"],
@@ -98,7 +98,7 @@ describe("planDeploy", () => {
     const sourceDir = makeTmpDir();
     try {
       createSkillSource(sourceDir, "skills/test-skill");
-      const actions = await planDeploy(
+      const { actions } = await planDeploy(
         testManifest,
         sourceDir,
         ["gemini-cli"],
@@ -165,6 +165,99 @@ describe("planDeploy", () => {
       rmSync(sourceDir, { recursive: true });
     }
   });
+
+  it("attaches documented confidence to actions for claude-code", async () => {
+    const sourceDir = makeTmpDir();
+    try {
+      createSkillSource(sourceDir, "skills/test-skill");
+      const { actions } = await planDeploy(
+        testManifest,
+        sourceDir,
+        ["claude-code"],
+        "/home/test",
+      );
+      assert.equal(actions.length, 1);
+      if (actions[0]?.kind !== "skill-dir") assert.fail("Expected skill-dir");
+      assert.equal(actions[0].confidence, "documented");
+    } finally {
+      rmSync(sourceDir, { recursive: true });
+    }
+  });
+
+  it("attaches implementation-only confidence for antigravity", async () => {
+    const sourceDir = makeTmpDir();
+    const antigravityManifest: Manifest = {
+      skills: [
+        {
+          name: "test-skill",
+          path: "skills/test-skill",
+          agents: ["antigravity"],
+        },
+      ],
+      mcpServers: [],
+      agentRules: [],
+    };
+    try {
+      createSkillSource(sourceDir, "skills/test-skill");
+      const { actions } = await planDeploy(
+        antigravityManifest,
+        sourceDir,
+        ["antigravity"],
+        "/home/test",
+      );
+      assert.equal(actions.length, 1);
+      if (actions[0]?.kind !== "skill-dir") assert.fail("Expected skill-dir");
+      assert.equal(actions[0].confidence, "implementation-only");
+    } finally {
+      rmSync(sourceDir, { recursive: true });
+    }
+  });
+
+  it("emits no warnings for all-documented agents", async () => {
+    const sourceDir = makeTmpDir();
+    try {
+      createSkillSource(sourceDir, "skills/test-skill");
+      const { warnings } = await planDeploy(
+        testManifest,
+        sourceDir,
+        ["claude-code", "codex"],
+        "/home/test",
+      );
+      assert.equal(warnings.length, 0);
+    } finally {
+      rmSync(sourceDir, { recursive: true });
+    }
+  });
+
+  it("emits ambiguity warning when both gemini-cli and antigravity are detected", async () => {
+    const sourceDir = makeTmpDir();
+    const bothManifest: Manifest = {
+      skills: [
+        {
+          name: "test-skill",
+          path: "skills/test-skill",
+          agents: ["gemini-cli", "antigravity"],
+        },
+      ],
+      mcpServers: [],
+      agentRules: [],
+    };
+    try {
+      createSkillSource(sourceDir, "skills/test-skill");
+      const { warnings } = await planDeploy(
+        bothManifest,
+        sourceDir,
+        ["gemini-cli", "antigravity"],
+        "/home/test",
+      );
+      const ambiguity = warnings.find((w) => w.kind === "ambiguity");
+      assert.ok(ambiguity, "expected an ambiguity warning");
+      assert.match(ambiguity.message, /gemini-cli/);
+      assert.match(ambiguity.message, /antigravity/);
+    } finally {
+      rmSync(sourceDir, { recursive: true });
+    }
+  });
 });
 
 describe("executeDeploy", { skip: process.platform === "win32" }, () => {
@@ -173,7 +266,7 @@ describe("executeDeploy", { skip: process.platform === "win32" }, () => {
     const home = makeTmpDir();
     try {
       createSkillSource(sourceDir, "skills/test-skill");
-      const actions = await planDeploy(
+      const { actions } = await planDeploy(
         testManifest,
         sourceDir,
         ["claude-code"],
@@ -208,7 +301,7 @@ describe("executeDeploy", { skip: process.platform === "win32" }, () => {
     const home = makeTmpDir();
     try {
       const skillSource = createSkillSource(sourceDir, "skills/test-skill");
-      const actions = await planDeploy(
+      const { actions } = await planDeploy(
         testManifest,
         sourceDir,
         ["claude-code"],
@@ -242,7 +335,7 @@ describe("executeDeploy", { skip: process.platform === "win32" }, () => {
     const home = makeTmpDir();
     try {
       createSkillSource(sourceDir, "skills/test-skill");
-      const actions = await planDeploy(
+      const { actions } = await planDeploy(
         testManifest,
         sourceDir,
         ["claude-code"],
@@ -271,7 +364,7 @@ describe("executeDeploy", { skip: process.platform === "win32" }, () => {
     const home = makeTmpDir();
     try {
       createSkillSource(sourceDir, "skills/test-skill");
-      const actions = await planDeploy(
+      const { actions } = await planDeploy(
         testManifest,
         sourceDir,
         ["claude-code"],
@@ -341,7 +434,7 @@ describe("executeDeploy", { skip: process.platform === "win32" }, () => {
     const home = makeTmpDir();
     try {
       createSkillSource(sourceDir, "skills/test-skill");
-      const actions = await planDeploy(
+      const { actions } = await planDeploy(
         testManifest,
         sourceDir,
         ["claude-code"],
@@ -376,7 +469,7 @@ describe("executeDeploy", { skip: process.platform === "win32" }, () => {
     const home = makeTmpDir();
     try {
       createSkillSource(sourceDir, "skills/test-skill");
-      const actions = await planDeploy(
+      const { actions } = await planDeploy(
         testManifest,
         sourceDir,
         ["claude-code"],
@@ -418,7 +511,7 @@ describe("executeDeploy", { skip: process.platform === "win32" }, () => {
     const home = makeTmpDir();
     try {
       createSkillSource(sourceDir, "skills/test-skill");
-      const actions = await planDeploy(
+      const { actions } = await planDeploy(
         testManifest,
         sourceDir,
         ["claude-code"],
@@ -450,7 +543,7 @@ describe("atomic redeploy behavior", {
     const home = makeTmpDir();
     try {
       createSkillSource(sourceDir, "skills/test-skill");
-      const actions = await planDeploy(
+      const { actions } = await planDeploy(
         testManifest,
         sourceDir,
         ["claude-code"],
@@ -488,7 +581,7 @@ describe("atomic redeploy behavior", {
     const home = makeTmpDir();
     try {
       createSkillSource(sourceDir, "skills/test-skill");
-      const actions = await planDeploy(
+      const { actions } = await planDeploy(
         testManifest,
         sourceDir,
         ["claude-code"],
@@ -516,7 +609,7 @@ describe("atomic redeploy behavior", {
     const registryFile = path.join(home, ".inception-engine", "registry.json");
     try {
       createSkillSource(sourceDir, "skills/test-skill");
-      const actions = await planDeploy(
+      const { actions } = await planDeploy(
         testManifest,
         sourceDir,
         ["claude-code"],
@@ -594,6 +687,7 @@ describe("atomic redeploy behavior", {
         source: skillSource,
         target,
         method: "copy",
+        confidence: "documented",
       };
       const { succeeded: firstSucceeded } = await executeDeploy(
         [firstAction],
@@ -619,6 +713,7 @@ describe("atomic redeploy behavior", {
         source: unreadableSource,
         target,
         method: "copy",
+        confidence: "documented",
       };
 
       const { succeeded, failed } = await executeDeploy(
@@ -762,7 +857,7 @@ describe("source directory immutability", () => {
     try {
       createSkillSource(sourceDir, "skills/test-skill");
       const before = await snapshotDir(sourceDir);
-      const actions = await planDeploy(
+      const { actions } = await planDeploy(
         testManifest,
         sourceDir,
         ["claude-code"],
@@ -795,6 +890,7 @@ describe("source directory immutability", () => {
         source: skillSource,
         target,
         method: "copy",
+        confidence: "documented",
       };
       const before = await snapshotDir(sourceDir);
       await executeDeploy([action], false, false, home);
@@ -815,7 +911,7 @@ describe("source directory immutability", () => {
     const home = makeTmpDir();
     try {
       createSkillSource(sourceDir, "skills/test-skill");
-      const deployActions = await planDeploy(
+      const { actions: deployActions } = await planDeploy(
         testManifest,
         sourceDir,
         ["claude-code"],
@@ -851,6 +947,7 @@ describe("source directory immutability", () => {
         source: skillSource,
         target,
         method: "copy",
+        confidence: "documented",
       };
       await executeDeploy([action], false, false, home);
       const before = await snapshotDir(sourceDir);
@@ -877,7 +974,7 @@ describe("executeDeploy (Windows)", {
     const home = makeTmpDir();
     try {
       createSkillSource(sourceDir, "skills/test-skill");
-      const actions = await planDeploy(
+      const { actions } = await planDeploy(
         testManifest,
         sourceDir,
         ["claude-code"],
@@ -908,7 +1005,7 @@ describe("executeDeploy (Windows)", {
     const home = makeTmpDir();
     try {
       const skillSource = createSkillSource(sourceDir, "skills/test-skill");
-      const actions = await planDeploy(
+      const { actions } = await planDeploy(
         testManifest,
         sourceDir,
         ["claude-code"],
@@ -935,7 +1032,7 @@ describe("executeDeploy (Windows)", {
     const home = makeTmpDir();
     try {
       createSkillSource(sourceDir, "skills/test-skill");
-      const actions = await planDeploy(
+      const { actions } = await planDeploy(
         testManifest,
         sourceDir,
         ["claude-code"],
@@ -963,7 +1060,7 @@ describe("executeDeploy (Windows)", {
     const home = makeTmpDir();
     try {
       createSkillSource(sourceDir, "skills/test-skill");
-      const actions = await planDeploy(
+      const { actions } = await planDeploy(
         testManifest,
         sourceDir,
         ["claude-code"],
@@ -1006,7 +1103,7 @@ describe("executeDeploy (Windows)", {
     const home = makeTmpDir();
     try {
       createSkillSource(sourceDir, "skills/test-skill");
-      const actions = await planDeploy(
+      const { actions } = await planDeploy(
         testManifest,
         sourceDir,
         ["claude-code"],
@@ -1038,7 +1135,7 @@ describe("executeDeploy (Windows)", {
     const home = makeTmpDir();
     try {
       createSkillSource(sourceDir, "skills/test-skill");
-      const actions = await planDeploy(
+      const { actions } = await planDeploy(
         testManifest,
         sourceDir,
         ["claude-code"],
@@ -1077,7 +1174,7 @@ describe("executeDeploy (Windows)", {
     const home = makeTmpDir();
     try {
       createSkillSource(sourceDir, "skills/test-skill");
-      const actions = await planDeploy(
+      const { actions } = await planDeploy(
         testManifest,
         sourceDir,
         ["claude-code"],
@@ -1109,7 +1206,7 @@ describe("atomic redeploy behavior (Windows)", {
     const home = makeTmpDir();
     try {
       createSkillSource(sourceDir, "skills/test-skill");
-      const actions = await planDeploy(
+      const { actions } = await planDeploy(
         testManifest,
         sourceDir,
         ["claude-code"],
@@ -1143,7 +1240,7 @@ describe("atomic redeploy behavior (Windows)", {
     const home = makeTmpDir();
     try {
       createSkillSource(sourceDir, "skills/test-skill");
-      const actions = await planDeploy(
+      const { actions } = await planDeploy(
         testManifest,
         sourceDir,
         ["claude-code"],
@@ -1170,7 +1267,7 @@ describe("atomic redeploy behavior (Windows)", {
     const home = makeTmpDir();
     try {
       createSkillSource(sourceDir, "skills/test-skill");
-      const actions = await planDeploy(
+      const { actions } = await planDeploy(
         testManifest,
         sourceDir,
         ["claude-code"],

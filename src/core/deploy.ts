@@ -23,6 +23,7 @@ import type {
   FileWriteDeployAction,
   Manifest,
   PlannedChange,
+  PlanWarning,
   SkillDirDeployAction,
 } from "../types.ts";
 import {
@@ -95,12 +96,44 @@ function sourceAccessError(err: unknown, sourcePath: string): string {
   return `Failed to access source ${sourcePath}: ${detail}`;
 }
 
+function detectCollisions(actions: DeployAction[]): PlanWarning[] {
+  const seen = new Map<string, { skill: string; agent: AgentId }>();
+  const warnings: PlanWarning[] = [];
+  for (const action of actions) {
+    const prev = seen.get(action.target);
+    if (prev) {
+      warnings.push({
+        kind: "collision",
+        message: `Skill "${action.skill}" for agent "${action.agent}" and skill "${prev.skill}" for agent "${prev.agent}" both resolve to the same target: ${action.target}`,
+      });
+    } else {
+      seen.set(action.target, { skill: action.skill, agent: action.agent });
+    }
+  }
+  return warnings;
+}
+
+function detectAmbiguities(detectedAgents: AgentId[]): PlanWarning[] {
+  const warnings: PlanWarning[] = [];
+  if (
+    detectedAgents.includes("gemini-cli") &&
+    detectedAgents.includes("antigravity")
+  ) {
+    warnings.push({
+      kind: "ambiguity",
+      message:
+        'Both "gemini-cli" and "antigravity" share the ~/.gemini/ base directory. antigravity skill support is implementation-only. Verify that deployed skill paths do not conflict.',
+    });
+  }
+  return warnings;
+}
+
 export async function planDeploy(
   manifest: Manifest,
   sourceDir: string,
   detectedAgents: AgentId[],
   home: string,
-): Promise<DeployAction[]> {
+): Promise<{ actions: DeployAction[]; warnings: PlanWarning[] }> {
   const method = getDeployMethod();
   const actions: DeployAction[] = [];
   const resolvedSourceDir = path.resolve(sourceDir);
@@ -133,11 +166,17 @@ export async function planDeploy(
         source,
         target,
         method,
+        confidence: agent.provenance.skills,
       });
     }
   }
 
-  return actions;
+  const warnings: PlanWarning[] = [
+    ...detectAmbiguities(detectedAgents),
+    ...detectCollisions(actions),
+  ];
+
+  return { actions, warnings };
 }
 
 export async function executeDeploy(
@@ -238,6 +277,7 @@ async function deploySkillDir(
       source: action.source,
       target: action.target,
       method: action.method,
+      confidence: action.confidence,
     });
     return { error: null };
   }

@@ -125,11 +125,6 @@ async function main(): Promise<number> {
   const manifest = await loadManifest(options.directory);
   const home = resolveHome();
 
-  const preflightWarnings = await runPreflight(options, manifest, home);
-  for (const w of preflightWarnings) {
-    logger.warn("preflight", w.message);
-  }
-
   if (options.command === "deploy") {
     return runDeploy(options, manifest, home);
   }
@@ -161,12 +156,25 @@ async function runDeploy(
     }
   }
 
-  const actions = await planDeploy(
+  const preflightWarnings = await runPreflight(
+    options,
+    manifest,
+    home,
+    detectedAgents,
+  );
+  for (const w of preflightWarnings) {
+    logger.warn("preflight", w.message);
+  }
+
+  const { actions, warnings: planWarnings } = await planDeploy(
     manifest,
     options.directory,
     detectedAgents,
     home,
   );
+  for (const w of planWarnings) {
+    logger.warn("plan", w.message);
+  }
   if (actions.length === 0) {
     logger.info("No skills to deploy for detected agents.");
     return 0;

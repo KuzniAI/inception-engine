@@ -24,6 +24,11 @@ export interface AgentConfig {
   provenance: AgentProvenance;
 }
 
+export interface PlanWarning {
+  kind: "confidence" | "collision" | "ambiguity";
+  message: string;
+}
+
 export interface SkillDirDeployAction {
   kind: "skill-dir";
   skill: string;
@@ -31,6 +36,7 @@ export interface SkillDirDeployAction {
   source: string;
   target: string;
   method: "symlink" | "copy";
+  confidence: Confidence;
 }
 
 export interface FileWriteDeployAction {
@@ -39,6 +45,7 @@ export interface FileWriteDeployAction {
   agent: AgentId;
   source: string;
   target: string;
+  confidence?: Confidence;
 }
 
 export interface ConfigPatchDeployAction {
@@ -47,6 +54,7 @@ export interface ConfigPatchDeployAction {
   agent: AgentId;
   target: string;
   patch: unknown;
+  confidence?: Confidence;
 }
 
 export type DeployAction =
@@ -97,6 +105,7 @@ export interface PlannedChange {
   target: string;
   method?: "symlink" | "copy";
   patch?: Record<string, unknown>;
+  confidence?: Confidence;
 }
 
 export interface CliOptions {
