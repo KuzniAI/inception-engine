@@ -99,7 +99,7 @@ describe("isBinaryViaWhich", { skip: process.platform === "win32" }, () => {
 });
 
 describe("isBinaryViaWhereExe", {
-  skip: process.platform === "win32",
+  skip: process.platform !== "win32",
 }, () => {
   it("returns true for node.exe (known to be in PATH)", async () => {
     const result = await isBinaryViaWhereExe("node.exe");
