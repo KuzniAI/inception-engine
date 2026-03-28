@@ -19,7 +19,6 @@ import { executeRevert, planRevert } from "../src/core/revert.ts";
 import { UserError } from "../src/errors.ts";
 import { logger } from "../src/logger.ts";
 import type { DeployAction, Manifest } from "../src/types.ts";
-import { isRoot } from "./helpers.ts";
 
 logger.silence();
 
@@ -303,9 +302,7 @@ describe("executeDeploy", { skip: process.platform === "win32" }, () => {
     }
   });
 
-  it("reports permission denied when source is unreadable (caught at planning)", {
-    skip: isRoot,
-  }, async () => {
+  it("reports permission denied when source is unreadable (caught at planning)", async () => {
     const sourceDir = makeTmpDir();
     const home = makeTmpDir();
     // Chmod the parent so traversal into the skill source dir fails with EACCES

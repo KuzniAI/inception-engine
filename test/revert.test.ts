@@ -18,7 +18,6 @@ import {
 } from "../src/core/revert.ts";
 import { logger } from "../src/logger.ts";
 import type { Manifest } from "../src/types.ts";
-import { isRoot } from "./helpers.ts";
 
 logger.silence();
 
@@ -165,9 +164,7 @@ describe("executeRevert", { skip: process.platform === "win32" }, () => {
     }
   });
 
-  it("records a failure when removal is blocked by permissions", {
-    skip: isRoot,
-  }, async () => {
+  it("records a failure when removal is blocked by permissions", async () => {
     const home = makeTmpDir();
     const sourceDir = makeTmpDir();
     const actions = planRevert(testManifest, ["claude-code"], home);

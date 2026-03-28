@@ -9,7 +9,6 @@ import {
   resolveHome,
 } from "../src/core/resolve.ts";
 import { UserError } from "../src/errors.ts";
-import { isRoot } from "./helpers.ts";
 
 function getAgent(id: string) {
   const agent = AGENT_REGISTRY.find((a) => a.id === id);
@@ -74,7 +73,7 @@ describe("resolveHome", () => {
   });
 
   it("ignores SUDO_USER when not running as root and returns os.homedir()", {
-    skip: process.platform === "win32" || isRoot,
+    skip: process.platform === "win32",
   }, () => {
     const currentUser = process.env.USER ?? os.userInfo().username;
     if (!currentUser) return;
@@ -94,7 +93,7 @@ describe("resolveHome", () => {
   });
 
   it("throws UserError when SUDO_USER is a non-existent user (only when running as root)", {
-    skip: process.platform === "win32" || !isRoot,
+    skip: process.platform === "win32",
   }, () => {
     const saved = process.env.SUDO_USER;
     try {
