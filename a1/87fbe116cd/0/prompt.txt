@@ -1,0 +1,4 @@
+Plan work on first roadmap item **Finish strict manifest and planning validation**
+   - Tighten schema-backed validation for every top-level manifest section. `mcpServers` and `agentRules` are now parsed through Zod, but they still accept `unknown[]` and silently fall back to `[]` when the type is wrong (`src/config/manifest.ts`, `src/schemas/manifest.ts`).
+   - Reject duplicate `skill.name` values and deduplicate per-skill agent IDs before planning to prevent target collisions and repeated writes.
+   - Validate that each skill source is a readable directory containing `SKILL.md` during planning, not only an existing path during execution.
