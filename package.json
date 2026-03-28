@@ -34,13 +34,12 @@
     "node": ">=22.3.0"
   },
   "scripts": {
-    "check:direct-ts-runtime": "node scripts/assert-direct-ts-node.mjs",
     "build": "tsc",
     "typecheck": "tsc --noEmit",
     "fmt": "biome format --write .",
     "lint": "biome lint . --max-diagnostics none",
-    "dev": "node src/index.ts",
     "predev": "node scripts/assert-direct-ts-node.mjs",
+    "dev": "node src/index.ts",
     "pretest": "node scripts/assert-direct-ts-node.mjs",
     "test": "node --test test/*.test.ts",
     "prepublishOnly": "npm run typecheck && npm run lint && npm run build"
