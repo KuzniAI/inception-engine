@@ -1,9 +1,12 @@
 import { chmod, mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import {
+  type ConfigPatchRegistryEntry,
+  type FileWriteRegistryEntry,
   type Registry,
   type RegistryEntry,
   RegistrySchema,
+  type SkillDirRegistryEntry,
 } from "../schemas/registry.ts";
 import type { AgentId } from "../types.ts";
 
@@ -54,10 +57,15 @@ function emptyRegistry(): Registry {
   return { version: 1, deployments: {} };
 }
 
+export type RegisterEntry =
+  | Omit<SkillDirRegistryEntry, "deployed">
+  | Omit<FileWriteRegistryEntry, "deployed">
+  | Omit<ConfigPatchRegistryEntry, "deployed">;
+
 export async function registerDeployment(
   home: string,
   targetPath: string,
-  entry: Omit<RegistryEntry, "deployed">,
+  entry: RegisterEntry,
 ): Promise<void> {
   const registry = await loadRegistry(home);
   registry.deployments[targetPath] = {
