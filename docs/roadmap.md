@@ -6,10 +6,10 @@ It intentionally focuses on enabling architecture rather than prematurely implem
 
 ## Suggested Implementation Order
 
-1. **Generalize the action, ownership, and reporting model**
-   - Refactor `DeployAction`, `RevertAction`, and the planner or executor split so the engine can represent directory copy or symlink, file write, and structured config patch as distinct action types (`src/types.ts`, `src/core/deploy.ts`, `src/core/revert.ts`).
-   - Extend the registry and ownership model so revert and safety checks can reason about file-level instructions and config patches, not only skill directories (`src/schemas/registry.ts`, `src/core/ownership.ts`).
-   - Keep dry-run and revert logic action-aware, and evolve dry-run output toward exact planned changes instead of directory-level summaries (`src/core/deploy.ts`, `src/core/revert.ts`, `src/logger.ts`).
+1. ~~**Generalize the action, ownership, and reporting model**~~
+   - ~~Refactor `DeployAction`, `RevertAction`, and the planner or executor split so the engine can represent directory copy or symlink, file write, and structured config patch as distinct action types (`src/types.ts`, `src/core/deploy.ts`, `src/core/revert.ts`).~~
+   - ~~Extend the registry and ownership model so revert and safety checks can reason about file-level instructions and config patches, not only skill directories (`src/schemas/registry.ts`, `src/core/ownership.ts`).~~
+   - ~~Keep dry-run and revert logic action-aware, and evolve dry-run output toward exact planned changes instead of directory-level summaries (`src/core/deploy.ts`, `src/core/revert.ts`, `src/logger.ts`).~~
 
 2. **Strengthen planning semantics before widening support**
    - Add confidence-aware planning so each supported surface can be classified as doc-backed, implementation-only, or speculative, with planner-visible consequences for warnings and support claims (`docs/north-star.md`, `src/config/agents.ts`, `src/core/preflight.ts`).
@@ -31,9 +31,9 @@ It intentionally focuses on enabling architecture rather than prematurely implem
 
 ### Core Architecture
 
-- **Directory-Only Action Model**: `DeployAction`, `RevertAction`, and the current planner or executor split are still centered on skill-directory deploys. Generalize them before adding single-file writes or structured config patches (`src/types.ts`, `src/core/deploy.ts`, `src/core/revert.ts`).
-- **Directory-Only Ownership and Provenance**: The current registry model tracks directory symlink or copy deploys, but it is not yet a generalized ownership and provenance model for file-level instructions or config patching (`src/schemas/registry.ts`, `src/core/ownership.ts`, `src/core/deploy.ts`, `src/core/revert.ts`).
-- **Dry-Run Precision Gap**: Current dry-run output is action-aware and includes method, source, and target details, which is adequate for directory deploys. Before config or file mutations are added, the reporting model still needs a structured way to show exact planned changes instead of directory-level summaries (`src/core/deploy.ts`, `src/core/revert.ts`, `src/logger.ts`).
+- ~~**Directory-Only Action Model**: `DeployAction`, `RevertAction`, and the current planner or executor split are still centered on skill-directory deploys. Generalize them before adding single-file writes or structured config patches (`src/types.ts`, `src/core/deploy.ts`, `src/core/revert.ts`).~~
+- ~~**Directory-Only Ownership and Provenance**: The current registry model tracks directory symlink or copy deploys, but it is not yet a generalized ownership and provenance model for file-level instructions or config patching (`src/schemas/registry.ts`, `src/core/ownership.ts`, `src/core/deploy.ts`, `src/core/revert.ts`).~~
+- ~~**Dry-Run Precision Gap**: Current dry-run output is action-aware and includes method, source, and target details, which is adequate for directory deploys. Before config or file mutations are added, the reporting model still needs a structured way to show exact planned changes instead of directory-level summaries (`src/core/deploy.ts`, `src/core/revert.ts`, `src/logger.ts`).~~
 
 ### Planning and Support Semantics
 

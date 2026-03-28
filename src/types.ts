@@ -33,8 +33,26 @@ export interface SkillDirDeployAction {
   method: "symlink" | "copy";
 }
 
-// Union-ready: add new action kinds here as the engine expands
-export type DeployAction = SkillDirDeployAction;
+export interface FileWriteDeployAction {
+  kind: "file-write";
+  skill: string;
+  agent: AgentId;
+  source: string;
+  target: string;
+}
+
+export interface ConfigPatchDeployAction {
+  kind: "config-patch";
+  skill: string;
+  agent: AgentId;
+  target: string;
+  patch: unknown;
+}
+
+export type DeployAction =
+  | SkillDirDeployAction
+  | FileWriteDeployAction
+  | ConfigPatchDeployAction;
 
 export interface SkillDirRevertAction {
   kind: "skill-dir";
@@ -43,8 +61,24 @@ export interface SkillDirRevertAction {
   target: string;
 }
 
-// Union-ready: add new action kinds here as the engine expands
-export type RevertAction = SkillDirRevertAction;
+export interface FileWriteRevertAction {
+  kind: "file-write";
+  skill: string;
+  agent: AgentId;
+  target: string;
+}
+
+export interface ConfigPatchRevertAction {
+  kind: "config-patch";
+  skill: string;
+  agent: AgentId;
+  target: string;
+}
+
+export type RevertAction =
+  | SkillDirRevertAction
+  | FileWriteRevertAction
+  | ConfigPatchRevertAction;
 
 export interface CliOptions {
   command: "deploy" | "revert" | "help";

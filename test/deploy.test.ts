@@ -381,6 +381,7 @@ describe("executeDeploy", () => {
       mkdirSync(target, { recursive: true });
       writeFileSync(path.join(target, "SKILL.md"), "other content");
       await registerDeployment(home, target, {
+        kind: "skill-dir",
         source: "/completely/different/source",
         skill: "different-skill",
         agent: "codex",

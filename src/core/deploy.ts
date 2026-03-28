@@ -99,6 +99,16 @@ export async function executeDeploy(
         }
         break;
       }
+      case "file-write": {
+        throw new Error(
+          `Deploy action kind "file-write" is not yet implemented`,
+        );
+      }
+      case "config-patch": {
+        throw new Error(
+          `Deploy action kind "config-patch" is not yet implemented`,
+        );
+      }
       default: {
         const _: never = action.kind;
         throw new Error(`Unhandled deploy action kind: ${_}`);
@@ -127,9 +137,7 @@ async function deploySkillDir(
 
   if (dryRun) {
     logger.plan(label);
-    if (verbose) {
-      logger.detail(`${action.method}: ${action.source} -> ${action.target}`);
-    }
+    logger.detail(`${action.method}: ${action.source} -> ${action.target}`);
     return { error: null };
   }
 
@@ -229,7 +237,7 @@ async function assertTargetAbsent(targetPath: string): Promise<void> {
 }
 
 async function createDeployTarget(
-  action: DeployAction,
+  action: SkillDirDeployAction,
   home: string,
 ): Promise<void> {
   if (action.method === "symlink") {
@@ -238,6 +246,7 @@ async function createDeployTarget(
     await cp(action.source, action.target, { recursive: true });
   }
   await registerDeployment(home, action.target, {
+    kind: action.kind,
     source: action.source,
     skill: action.skill,
     agent: action.agent,
@@ -246,12 +255,13 @@ async function createDeployTarget(
 }
 
 async function executeDeployAction(
-  action: DeployAction,
+  action: SkillDirDeployAction,
   verbose: boolean,
   home: string,
 ): Promise<void> {
   const label = `${action.skill} -> ${action.agent}`;
   const backupPath = await backupExisting(action.target, verbose, home, {
+    kind: action.kind,
     source: action.source,
     skill: action.skill,
     agent: action.agent,
@@ -286,7 +296,7 @@ async function backupExisting(
   targetPath: string,
   verbose: boolean,
   home: string,
-  expected: { source: string; skill: string; agent: AgentId },
+  expected: { kind: string; source: string; skill: string; agent: AgentId },
 ): Promise<string | null> {
   try {
     await lstat(targetPath);

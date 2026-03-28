@@ -2,10 +2,13 @@ import { z } from "zod";
 import { AgentIdSchema } from "./manifest.ts";
 
 export const RegistryEntrySchema = z.object({
+  kind: z
+    .enum(["skill-dir", "file-write", "config-patch"])
+    .default("skill-dir"),
   source: z.string(),
   skill: z.string(),
   agent: AgentIdSchema,
-  method: z.enum(["symlink", "copy"]),
+  method: z.enum(["symlink", "copy"]).optional(),
   deployed: z.string(),
 });
 

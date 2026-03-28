@@ -98,6 +98,16 @@ export async function executeRevert(
         }
         break;
       }
+      case "file-write": {
+        throw new Error(
+          `Revert action kind "file-write" is not yet implemented`,
+        );
+      }
+      case "config-patch": {
+        throw new Error(
+          `Revert action kind "config-patch" is not yet implemented`,
+        );
+      }
       default: {
         const _: never = action.kind;
         throw new Error(`Unhandled revert action kind: ${_}`);
@@ -140,9 +150,7 @@ async function executeRevertAction(
 
   if (dryRun) {
     logger.plan(label);
-    if (verbose) {
-      logger.detail(`would remove: ${action.target}`);
-    }
+    logger.detail(`would remove: ${action.target}`);
     return { outcome: "ok" };
   }
 

@@ -88,6 +88,7 @@ describe("executeRevert", () => {
       mkdirSync(path.dirname(target), { recursive: true });
       symlinkSync(sourceDir, target, "dir");
       await registerDeployment(home, target, {
+        kind: "skill-dir",
         source: sourceDir,
         skill: "test-skill",
         agent: "claude-code",
@@ -123,6 +124,7 @@ describe("executeRevert", () => {
       mkdirSync(target, { recursive: true });
       writeFileSync(path.join(target, "SKILL.md"), "test");
       await registerDeployment(home, target, {
+        kind: "skill-dir",
         source: "/original/source",
         skill: "test-skill",
         agent: "claude-code",
@@ -176,6 +178,7 @@ describe("executeRevert", () => {
       mkdirSync(target, { recursive: true });
       writeFileSync(path.join(target, "SKILL.md"), "test");
       await registerDeployment(home, target, {
+        kind: "skill-dir",
         source: sourceDir,
         skill: "test-skill",
         agent: "claude-code",
@@ -211,6 +214,7 @@ describe("executeRevert", () => {
       mkdirSync(path.dirname(target), { recursive: true });
       symlinkSync(sourceDir, target, "dir");
       await registerDeployment(home, target, {
+        kind: "skill-dir",
         source: sourceDir,
         skill: "test-skill",
         agent: "claude-code",
@@ -294,6 +298,7 @@ describe("executeRevert", () => {
       mkdirSync(path.dirname(target), { recursive: true });
       symlinkSync(sourceDir, target, "dir");
       await registerDeployment(home, target, {
+        kind: "skill-dir",
         source: sourceDir,
         skill: "different-skill",
         agent: "codex",
@@ -332,6 +337,7 @@ describe("executeRevert — copy method (cross-platform)", () => {
       mkdirSync(target, { recursive: true });
       writeFileSync(path.join(target, "SKILL.md"), "---\nname: test-skill\n");
       await registerDeployment(home, target, {
+        kind: "skill-dir",
         source: "/original/source/skills/test-skill",
         skill: "test-skill",
         agent: "claude-code",

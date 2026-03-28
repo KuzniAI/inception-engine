@@ -26,6 +26,7 @@ describe("registerDeployment", () => {
     try {
       const target = "/fake/target/skill";
       await registerDeployment(home, target, {
+        kind: "skill-dir",
         source: "/fake/source/skill",
         skill: "my-skill",
         agent: "claude-code",
@@ -37,6 +38,7 @@ describe("registerDeployment", () => {
       const registry = JSON.parse(readFileSync(registryPath(home), "utf-8"));
       assert.equal(registry.version, 1);
       assert.ok(registry.deployments[target]);
+      assert.equal(registry.deployments[target].kind, "skill-dir");
       assert.equal(registry.deployments[target].skill, "my-skill");
       assert.equal(registry.deployments[target].agent, "claude-code");
       assert.equal(registry.deployments[target].source, "/fake/source/skill");
@@ -52,12 +54,14 @@ describe("registerDeployment", () => {
     try {
       const target = "/fake/target/skill";
       await registerDeployment(home, target, {
+        kind: "skill-dir",
         source: "/old/source",
         skill: "my-skill",
         agent: "claude-code",
         method: "symlink",
       });
       await registerDeployment(home, target, {
+        kind: "skill-dir",
         source: "/new/source",
         skill: "my-skill",
         agent: "claude-code",
@@ -76,6 +80,7 @@ describe("registerDeployment", () => {
     const home = makeTmpDir();
     try {
       await registerDeployment(home, "/fake/target", {
+        kind: "skill-dir",
         source: "/fake/source",
         skill: "my-skill",
         agent: "claude-code",
@@ -93,12 +98,14 @@ describe("registerDeployment", () => {
     const home = makeTmpDir();
     try {
       await registerDeployment(home, "/target/a", {
+        kind: "skill-dir",
         source: "/src/a",
         skill: "a",
         agent: "claude-code",
         method: "symlink",
       });
       await registerDeployment(home, "/target/b", {
+        kind: "skill-dir",
         source: "/src/b",
         skill: "b",
         agent: "codex",
@@ -119,6 +126,7 @@ describe("unregisterDeployment", () => {
     const home = makeTmpDir();
     try {
       await registerDeployment(home, "/target/a", {
+        kind: "skill-dir",
         source: "/src/a",
         skill: "a",
         agent: "claude-code",
@@ -137,6 +145,7 @@ describe("unregisterDeployment", () => {
     const home = makeTmpDir();
     try {
       await registerDeployment(home, "/target/a", {
+        kind: "skill-dir",
         source: "/src/a",
         skill: "a",
         agent: "claude-code",
@@ -158,6 +167,7 @@ describe("lookupDeployment", () => {
     const home = makeTmpDir();
     try {
       await registerDeployment(home, "/target/skill", {
+        kind: "skill-dir",
         source: "/src/skill",
         skill: "my-skill",
         agent: "codex",
@@ -166,6 +176,7 @@ describe("lookupDeployment", () => {
 
       const entry = await lookupDeployment(home, "/target/skill");
       assert.ok(entry);
+      assert.equal(entry.kind, "skill-dir");
       assert.equal(entry.source, "/src/skill");
       assert.equal(entry.skill, "my-skill");
       assert.equal(entry.agent, "codex");
@@ -218,6 +229,7 @@ describe("verifyDeployment", () => {
     try {
       const target = "/target/skill";
       await registerDeployment(home, target, {
+        kind: "skill-dir",
         source: "/src/skill",
         skill: "my-skill",
         agent: "claude-code",
@@ -225,6 +237,7 @@ describe("verifyDeployment", () => {
       });
 
       const entry = await verifyDeployment(home, target, {
+        kind: "skill-dir",
         source: "/src/skill",
         skill: "my-skill",
         agent: "claude-code",
@@ -238,11 +251,12 @@ describe("verifyDeployment", () => {
     }
   });
 
-  it("returns null when source does not match", async () => {
+  it("returns null when kind does not match", async () => {
     const home = makeTmpDir();
     try {
       const target = "/target/skill";
       await registerDeployment(home, target, {
+        kind: "skill-dir",
         source: "/src/skill",
         skill: "my-skill",
         agent: "claude-code",
@@ -250,6 +264,31 @@ describe("verifyDeployment", () => {
       });
 
       const entry = await verifyDeployment(home, target, {
+        kind: "file-write",
+        source: "/src/skill",
+        skill: "my-skill",
+        agent: "claude-code",
+      });
+      assert.equal(entry, null);
+    } finally {
+      rmSync(home, { recursive: true });
+    }
+  });
+
+  it("returns null when source does not match", async () => {
+    const home = makeTmpDir();
+    try {
+      const target = "/target/skill";
+      await registerDeployment(home, target, {
+        kind: "skill-dir",
+        source: "/src/skill",
+        skill: "my-skill",
+        agent: "claude-code",
+        method: "symlink",
+      });
+
+      const entry = await verifyDeployment(home, target, {
+        kind: "skill-dir",
         source: "/different/source",
         skill: "my-skill",
         agent: "claude-code",
@@ -265,6 +304,7 @@ describe("verifyDeployment", () => {
     try {
       const target = "/target/skill";
       await registerDeployment(home, target, {
+        kind: "skill-dir",
         source: "/src/skill",
         skill: "my-skill",
         agent: "claude-code",
@@ -272,6 +312,7 @@ describe("verifyDeployment", () => {
       });
 
       const entry = await verifyDeployment(home, target, {
+        kind: "skill-dir",
         source: "/src/skill",
         skill: "different-skill",
         agent: "claude-code",
@@ -287,6 +328,7 @@ describe("verifyDeployment", () => {
     try {
       const target = "/target/skill";
       await registerDeployment(home, target, {
+        kind: "skill-dir",
         source: "/src/skill",
         skill: "my-skill",
         agent: "claude-code",
@@ -294,6 +336,7 @@ describe("verifyDeployment", () => {
       });
 
       const entry = await verifyDeployment(home, target, {
+        kind: "skill-dir",
         source: "/src/skill",
         skill: "my-skill",
         agent: "codex",
@@ -308,6 +351,7 @@ describe("verifyDeployment", () => {
     const home = makeTmpDir();
     try {
       const entry = await verifyDeployment(home, "/nonexistent", {
+        kind: "skill-dir",
         source: "/src/skill",
         skill: "my-skill",
         agent: "claude-code",

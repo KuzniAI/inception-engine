@@ -83,11 +83,12 @@ export async function lookupDeployment(
 export async function verifyDeployment(
   home: string,
   targetPath: string,
-  expected: { source: string; skill: string; agent: AgentId },
+  expected: { kind: string; source: string; skill: string; agent: AgentId },
 ): Promise<RegistryEntry | null> {
   const entry = await lookupDeployment(home, targetPath);
   if (!entry) return null;
   if (
+    entry.kind !== expected.kind ||
     entry.source !== expected.source ||
     entry.skill !== expected.skill ||
     entry.agent !== expected.agent
