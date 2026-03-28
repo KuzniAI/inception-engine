@@ -1,0 +1,4 @@
+Plan you work on next roadmap item **Generalize the action, ownership, and reporting model**
+   - Refactor `DeployAction`, `RevertAction`, and the planner or executor split so the engine can represent directory copy or symlink, file write, and structured config patch as distinct action types (`src/types.ts`, `src/core/deploy.ts`, `src/core/revert.ts`).
+   - Extend the registry and ownership model so revert and safety checks can reason about file-level instructions and config patches, not only skill directories (`src/schemas/registry.ts`, `src/core/ownership.ts`).
+   - Keep dry-run and revert logic action-aware, and evolve dry-run output toward exact planned changes instead of directory-level summaries (`src/core/deploy.ts`, `src/core/revert.ts`, `src/logger.ts`).
