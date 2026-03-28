@@ -1,0 +1,3 @@
+Now work on item 3 from roadmap  **Generalize the action model before expanding beyond skill directories**
+   - Refactor `DeployAction`, `RevertAction`, and the planner/executor split so the engine can represent directory copy or symlink, file write, and structured config patch as distinct action types (`src/types.ts`, `src/core/deploy.ts`, `src/core/revert.ts`).
+   - Keep dry-run and revert logic action-aware so later work does not get bolted onto the current skill-directory path model.
