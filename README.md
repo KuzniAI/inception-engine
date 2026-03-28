@@ -2,7 +2,7 @@
 
 Plant skills directly into the minds of your installed AI coding agents — Claude Code, Codex, Gemini CLI, Antigravity, OpenCode, and GitHub Copilot. One command. They'll think they thought of it themselves.
 
-Today, inception-engine is a skills deployer. The core executor now supports three action types — skill directory deploy, single-file write, and JSON config patch — but the manifest format does not yet expose file-write or config-patch actions. MCP configuration and agent-specific config patching remain unimplemented at the manifest level.
+Today, inception-engine is a skills deployer. The public manifest and CLI planner currently deploy and revert skill directories only. The core executor also has internal support for single-file write and JSON config patch actions, but the manifest format does not expose them yet. MCP configuration and agent-specific config patching remain unimplemented at the manifest level.
 
 ## Quick Start
 
@@ -40,11 +40,11 @@ Managed skills overwrite their previous version. If a target exists but was not 
 
 | Feature | Status |
 |---|---|
-| Skills (SKILL.md) | Supported |
-| File write | Executor implemented; not yet exposed in manifest |
-| Config patch (JSON merge) | Executor implemented; not yet exposed in manifest |
-| MCP Servers | Accepted in manifest, not implemented |
-| Agent Rules | Accepted in manifest, not implemented |
+| Skills (SKILL.md) | Supported via manifest and CLI |
+| File write | Internal executor support only; not exposed in manifest or CLI planning |
+| Config patch (JSON merge) | Internal executor support only; not exposed in manifest or CLI planning |
+| MCP Servers | Accepted in manifest for forward compatibility, not implemented |
+| Agent Rules | Accepted in manifest for forward compatibility, not implemented |
 
 ## Manifest Format
 
@@ -70,7 +70,7 @@ Each skill entry has:
 - **path** - Relative path to the skill directory within the repo
 - **agents** - Array of agent IDs to deploy this skill to. If an agent isn't installed, it's skipped.
 
-`mcpServers` and `agentRules` are currently parsed for forward compatibility, but the deployment engine ignores them today.
+`mcpServers` and `agentRules` are currently parsed for forward compatibility, but the deployment engine ignores them today. The manifest-driven planner and revert flow currently derive actions from `skills` entries only.
 
 ## Creating Skills
 
