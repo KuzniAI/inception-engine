@@ -1,0 +1,34 @@
+{
+  "cli_version": "0.5.1",
+  "checkpoint_id": "299cf014d79d",
+  "strategy": "manual-commit",
+  "branch": "main",
+  "checkpoints_count": 2,
+  "files_touched": [
+    "README.md",
+    "docs/roadmap.md",
+    "src/core/deploy.ts",
+    "src/core/ownership.ts",
+    "src/core/revert.ts",
+    "src/schemas/registry.ts",
+    "src/types.ts",
+    "test/deploy.test.ts",
+    "test/ownership.test.ts",
+    "test/revert.test.ts"
+  ],
+  "sessions": [
+    {
+      "metadata": "/29/9cf014d79d/0/metadata.json",
+      "transcript": "/29/9cf014d79d/0/full.jsonl",
+      "content_hash": "/29/9cf014d79d/0/content_hash.txt",
+      "prompt": "/29/9cf014d79d/0/prompt.txt"
+    }
+  ],
+  "token_usage": {
+    "input_tokens": 76,
+    "cache_creation_tokens": 143395,
+    "cache_read_tokens": 6651012,
+    "output_tokens": 58520,
+    "api_call_count": 66
+  }
+}

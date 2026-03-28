@@ -1,0 +1,10 @@
+Work on item 1 from roadmap
+
+**Finish generalizing the action, ownership, and reporting model**
+   - Complete planner and executor support for distinct action types so the engine can actually plan, deploy, and revert directory copy or symlink, file write, and structured config patch actions (`src/types.ts`, `src/core/deploy.ts`, `src/core/revert.ts`).
+   - Extend the registry and ownership model with action-specific provenance so revert and safety checks can reason about file-level instructions and config patches, not only skill directories (`src/schemas/registry.ts`, `src/core/ownership.ts`).
+   - Replace log-string dry-run summaries with structured exact-change reporting for planned writes, removals, and patches (`src/core/deploy.ts`, `src/core/revert.ts`, `src/logger.ts`).
+
+---
+
+make sure you crossed out everything from @docs/roadmap.md  and updated @README.md with what was changed functionally
