@@ -24,7 +24,6 @@ It intentionally focuses on enabling architecture rather than prematurely implem
 4. **Improve portability, policy awareness, and confidence in real-world behavior**
    - Add stronger Windows-realistic coverage for copy deploy or revert, ownership handling, and `%APPDATA%` path behavior. `%APPDATA%` path resolution and cross-platform copy paths are covered, but much of the Windows-specific behavior still depends on platform-gated tests (`test/cross-platform.test.ts`, `test/deploy.test.ts`, `test/revert.test.ts`, `test/ownership.test.ts`).
    - Add enterprise-override awareness so planner and reporting layers can warn when local configuration may not be authoritative, instead of overstating support in constrained environments (`docs/north-star.md`, `src/core/preflight.ts`, `src/index.ts`).
-   - Reassess whether the documented Node `>=23.6.0` baseline is truly required for the published runtime or mostly for local TypeScript execution and tests (`package.json`, `README.md`).
 
 ## Current Roadmap
 
@@ -49,7 +48,6 @@ It intentionally focuses on enabling architecture rather than prematurely implem
 ### Portability and Testing
 
 - **Partial Windows Deployment Coverage**: The copy-based deploy or revert path and `%APPDATA%` path handling have test coverage, but Windows-native ownership behavior and more realistic end-to-end Windows execution still need stronger validation (`src/core/deploy.ts`, `src/core/revert.ts`, `test/cross-platform.test.ts`, `test/deploy.test.ts`, `test/revert.test.ts`, `test/ownership.test.ts`).
-- **Packaging Portability**: The Node `>=23.6.0` requirement is documented in `package.json` and `README.md`, but it is still worth reassessing whether that minimum is truly required for the published runtime or mostly for local TypeScript execution and tests.
 
 ### Enterprise and Policy Awareness
 

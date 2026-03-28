@@ -201,7 +201,10 @@ Windows deployment currently uses directory-level copy (one `cp -r` per skill). 
 
 ## Requirements
 
-- Node.js >= 23.6.0
+- Published CLI runtime: Node.js >= 22.3.0
+- Direct TypeScript execution in this repo (`npm run dev`, `npm test`): Node.js >= 22.18.0
+
+`inception-engine` publishes compiled JavaScript from `dist/`, so end users do not need the newer Node version required for this repository's direct `.ts` workflows. The higher contributor floor exists only because this repo intentionally runs TypeScript straight through `node` for local development and tests, with no `tsx`, `ts-node`, or experimental TypeScript flags.
 
 ## License
 
