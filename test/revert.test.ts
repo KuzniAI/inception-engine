@@ -318,3 +318,83 @@ describe("executeRevert", () => {
     }
   });
 });
+
+// Copy-method revert does not rely on symlinks and works identically on all
+// platforms. This suite has no Windows guard intentionally.
+describe("executeRevert — copy method (cross-platform)", () => {
+  it("removes a copy-deployed skill registered in the deployment registry", async () => {
+    const home = makeTmpDir();
+    try {
+      const actions = planRevert(testManifest, ["claude-code"], home);
+      const target = actions[0]?.target;
+      assert.ok(target, "planRevert should produce an action");
+
+      mkdirSync(target, { recursive: true });
+      writeFileSync(path.join(target, "SKILL.md"), "---\nname: test-skill\n");
+      await registerDeployment(home, target, {
+        source: "/original/source/skills/test-skill",
+        skill: "test-skill",
+        agent: "claude-code",
+        method: "copy",
+      });
+      assert.ok(existsSync(target));
+
+      const { succeeded, skipped } = await executeRevert(
+        actions,
+        false,
+        false,
+        home,
+      );
+      assert.equal(succeeded, 1);
+      assert.equal(skipped, 0);
+      assert.ok(!existsSync(target), "copy directory should be removed");
+
+      const entry = await lookupDeployment(home, target);
+      assert.equal(entry, null, "registry entry should be cleared");
+    } finally {
+      rmSync(home, { recursive: true, force: true });
+    }
+  });
+
+  it("skips an unmanaged directory that is not in the registry", async () => {
+    const home = makeTmpDir();
+    try {
+      const actions = planRevert(testManifest, ["claude-code"], home);
+      const target = actions[0]?.target;
+      assert.ok(target);
+
+      // Create the directory but do NOT register it
+      mkdirSync(target, { recursive: true });
+      writeFileSync(path.join(target, "SKILL.md"), "---\nname: test-skill\n");
+
+      const { succeeded, skipped } = await executeRevert(
+        actions,
+        false,
+        false,
+        home,
+      );
+      assert.equal(succeeded, 0);
+      assert.equal(skipped, 1);
+      assert.ok(existsSync(target), "unmanaged directory should be untouched");
+    } finally {
+      rmSync(home, { recursive: true, force: true });
+    }
+  });
+
+  it("skips when the target does not exist at all", async () => {
+    const home = makeTmpDir();
+    try {
+      const actions = planRevert(testManifest, ["claude-code"], home);
+      const { succeeded, skipped } = await executeRevert(
+        actions,
+        false,
+        false,
+        home,
+      );
+      assert.equal(succeeded, 0);
+      assert.equal(skipped, 1);
+    } finally {
+      rmSync(home, { recursive: true, force: true });
+    }
+  });
+});

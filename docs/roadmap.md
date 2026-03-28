@@ -11,10 +11,10 @@ It intentionally focuses on code quality, known issues, OS and agent portability
    - ~~Reject duplicate `skill.name` values and deduplicate per-skill agent IDs before planning to prevent target collisions and repeated writes.~~
    - ~~Validate that each skill source is a readable directory containing `SKILL.md` during planning, not only an existing path during execution.~~
 
-2. **Close the validation gaps with platform-realistic tests**
-   - Add CLI end-to-end tests that exercise `src/index.ts` result codes and user-visible reporting.
-   - Add Windows-realistic coverage for copy deploy or revert, ownership handling, and `%APPDATA%` path behavior.
-   - Add detection-path tests for `where.exe`, missing `which`, and `/bin/sh` fallback, plus ownership tests that verify source trees remain unmodified after deploy and revert.
+2. ~~**Close the validation gaps with platform-realistic tests**~~
+   - ~~Add CLI end-to-end tests that exercise `src/index.ts` result codes and user-visible reporting.~~
+   - ~~Add Windows-realistic coverage for copy deploy or revert, ownership handling, and `%APPDATA%` path behavior.~~
+   - ~~Add detection-path tests for `where.exe`, missing `which`, and `/bin/sh` fallback, plus ownership tests that verify source trees remain unmodified after deploy and revert.~~
 
 3. **Generalize the action model before expanding beyond skill directories**
    - Refactor `DeployAction`, `RevertAction`, and the planner/executor split so the engine can represent directory copy or symlink, file write, and structured config patch as distinct action types (`src/types.ts`, `src/core/deploy.ts`, `src/core/revert.ts`).
@@ -47,7 +47,7 @@ It intentionally focuses on code quality, known issues, OS and agent portability
 
 ### Testing and Validation
 
-- **CLI End-to-End Coverage Gap**: The main command path in `src/index.ts` is not exercised by integration tests, so exit codes and user-facing summaries can drift.
-- **Binary Detection Coverage Gap**: Tests do not meaningfully exercise `where.exe`, missing `which`, or the `/bin/sh` `command -v` fallback (`src/core/detect.ts`, `test/detect.test.ts`).
-- **Windows Deployment Coverage Gap**: The copy-based deploy or revert path and Windows ownership behavior are not covered by realistic Windows tests (`src/core/deploy.ts`, `src/core/revert.ts`, `test/deploy.test.ts`, `test/revert.test.ts`).
-- **Source-Immutability Coverage Gap**: There is no regression test that fails if deploy or revert mutates the checked-out source tree on POSIX. The ownership refactor should add one.
+- ~~**CLI End-to-End Coverage Gap**: The main command path in `src/index.ts` is not exercised by integration tests, so exit codes and user-facing summaries can drift.~~
+- ~~**Binary Detection Coverage Gap**: Tests do not meaningfully exercise `where.exe`, missing `which`, or the `/bin/sh` `command -v` fallback (`src/core/detect.ts`, `test/detect.test.ts`).~~
+- ~~**Windows Deployment Coverage Gap**: The copy-based deploy or revert path and Windows ownership behavior are not covered by realistic Windows tests (`src/core/deploy.ts`, `src/core/revert.ts`, `test/deploy.test.ts`, `test/revert.test.ts`).~~
+- ~~**Source-Immutability Coverage Gap**: There is no regression test that fails if deploy or revert mutates the checked-out source tree on POSIX. The ownership refactor should add one.~~

@@ -9,14 +9,16 @@ import {
   symlinkSync,
   writeFileSync,
 } from "node:fs";
+import { readdir } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { describe, it } from "node:test";
 import { executeDeploy, planDeploy } from "../src/core/deploy.ts";
 import { lookupDeployment, registerDeployment } from "../src/core/ownership.ts";
+import { executeRevert, planRevert } from "../src/core/revert.ts";
 import { UserError } from "../src/errors.ts";
 import { logger } from "../src/logger.ts";
-import type { Manifest } from "../src/types.ts";
+import type { DeployAction, Manifest } from "../src/types.ts";
 
 logger.silence();
 
@@ -734,6 +736,125 @@ describe("planDeploy path traversal", () => {
     } finally {
       rmSync(sourceDir, { recursive: true, force: true });
       rmSync(outsideDir, { recursive: true });
+    }
+  });
+});
+
+async function snapshotDir(dir: string): Promise<string[]> {
+  const entries = await readdir(dir, { recursive: true });
+  return entries.sort();
+}
+
+describe("source directory immutability", () => {
+  it("source dir is unchanged after symlink deploy", async () => {
+    if (process.platform === "win32") return;
+    const sourceDir = makeTmpDir();
+    const home = makeTmpDir();
+    try {
+      createSkillSource(sourceDir, "skills/test-skill");
+      const before = await snapshotDir(sourceDir);
+      const actions = await planDeploy(
+        testManifest,
+        sourceDir,
+        ["claude-code"],
+        home,
+      );
+      await executeDeploy(actions, false, false, home);
+      const after = await snapshotDir(sourceDir);
+      assert.deepEqual(
+        after,
+        before,
+        "source directory must not be modified by deploy",
+      );
+    } finally {
+      rmSync(sourceDir, { recursive: true });
+      rmSync(home, { recursive: true, force: true });
+    }
+  });
+
+  it("source dir is unchanged after copy deploy", async () => {
+    const sourceDir = makeTmpDir();
+    const home = makeTmpDir();
+    try {
+      const skillSource = createSkillSource(sourceDir, "skills/test-skill");
+      const target = path.join(home, ".claude", "skills", "test-skill");
+      mkdirSync(path.dirname(target), { recursive: true });
+      const action: DeployAction = {
+        skill: "test-skill",
+        agent: "claude-code",
+        source: skillSource,
+        target,
+        method: "copy",
+      };
+      const before = await snapshotDir(sourceDir);
+      await executeDeploy([action], false, false, home);
+      const after = await snapshotDir(sourceDir);
+      assert.deepEqual(
+        after,
+        before,
+        "source directory must not be modified by copy deploy",
+      );
+    } finally {
+      rmSync(sourceDir, { recursive: true });
+      rmSync(home, { recursive: true, force: true });
+    }
+  });
+
+  it("source dir is unchanged after symlink revert", async () => {
+    if (process.platform === "win32") return;
+    const sourceDir = makeTmpDir();
+    const home = makeTmpDir();
+    try {
+      createSkillSource(sourceDir, "skills/test-skill");
+      const deployActions = await planDeploy(
+        testManifest,
+        sourceDir,
+        ["claude-code"],
+        home,
+      );
+      await executeDeploy(deployActions, false, false, home);
+      const before = await snapshotDir(sourceDir);
+      const revertActions = planRevert(testManifest, ["claude-code"], home);
+      await executeRevert(revertActions, false, false, home);
+      const after = await snapshotDir(sourceDir);
+      assert.deepEqual(
+        after,
+        before,
+        "source directory must not be modified by revert",
+      );
+    } finally {
+      rmSync(sourceDir, { recursive: true });
+      rmSync(home, { recursive: true, force: true });
+    }
+  });
+
+  it("source dir is unchanged after copy revert", async () => {
+    const sourceDir = makeTmpDir();
+    const home = makeTmpDir();
+    try {
+      const skillSource = createSkillSource(sourceDir, "skills/test-skill");
+      const target = path.join(home, ".claude", "skills", "test-skill");
+      mkdirSync(path.dirname(target), { recursive: true });
+      const action: DeployAction = {
+        skill: "test-skill",
+        agent: "claude-code",
+        source: skillSource,
+        target,
+        method: "copy",
+      };
+      await executeDeploy([action], false, false, home);
+      const before = await snapshotDir(sourceDir);
+      const revertActions = planRevert(testManifest, ["claude-code"], home);
+      await executeRevert(revertActions, false, false, home);
+      const after = await snapshotDir(sourceDir);
+      assert.deepEqual(
+        after,
+        before,
+        "source directory must not be modified by copy revert",
+      );
+    } finally {
+      rmSync(sourceDir, { recursive: true });
+      rmSync(home, { recursive: true, force: true });
     }
   });
 });

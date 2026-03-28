@@ -3,7 +3,14 @@ import { mkdirSync, rmSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { describe, it } from "node:test";
-import { detectInstalledAgents } from "../src/core/detect.ts";
+import {
+  detectInstalledAgents,
+  isBinaryInPath,
+  isBinaryViaCommandV,
+  isBinaryViaWhereExe,
+  isBinaryViaWhich,
+  type ExecFn,
+} from "../src/core/detect.ts";
 
 function makeTmpDir(): string {
   const dir = path.join(
@@ -62,5 +69,74 @@ describe("detectInstalledAgents", () => {
     } finally {
       rmSync(home, { recursive: true });
     }
+  });
+});
+
+const NONEXISTENT_BINARY = "__nonexistent_binary_inception_test__";
+
+describe("isBinaryViaCommandV", () => {
+  if (process.platform === "win32") return;
+
+  it("returns true for node (known to be in PATH)", async () => {
+    const result = await isBinaryViaCommandV("node");
+    assert.equal(result, true);
+  });
+
+  it("returns false for a nonexistent binary", async () => {
+    const result = await isBinaryViaCommandV(NONEXISTENT_BINARY);
+    assert.equal(result, false);
+  });
+});
+
+describe("isBinaryViaWhich", () => {
+  if (process.platform === "win32") return;
+
+  it("returns true for node (known to be in PATH)", async () => {
+    const result = await isBinaryViaWhich("node");
+    assert.equal(result, true);
+  });
+
+  it("returns false for a nonexistent binary", async () => {
+    const result = await isBinaryViaWhich(NONEXISTENT_BINARY);
+    assert.equal(result, false);
+  });
+});
+
+describe("isBinaryViaWhereExe", () => {
+  if (process.platform !== "win32") return;
+
+  it("returns true for node.exe (known to be in PATH)", async () => {
+    const result = await isBinaryViaWhereExe("node.exe");
+    assert.equal(result, true);
+  });
+
+  it("returns false for a nonexistent binary", async () => {
+    const result = await isBinaryViaWhereExe(NONEXISTENT_BINARY);
+    assert.equal(result, false);
+  });
+});
+
+describe("isBinaryInPath ENOENT fallback", () => {
+  if (process.platform === "win32") return;
+
+  // Simulate an environment where `which` is not installed: the injected
+  // execFn always throws ENOENT, forcing isBinaryInPath to fall back to
+  // isBinaryViaCommandV (which uses the real /bin/sh `command -v`).
+  const enoentFn: ExecFn = async () => {
+    const err = Object.assign(new Error("spawn which ENOENT"), {
+      code: "ENOENT",
+    });
+    throw err;
+  };
+
+  it("falls back to isBinaryViaCommandV when which throws ENOENT", async () => {
+    // `node` is definitely in PATH — command -v should find it
+    const result = await isBinaryInPath("node", enoentFn);
+    assert.equal(result, true);
+  });
+
+  it("returns false when which is absent and binary does not exist", async () => {
+    const result = await isBinaryInPath(NONEXISTENT_BINARY, enoentFn);
+    assert.equal(result, false);
   });
 });
