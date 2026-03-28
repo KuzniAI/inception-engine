@@ -109,8 +109,7 @@ export async function executeRevert(
         );
       }
       default: {
-        const _: never = action.kind;
-        throw new Error(`Unhandled revert action kind: ${_}`);
+        throw new Error(`Unhandled revert action kind: ${action}`);
       }
     }
   }

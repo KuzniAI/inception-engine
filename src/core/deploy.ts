@@ -110,8 +110,7 @@ export async function executeDeploy(
         );
       }
       default: {
-        const _: never = action.kind;
-        throw new Error(`Unhandled deploy action kind: ${_}`);
+        throw new Error(`Unhandled deploy action kind: ${action}`);
       }
     }
   }
