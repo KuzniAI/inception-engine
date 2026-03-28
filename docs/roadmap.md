@@ -6,10 +6,10 @@ It intentionally focuses on enabling architecture rather than prematurely implem
 
 ## Suggested Implementation Order
 
-1. ~~**Generalize the action, ownership, and reporting model**~~
-   - ~~Refactor `DeployAction`, `RevertAction`, and the planner or executor split so the engine can represent directory copy or symlink, file write, and structured config patch as distinct action types (`src/types.ts`, `src/core/deploy.ts`, `src/core/revert.ts`).~~
-   - ~~Extend the registry and ownership model so revert and safety checks can reason about file-level instructions and config patches, not only skill directories (`src/schemas/registry.ts`, `src/core/ownership.ts`).~~
-   - ~~Keep dry-run and revert logic action-aware, and evolve dry-run output toward exact planned changes instead of directory-level summaries (`src/core/deploy.ts`, `src/core/revert.ts`, `src/logger.ts`).~~
+1. **Finish generalizing the action, ownership, and reporting model**
+   - Complete planner and executor support for distinct action types so the engine can actually plan, deploy, and revert directory copy or symlink, file write, and structured config patch actions (`src/types.ts`, `src/core/deploy.ts`, `src/core/revert.ts`).
+   - Extend the registry and ownership model with action-specific provenance so revert and safety checks can reason about file-level instructions and config patches, not only skill directories (`src/schemas/registry.ts`, `src/core/ownership.ts`).
+   - Replace log-string dry-run summaries with structured exact-change reporting for planned writes, removals, and patches (`src/core/deploy.ts`, `src/core/revert.ts`, `src/logger.ts`).
 
 2. **Strengthen planning semantics before widening support**
    - Add confidence-aware planning so each supported surface can be classified as doc-backed, implementation-only, or speculative, with planner-visible consequences for warnings and support claims (`docs/north-star.md`, `src/config/agents.ts`, `src/core/preflight.ts`).
@@ -23,7 +23,6 @@ It intentionally focuses on enabling architecture rather than prematurely implem
 
 4. **Improve portability, policy awareness, and confidence in real-world behavior**
    - Add stronger Windows-realistic coverage for copy deploy or revert, ownership handling, and `%APPDATA%` path behavior. `%APPDATA%` path resolution and cross-platform copy paths are covered, but much of the Windows-specific behavior still depends on platform-gated tests (`test/cross-platform.test.ts`, `test/deploy.test.ts`, `test/revert.test.ts`, `test/ownership.test.ts`).
-   - Add detection-path coverage that meaningfully exercises `where.exe`, missing `which`, and `/bin/sh` fallback across test environments. Missing-`which` fallback is covered, but the `where.exe` branch still lacks robust non-gated validation (`src/core/detect.ts`, `test/detect.test.ts`).
    - Add enterprise-override awareness so planner and reporting layers can warn when local configuration may not be authoritative, instead of overstating support in constrained environments (`docs/north-star.md`, `src/core/preflight.ts`, `src/index.ts`).
    - Reassess whether the documented Node `>=23.6.0` baseline is truly required for the published runtime or mostly for local TypeScript execution and tests (`package.json`, `README.md`).
 
@@ -31,9 +30,9 @@ It intentionally focuses on enabling architecture rather than prematurely implem
 
 ### Core Architecture
 
-- ~~**Directory-Only Action Model**: `DeployAction`, `RevertAction`, and the current planner or executor split are still centered on skill-directory deploys. Generalize them before adding single-file writes or structured config patches (`src/types.ts`, `src/core/deploy.ts`, `src/core/revert.ts`).~~
-- ~~**Directory-Only Ownership and Provenance**: The current registry model tracks directory symlink or copy deploys, but it is not yet a generalized ownership and provenance model for file-level instructions or config patching (`src/schemas/registry.ts`, `src/core/ownership.ts`, `src/core/deploy.ts`, `src/core/revert.ts`).~~
-- ~~**Dry-Run Precision Gap**: Current dry-run output is action-aware and includes method, source, and target details, which is adequate for directory deploys. Before config or file mutations are added, the reporting model still needs a structured way to show exact planned changes instead of directory-level summaries (`src/core/deploy.ts`, `src/core/revert.ts`, `src/logger.ts`).~~
+- **Incomplete Action Model Generalization**: `DeployAction` and `RevertAction` can now represent `file-write` and `config-patch`, but planning and execution still only implement `skill-dir`. Finish planner and executor support before treating the deploy model as generalized (`src/types.ts`, `src/core/deploy.ts`, `src/core/revert.ts`).
+- **Incomplete Ownership and Provenance Generalization**: The registry schema now admits more action kinds, but ownership verification and revert safety checks still lack action-specific provenance for file writes and config patches (`src/schemas/registry.ts`, `src/core/ownership.ts`, `src/core/deploy.ts`, `src/core/revert.ts`).
+- **Dry-Run Precision Gap**: Current dry-run output is action-aware for directory deploys, but it is still log-string based and does not yet model exact planned file writes or config patches in a structured way (`src/core/deploy.ts`, `src/core/revert.ts`, `src/logger.ts`).
 
 ### Planning and Support Semantics
 
@@ -50,7 +49,6 @@ It intentionally focuses on enabling architecture rather than prematurely implem
 ### Portability and Testing
 
 - **Partial Windows Deployment Coverage**: The copy-based deploy or revert path and `%APPDATA%` path handling have test coverage, but Windows-native ownership behavior and more realistic end-to-end Windows execution still need stronger validation (`src/core/deploy.ts`, `src/core/revert.ts`, `test/cross-platform.test.ts`, `test/deploy.test.ts`, `test/revert.test.ts`, `test/ownership.test.ts`).
-- **Partial Binary Detection Coverage**: Tests cover missing `which` and the `/bin/sh` `command -v` fallback path, but `where.exe` coverage is still limited by real-platform gating and should be made more robust (`src/core/detect.ts`, `test/detect.test.ts`).
 - **Packaging Portability**: The Node `>=23.6.0` requirement is documented in `package.json` and `README.md`, but it is still worth reassessing whether that minimum is truly required for the published runtime or mostly for local TypeScript execution and tests.
 
 ### Enterprise and Policy Awareness
