@@ -2,7 +2,7 @@
 
 Plant skills directly into the minds of your installed AI coding agents — Claude Code, Codex, Gemini CLI, Antigravity, OpenCode, and GitHub Copilot. One command. They'll think they thought of it themselves.
 
-Today, inception-engine is a skills deployer. It does not yet manage persistent instruction files, MCP configuration, subagents, or agent-specific config patching.
+Today, inception-engine is a skills deployer. The core executor now supports three action types — skill directory deploy, single-file write, and JSON config patch — but the manifest format does not yet expose file-write or config-patch actions. MCP configuration and agent-specific config patching remain unimplemented at the manifest level.
 
 ## Quick Start
 
@@ -41,6 +41,8 @@ Managed skills overwrite their previous version. If a target exists but was not 
 | Feature | Status |
 |---|---|
 | Skills (SKILL.md) | Supported |
+| File write | Executor implemented; not yet exposed in manifest |
+| Config patch (JSON merge) | Executor implemented; not yet exposed in manifest |
 | MCP Servers | Accepted in manifest, not implemented |
 | Agent Rules | Accepted in manifest, not implemented |
 
@@ -165,7 +167,7 @@ inception-engine maintains a centralized deployment registry at `~/.inception-en
 
 - **Registry-based ownership**: On revert, the registry is checked before removing any target. Only targets with a valid registry entry are removed. On redeploy, unmanaged targets are never replaced.
 
-- **Strong binding**: Each registry entry binds a specific target path to its source, skill, agent, and deploy method. A target is only considered managed if all fields match — a stray entry or a different deployment cannot satisfy the check.
+- **Strong binding**: Each registry entry binds a specific target path to its skill, agent, and action kind, with action-specific provenance fields (`source` and `method` for skill-dir and file-write; `patch` and `undoPatch` for config-patch). A target is only considered managed if all relevant fields match — a stray entry or a different deployment cannot satisfy the check.
 
 - **Atomic redeploy**: When overwriting an existing managed target, the engine renames the old target to a backup, creates the new deployment, and only removes the backup on success. If the new deployment fails, the backup is restored.
 

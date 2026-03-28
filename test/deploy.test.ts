@@ -4,6 +4,7 @@ import {
   existsSync,
   lstatSync,
   mkdirSync,
+  readFileSync,
   readlinkSync,
   rmSync,
   symlinkSync,
@@ -18,7 +19,12 @@ import { lookupDeployment, registerDeployment } from "../src/core/ownership.ts";
 import { executeRevert, planRevert } from "../src/core/revert.ts";
 import { UserError } from "../src/errors.ts";
 import { logger } from "../src/logger.ts";
-import type { DeployAction, Manifest } from "../src/types.ts";
+import type {
+  ConfigPatchDeployAction,
+  DeployAction,
+  FileWriteDeployAction,
+  Manifest,
+} from "../src/types.ts";
 
 logger.silence();
 
@@ -1212,6 +1218,439 @@ describe("atomic redeploy behavior (Windows)", {
         /* best effort */
       }
       rmSync(sourceDir, { recursive: true, force: true });
+      rmSync(home, { recursive: true, force: true });
+    }
+  });
+});
+
+describe("executeDeploy — file-write", () => {
+  it("copies source file to target", async () => {
+    const sourceDir = makeTmpDir();
+    const home = makeTmpDir();
+    try {
+      const sourceFile = path.join(sourceDir, "my-file.txt");
+      const targetFile = path.join(home, "target-dir", "my-file.txt");
+      writeFileSync(sourceFile, "hello from source");
+
+      const action: FileWriteDeployAction = {
+        kind: "file-write",
+        skill: "test-skill",
+        agent: "claude-code",
+        source: sourceFile,
+        target: targetFile,
+      };
+
+      const { succeeded, failed } = await executeDeploy(
+        [action],
+        false,
+        false,
+        home,
+      );
+      assert.equal(succeeded, 1);
+      assert.equal(failed.length, 0);
+      assert.ok(existsSync(targetFile));
+      assert.equal(readFileSync(targetFile, "utf-8"), "hello from source");
+    } finally {
+      rmSync(sourceDir, { recursive: true });
+      rmSync(home, { recursive: true, force: true });
+    }
+  });
+
+  it("registers file-write entry in registry", async () => {
+    const sourceDir = makeTmpDir();
+    const home = makeTmpDir();
+    try {
+      const sourceFile = path.join(sourceDir, "file.txt");
+      const targetFile = path.join(home, "file.txt");
+      writeFileSync(sourceFile, "content");
+
+      const action: FileWriteDeployAction = {
+        kind: "file-write",
+        skill: "test-skill",
+        agent: "claude-code",
+        source: sourceFile,
+        target: targetFile,
+      };
+
+      await executeDeploy([action], false, false, home);
+      const entry = await lookupDeployment(home, targetFile);
+      assert.ok(entry);
+      assert.equal(entry.kind, "file-write");
+      assert.equal(entry.skill, "test-skill");
+      assert.equal(entry.agent, "claude-code");
+      if (entry.kind === "file-write") {
+        assert.equal(entry.source, sourceFile);
+      }
+    } finally {
+      rmSync(sourceDir, { recursive: true });
+      rmSync(home, { recursive: true, force: true });
+    }
+  });
+
+  it("overwrites managed target on redeploy (same source path, updated content)", async () => {
+    const sourceDir = makeTmpDir();
+    const home = makeTmpDir();
+    try {
+      // The realistic redeploy scenario: same source file, content has changed
+      const sourceFile = path.join(sourceDir, "file.txt");
+      const targetFile = path.join(home, "file.txt");
+      writeFileSync(sourceFile, "version 1");
+
+      const action: FileWriteDeployAction = {
+        kind: "file-write",
+        skill: "test-skill",
+        agent: "claude-code",
+        source: sourceFile,
+        target: targetFile,
+      };
+
+      await executeDeploy([action], false, false, home);
+
+      // Simulate updated source content
+      writeFileSync(sourceFile, "version 2");
+
+      const { succeeded, failed } = await executeDeploy(
+        [action],
+        false,
+        false,
+        home,
+      );
+      assert.equal(succeeded, 1);
+      assert.equal(failed.length, 0);
+      assert.equal(readFileSync(targetFile, "utf-8"), "version 2");
+    } finally {
+      rmSync(sourceDir, { recursive: true });
+      rmSync(home, { recursive: true, force: true });
+    }
+  });
+
+  it("refuses to overwrite unmanaged file at target", async () => {
+    const sourceDir = makeTmpDir();
+    const home = makeTmpDir();
+    try {
+      const sourceFile = path.join(sourceDir, "file.txt");
+      const targetFile = path.join(home, "existing.txt");
+      writeFileSync(sourceFile, "new content");
+      writeFileSync(targetFile, "original content");
+
+      const action: FileWriteDeployAction = {
+        kind: "file-write",
+        skill: "test-skill",
+        agent: "claude-code",
+        source: sourceFile,
+        target: targetFile,
+      };
+
+      const { succeeded, failed } = await executeDeploy(
+        [action],
+        false,
+        false,
+        home,
+      );
+      assert.equal(succeeded, 0);
+      assert.equal(failed.length, 1);
+      assert.ok(failed[0]?.error.includes("not managed by inception-engine"));
+      assert.equal(readFileSync(targetFile, "utf-8"), "original content");
+    } finally {
+      rmSync(sourceDir, { recursive: true });
+      rmSync(home, { recursive: true, force: true });
+    }
+  });
+
+  it("dry-run does not write file and returns planned change", async () => {
+    const sourceDir = makeTmpDir();
+    const home = makeTmpDir();
+    try {
+      const sourceFile = path.join(sourceDir, "file.txt");
+      const targetFile = path.join(home, "subdir", "file.txt");
+      writeFileSync(sourceFile, "content");
+
+      const action: FileWriteDeployAction = {
+        kind: "file-write",
+        skill: "test-skill",
+        agent: "claude-code",
+        source: sourceFile,
+        target: targetFile,
+      };
+
+      const { succeeded, failed, planned } = await executeDeploy(
+        [action],
+        true,
+        false,
+        home,
+      );
+      assert.equal(succeeded, 1);
+      assert.equal(failed.length, 0);
+      assert.ok(
+        !existsSync(targetFile),
+        "file should not be written in dry-run",
+      );
+      assert.equal(planned.length, 1);
+      assert.equal(planned[0]?.verb, "write-file");
+      assert.equal(planned[0]?.skill, "test-skill");
+      assert.equal(planned[0]?.agent, "claude-code");
+    } finally {
+      rmSync(sourceDir, { recursive: true });
+      rmSync(home, { recursive: true, force: true });
+    }
+  });
+
+  it("fails gracefully when source file does not exist", async () => {
+    const home = makeTmpDir();
+    try {
+      const action: FileWriteDeployAction = {
+        kind: "file-write",
+        skill: "test-skill",
+        agent: "claude-code",
+        source: "/nonexistent/file.txt",
+        target: path.join(home, "out.txt"),
+      };
+
+      const { succeeded, failed } = await executeDeploy(
+        [action],
+        false,
+        false,
+        home,
+      );
+      assert.equal(succeeded, 0);
+      assert.equal(failed.length, 1);
+      assert.match(failed[0]?.error ?? "", /Source not found/);
+    } finally {
+      rmSync(home, { recursive: true, force: true });
+    }
+  });
+});
+
+describe("executeDeploy — config-patch", () => {
+  it("applies a JSON merge patch to an existing config file", async () => {
+    const home = makeTmpDir();
+    try {
+      const configFile = path.join(home, "config.json");
+      writeFileSync(configFile, JSON.stringify({ a: 1, b: 2 }));
+
+      const action: ConfigPatchDeployAction = {
+        kind: "config-patch",
+        skill: "test-skill",
+        agent: "claude-code",
+        target: configFile,
+        patch: { b: 99, c: 3 },
+      };
+
+      const { succeeded, failed } = await executeDeploy(
+        [action],
+        false,
+        false,
+        home,
+      );
+      assert.equal(succeeded, 1);
+      assert.equal(failed.length, 0);
+
+      const result = JSON.parse(readFileSync(configFile, "utf-8"));
+      assert.equal(result.a, 1);
+      assert.equal(result.b, 99);
+      assert.equal(result.c, 3);
+    } finally {
+      rmSync(home, { recursive: true, force: true });
+    }
+  });
+
+  it("stores correct undoPatch in registry", async () => {
+    const home = makeTmpDir();
+    try {
+      const configFile = path.join(home, "config.json");
+      writeFileSync(configFile, JSON.stringify({ a: 1, b: 2 }));
+
+      const action: ConfigPatchDeployAction = {
+        kind: "config-patch",
+        skill: "test-skill",
+        agent: "claude-code",
+        target: configFile,
+        patch: { b: 99, c: 3 },
+      };
+
+      await executeDeploy([action], false, false, home);
+      const entry = await lookupDeployment(home, configFile);
+      assert.ok(entry);
+      assert.equal(entry.kind, "config-patch");
+      if (entry.kind === "config-patch") {
+        assert.equal(entry.undoPatch.b, 2); // original value
+        assert.equal(entry.undoPatch.c, null); // key was absent
+      }
+    } finally {
+      rmSync(home, { recursive: true, force: true });
+    }
+  });
+
+  it("null patch values remove keys per RFC 7396", async () => {
+    const home = makeTmpDir();
+    try {
+      const configFile = path.join(home, "config.json");
+      writeFileSync(configFile, JSON.stringify({ a: 1, b: 2 }));
+
+      const action: ConfigPatchDeployAction = {
+        kind: "config-patch",
+        skill: "test-skill",
+        agent: "claude-code",
+        target: configFile,
+        patch: { b: null },
+      };
+
+      await executeDeploy([action], false, false, home);
+      const result = JSON.parse(readFileSync(configFile, "utf-8"));
+      assert.equal(result.a, 1);
+      assert.equal("b" in result, false);
+    } finally {
+      rmSync(home, { recursive: true, force: true });
+    }
+  });
+
+  it("fails gracefully when target config does not exist", async () => {
+    const home = makeTmpDir();
+    try {
+      const action: ConfigPatchDeployAction = {
+        kind: "config-patch",
+        skill: "test-skill",
+        agent: "claude-code",
+        target: path.join(home, "nonexistent.json"),
+        patch: { key: "value" },
+      };
+
+      const { succeeded, failed } = await executeDeploy(
+        [action],
+        false,
+        false,
+        home,
+      );
+      assert.equal(succeeded, 0);
+      assert.equal(failed.length, 1);
+      assert.match(failed[0]?.error ?? "", /Config file not found/);
+    } finally {
+      rmSync(home, { recursive: true, force: true });
+    }
+  });
+
+  it("fails gracefully when target is not valid JSON", async () => {
+    const home = makeTmpDir();
+    try {
+      const configFile = path.join(home, "config.json");
+      writeFileSync(configFile, "not json at all");
+
+      const action: ConfigPatchDeployAction = {
+        kind: "config-patch",
+        skill: "test-skill",
+        agent: "claude-code",
+        target: configFile,
+        patch: { key: "value" },
+      };
+
+      const { succeeded, failed } = await executeDeploy(
+        [action],
+        false,
+        false,
+        home,
+      );
+      assert.equal(succeeded, 0);
+      assert.equal(failed.length, 1);
+      assert.match(failed[0]?.error ?? "", /not valid JSON/);
+    } finally {
+      rmSync(home, { recursive: true, force: true });
+    }
+  });
+
+  it("dry-run does not modify config and returns planned change", async () => {
+    const home = makeTmpDir();
+    try {
+      const configFile = path.join(home, "config.json");
+      writeFileSync(configFile, JSON.stringify({ a: 1, b: 2 }));
+
+      const action: ConfigPatchDeployAction = {
+        kind: "config-patch",
+        skill: "test-skill",
+        agent: "claude-code",
+        target: configFile,
+        patch: { b: 99 },
+      };
+
+      const { succeeded, failed, planned } = await executeDeploy(
+        [action],
+        true,
+        false,
+        home,
+      );
+      assert.equal(succeeded, 1);
+      assert.equal(failed.length, 0);
+
+      const after = JSON.parse(readFileSync(configFile, "utf-8"));
+      assert.equal(after.b, 2, "config should be unchanged after dry-run");
+
+      assert.equal(planned.length, 1);
+      assert.equal(planned[0]?.verb, "patch-config");
+      assert.equal(planned[0]?.skill, "test-skill");
+    } finally {
+      rmSync(home, { recursive: true, force: true });
+    }
+  });
+
+  it("refuses to double-patch config already patched by different skill/agent", async () => {
+    const home = makeTmpDir();
+    try {
+      const configFile = path.join(home, "config.json");
+      writeFileSync(configFile, JSON.stringify({ x: 1 }));
+
+      await registerDeployment(home, configFile, {
+        kind: "config-patch",
+        patch: { x: 99 },
+        undoPatch: { x: 1 },
+        skill: "other-skill",
+        agent: "codex",
+      });
+
+      const action: ConfigPatchDeployAction = {
+        kind: "config-patch",
+        skill: "test-skill",
+        agent: "claude-code",
+        target: configFile,
+        patch: { y: 2 },
+      };
+
+      const { succeeded, failed } = await executeDeploy(
+        [action],
+        false,
+        false,
+        home,
+      );
+      assert.equal(succeeded, 0);
+      assert.equal(failed.length, 1);
+      assert.match(failed[0]?.error ?? "", /already patched/);
+    } finally {
+      rmSync(home, { recursive: true, force: true });
+    }
+  });
+
+  it("fails gracefully when patch is not a plain object", async () => {
+    const home = makeTmpDir();
+    try {
+      const configFile = path.join(home, "config.json");
+      writeFileSync(configFile, JSON.stringify({ a: 1 }));
+
+      const action: ConfigPatchDeployAction = {
+        kind: "config-patch",
+        skill: "test-skill",
+        agent: "claude-code",
+        target: configFile,
+        patch: ["not", "an", "object"],
+      };
+
+      const { succeeded, failed } = await executeDeploy(
+        [action],
+        false,
+        false,
+        home,
+      );
+      assert.equal(succeeded, 0);
+      assert.equal(failed.length, 1);
+      assert.match(failed[0]?.error ?? "", /plain object/);
+    } finally {
       rmSync(home, { recursive: true, force: true });
     }
   });

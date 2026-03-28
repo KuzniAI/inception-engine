@@ -6,10 +6,10 @@ It intentionally focuses on enabling architecture rather than prematurely implem
 
 ## Suggested Implementation Order
 
-1. **Finish generalizing the action, ownership, and reporting model**
-   - Complete planner and executor support for distinct action types so the engine can actually plan, deploy, and revert directory copy or symlink, file write, and structured config patch actions (`src/types.ts`, `src/core/deploy.ts`, `src/core/revert.ts`).
-   - Extend the registry and ownership model with action-specific provenance so revert and safety checks can reason about file-level instructions and config patches, not only skill directories (`src/schemas/registry.ts`, `src/core/ownership.ts`).
-   - Replace log-string dry-run summaries with structured exact-change reporting for planned writes, removals, and patches (`src/core/deploy.ts`, `src/core/revert.ts`, `src/logger.ts`).
+1. ~~**Finish generalizing the action, ownership, and reporting model**~~
+   - ~~Complete planner and executor support for distinct action types so the engine can actually plan, deploy, and revert directory copy or symlink, file write, and structured config patch actions (`src/types.ts`, `src/core/deploy.ts`, `src/core/revert.ts`).~~
+   - ~~Extend the registry and ownership model with action-specific provenance so revert and safety checks can reason about file-level instructions and config patches, not only skill directories (`src/schemas/registry.ts`, `src/core/ownership.ts`).~~
+   - ~~Replace log-string dry-run summaries with structured exact-change reporting for planned writes, removals, and patches (`src/core/deploy.ts`, `src/core/revert.ts`, `src/logger.ts`).~~
 
 2. **Strengthen planning semantics before widening support**
    - Add confidence-aware planning so each supported surface can be classified as doc-backed, implementation-only, or speculative, with planner-visible consequences for warnings and support claims (`docs/north-star.md`, `src/config/agents.ts`, `src/core/preflight.ts`).
@@ -29,9 +29,9 @@ It intentionally focuses on enabling architecture rather than prematurely implem
 
 ### Core Architecture
 
-- **Incomplete Action Model Generalization**: `DeployAction` and `RevertAction` can now represent `file-write` and `config-patch`, but planning and execution still only implement `skill-dir`. Finish planner and executor support before treating the deploy model as generalized (`src/types.ts`, `src/core/deploy.ts`, `src/core/revert.ts`).
-- **Incomplete Ownership and Provenance Generalization**: The registry schema now admits more action kinds, but ownership verification and revert safety checks still lack action-specific provenance for file writes and config patches (`src/schemas/registry.ts`, `src/core/ownership.ts`, `src/core/deploy.ts`, `src/core/revert.ts`).
-- **Dry-Run Precision Gap**: Current dry-run output is action-aware for directory deploys, but it is still log-string based and does not yet model exact planned file writes or config patches in a structured way (`src/core/deploy.ts`, `src/core/revert.ts`, `src/logger.ts`).
+- ~~**Incomplete Action Model Generalization**: `DeployAction` and `RevertAction` can now represent `file-write` and `config-patch`, but planning and execution still only implement `skill-dir`. Finish planner and executor support before treating the deploy model as generalized (`src/types.ts`, `src/core/deploy.ts`, `src/core/revert.ts`).~~
+- ~~**Incomplete Ownership and Provenance Generalization**: The registry schema now admits more action kinds, but ownership verification and revert safety checks still lack action-specific provenance for file writes and config patches (`src/schemas/registry.ts`, `src/core/ownership.ts`, `src/core/deploy.ts`, `src/core/revert.ts`).~~
+- ~~**Dry-Run Precision Gap**: Current dry-run output is action-aware for directory deploys, but it is still log-string based and does not yet model exact planned file writes or config patches in a structured way (`src/core/deploy.ts`, `src/core/revert.ts`, `src/logger.ts`).~~
 
 ### Planning and Support Semantics
 

@@ -1,7 +1,13 @@
-import { lstat, rm, unlink } from "node:fs/promises";
+import { lstat, readFile, rm, unlink, writeFile } from "node:fs/promises";
 import { AGENT_REGISTRY_BY_ID } from "../config/agents.ts";
 import { logger } from "../logger.ts";
-import type { AgentId, Manifest, RevertAction } from "../types.ts";
+import type {
+  AgentId,
+  Manifest,
+  PlannedChange,
+  RevertAction,
+} from "../types.ts";
+import type { ConfigPatchRegistryEntry } from "../schemas/registry.ts";
 import { lookupDeployment, unregisterDeployment } from "./ownership.ts";
 import { resolveAgentSkillPath } from "./resolve.ts";
 
@@ -61,6 +67,52 @@ type RevertOutcome =
   | { outcome: "skip" }
   | { outcome: "fail"; error: string };
 
+function recordOutcome(
+  result: RevertOutcome,
+  action: RevertAction,
+  counts: { succeeded: number; skipped: number },
+  failed: Array<{ action: RevertAction; error: string }>,
+): void {
+  if (result.outcome === "fail") {
+    failed.push({ action, error: result.error });
+  } else if (result.outcome === "skip") {
+    counts.skipped++;
+  } else {
+    counts.succeeded++;
+  }
+}
+
+async function readJsonConfig(
+  filePath: string,
+): Promise<Record<string, unknown>> {
+  const rawContent = await readFile(filePath, "utf-8");
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(rawContent);
+  } catch {
+    throw new Error(`Config file is not valid JSON: ${filePath}`);
+  }
+  if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) {
+    throw new Error(`Config file is not a JSON object: ${filePath}`);
+  }
+  return parsed as Record<string, unknown>;
+}
+
+function applyUndoPatch(
+  current: Record<string, unknown>,
+  undoPatch: Record<string, unknown>,
+): Record<string, unknown> {
+  const restored: Record<string, unknown> = { ...current };
+  for (const [key, originalValue] of Object.entries(undoPatch)) {
+    if (originalValue === null) {
+      delete restored[key];
+    } else {
+      restored[key] = originalValue;
+    }
+  }
+  return restored;
+}
+
 function lstatOutcome(
   err: unknown,
 ): { outcome: "skip" } | { outcome: "fail"; error: string } {
@@ -80,41 +132,48 @@ export async function executeRevert(
   succeeded: number;
   skipped: number;
   failed: Array<{ action: RevertAction; error: string }>;
+  planned: PlannedChange[];
 }> {
   let succeeded = 0;
   let skipped = 0;
   const failed: Array<{ action: RevertAction; error: string }> = [];
+  const planned: PlannedChange[] = [];
+  const counts = { succeeded, skipped };
 
   for (const action of actions) {
+    let result: RevertOutcome;
     switch (action.kind) {
-      case "skill-dir": {
-        const result = await executeRevertAction(action, dryRun, verbose, home);
-        if (result.outcome === "fail") {
-          failed.push({ action, error: result.error });
-        } else if (result.outcome === "skip") {
-          skipped++;
-        } else {
-          succeeded++;
-        }
+      case "skill-dir":
+        result = await executeRevertAction(
+          action,
+          dryRun,
+          verbose,
+          home,
+          planned,
+        );
         break;
-      }
-      case "file-write": {
-        throw new Error(
-          `Revert action kind "file-write" is not yet implemented`,
+      case "file-write":
+        result = await revertFileWrite(action, dryRun, verbose, home, planned);
+        break;
+      case "config-patch":
+        result = await revertConfigPatch(
+          action,
+          dryRun,
+          verbose,
+          home,
+          planned,
         );
-      }
-      case "config-patch": {
-        throw new Error(
-          `Revert action kind "config-patch" is not yet implemented`,
-        );
-      }
-      default: {
+        break;
+      default:
         throw new Error(`Unhandled revert action kind: ${action}`);
-      }
     }
+    recordOutcome(result, action, counts, failed);
   }
 
-  return { succeeded, skipped, failed };
+  succeeded = counts.succeeded;
+  skipped = counts.skipped;
+
+  return { succeeded, skipped, failed, planned };
 }
 
 async function executeRevertAction(
@@ -122,6 +181,7 @@ async function executeRevertAction(
   dryRun: boolean,
   verbose: boolean,
   home: string,
+  planned: PlannedChange[],
 ): Promise<RevertOutcome> {
   const label = `${action.skill} -> ${action.agent}`;
 
@@ -150,6 +210,13 @@ async function executeRevertAction(
   if (dryRun) {
     logger.plan(label);
     logger.detail(`would remove: ${action.target}`);
+    planned.push({
+      verb: "remove",
+      kind: "skill-dir",
+      skill: action.skill,
+      agent: action.agent,
+      target: action.target,
+    });
     return { outcome: "ok" };
   }
 
@@ -163,6 +230,139 @@ async function executeRevertAction(
     logger.ok(label);
     if (verbose) {
       logger.detail(`removed: ${action.target}`);
+    }
+    return { outcome: "ok" };
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    logger.fail(label, msg);
+    return { outcome: "fail", error: msg };
+  }
+}
+
+async function revertFileWrite(
+  action: RevertAction,
+  dryRun: boolean,
+  verbose: boolean,
+  home: string,
+  planned: PlannedChange[],
+): Promise<RevertOutcome> {
+  const label = `${action.skill} -> ${action.agent}`;
+
+  try {
+    await lstat(action.target);
+  } catch (err) {
+    const result = lstatOutcome(err);
+    if (result.outcome === "skip") {
+      logger.skip(label, "(not found, skipping)");
+      return result;
+    }
+    logger.fail(label, result.error);
+    return result;
+  }
+
+  const entry = await lookupDeployment(home, action.target);
+  if (!entry || entry.skill !== action.skill || entry.agent !== action.agent) {
+    logger.warn(
+      label,
+      `skipping: ${action.target} is not in the deployment registry — not managed by inception-engine`,
+    );
+    return { outcome: "skip" };
+  }
+
+  if (dryRun) {
+    logger.plan(label);
+    logger.detail(`would remove: ${action.target}`);
+    planned.push({
+      verb: "remove",
+      kind: "file-write",
+      skill: action.skill,
+      agent: action.agent,
+      target: action.target,
+    });
+    return { outcome: "ok" };
+  }
+
+  try {
+    await unlink(action.target);
+    await unregisterDeployment(home, action.target);
+    logger.ok(label);
+    if (verbose) {
+      logger.detail(`removed: ${action.target}`);
+    }
+    return { outcome: "ok" };
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    logger.fail(label, msg);
+    return { outcome: "fail", error: msg };
+  }
+}
+
+async function revertConfigPatch(
+  action: RevertAction,
+  dryRun: boolean,
+  verbose: boolean,
+  home: string,
+  planned: PlannedChange[],
+): Promise<RevertOutcome> {
+  const label = `${action.skill} -> ${action.agent}`;
+
+  try {
+    await lstat(action.target);
+  } catch (err) {
+    const result = lstatOutcome(err);
+    if (result.outcome === "skip") {
+      logger.skip(label, "(not found, skipping)");
+      return result;
+    }
+    logger.fail(label, result.error);
+    return result;
+  }
+
+  const entry = await lookupDeployment(home, action.target);
+  if (
+    !entry ||
+    entry.kind !== "config-patch" ||
+    entry.skill !== action.skill ||
+    entry.agent !== action.agent
+  ) {
+    logger.warn(
+      label,
+      `skipping: ${action.target} is not in the deployment registry — not managed by inception-engine`,
+    );
+    return { outcome: "skip" };
+  }
+
+  const configPatchEntry = entry as ConfigPatchRegistryEntry;
+
+  if (dryRun) {
+    logger.plan(label);
+    logger.detail(
+      `would unapply patch: ${JSON.stringify(configPatchEntry.undoPatch)} -> ${action.target}`,
+    );
+    planned.push({
+      verb: "unapply-patch",
+      kind: "config-patch",
+      skill: action.skill,
+      agent: action.agent,
+      target: action.target,
+      patch: configPatchEntry.undoPatch,
+    });
+    return { outcome: "ok" };
+  }
+
+  try {
+    const current = await readJsonConfig(action.target);
+    const restored = applyUndoPatch(current, configPatchEntry.undoPatch);
+
+    await writeFile(
+      action.target,
+      `${JSON.stringify(restored, null, 2)}\n`,
+      "utf-8",
+    );
+    await unregisterDeployment(home, action.target);
+    logger.ok(label);
+    if (verbose) {
+      logger.detail(`unapplied patch from: ${action.target}`);
     }
     return { outcome: "ok" };
   } catch (err) {

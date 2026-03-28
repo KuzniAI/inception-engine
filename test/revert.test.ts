@@ -3,6 +3,7 @@ import {
   chmodSync,
   existsSync,
   mkdirSync,
+  readFileSync,
   rmSync,
   symlinkSync,
   writeFileSync,
@@ -17,7 +18,11 @@ import {
   planRevertAll,
 } from "../src/core/revert.ts";
 import { logger } from "../src/logger.ts";
-import type { Manifest } from "../src/types.ts";
+import type {
+  ConfigPatchRevertAction,
+  FileWriteRevertAction,
+  Manifest,
+} from "../src/types.ts";
 
 logger.silence();
 
@@ -444,6 +449,301 @@ describe("executeRevert — copy method (cross-platform)", () => {
       }
       rmSync(home, { recursive: true, force: true });
       rmSync(sourceDir, { recursive: true, force: true });
+    }
+  });
+});
+
+describe("executeRevert — file-write", () => {
+  it("deletes the written file and unregisters", async () => {
+    const home = makeTmpDir();
+    try {
+      const targetFile = path.join(home, "written-file.txt");
+      writeFileSync(targetFile, "managed content");
+
+      await registerDeployment(home, targetFile, {
+        kind: "file-write",
+        source: "/some/source.txt",
+        skill: "test-skill",
+        agent: "claude-code",
+      });
+
+      const action: FileWriteRevertAction = {
+        kind: "file-write",
+        skill: "test-skill",
+        agent: "claude-code",
+        target: targetFile,
+      };
+
+      const { succeeded, skipped } = await executeRevert(
+        [action],
+        false,
+        false,
+        home,
+      );
+      assert.equal(succeeded, 1);
+      assert.equal(skipped, 0);
+      assert.ok(!existsSync(targetFile), "file should be deleted");
+
+      const entry = await lookupDeployment(home, targetFile);
+      assert.equal(entry, null, "registry entry should be removed");
+    } finally {
+      rmSync(home, { recursive: true, force: true });
+    }
+  });
+
+  it("skips missing target", async () => {
+    const home = makeTmpDir();
+    try {
+      const action: FileWriteRevertAction = {
+        kind: "file-write",
+        skill: "test-skill",
+        agent: "claude-code",
+        target: path.join(home, "nonexistent.txt"),
+      };
+
+      const { succeeded, skipped } = await executeRevert(
+        [action],
+        false,
+        false,
+        home,
+      );
+      assert.equal(succeeded, 0);
+      assert.equal(skipped, 1);
+    } finally {
+      rmSync(home, { recursive: true, force: true });
+    }
+  });
+
+  it("skips unmanaged file not in registry", async () => {
+    const home = makeTmpDir();
+    try {
+      const targetFile = path.join(home, "unmanaged.txt");
+      writeFileSync(targetFile, "user content");
+
+      const action: FileWriteRevertAction = {
+        kind: "file-write",
+        skill: "test-skill",
+        agent: "claude-code",
+        target: targetFile,
+      };
+
+      const { succeeded, skipped } = await executeRevert(
+        [action],
+        false,
+        false,
+        home,
+      );
+      assert.equal(succeeded, 0);
+      assert.equal(skipped, 1);
+      assert.ok(existsSync(targetFile), "unmanaged file should not be deleted");
+    } finally {
+      rmSync(home, { recursive: true, force: true });
+    }
+  });
+
+  it("dry-run does not delete file and returns planned change", async () => {
+    const home = makeTmpDir();
+    try {
+      const targetFile = path.join(home, "file.txt");
+      writeFileSync(targetFile, "content");
+
+      await registerDeployment(home, targetFile, {
+        kind: "file-write",
+        source: "/src/file.txt",
+        skill: "test-skill",
+        agent: "claude-code",
+      });
+
+      const action: FileWriteRevertAction = {
+        kind: "file-write",
+        skill: "test-skill",
+        agent: "claude-code",
+        target: targetFile,
+      };
+
+      const { succeeded, planned } = await executeRevert(
+        [action],
+        true,
+        false,
+        home,
+      );
+      assert.equal(succeeded, 1);
+      assert.ok(
+        existsSync(targetFile),
+        "file should still exist after dry-run",
+      );
+      assert.equal(planned.length, 1);
+      assert.equal(planned[0]?.verb, "remove");
+      assert.equal(planned[0]?.kind, "file-write");
+    } finally {
+      rmSync(home, { recursive: true, force: true });
+    }
+  });
+});
+
+describe("executeRevert — config-patch", () => {
+  it("restores original values from undoPatch", async () => {
+    const home = makeTmpDir();
+    try {
+      const configFile = path.join(home, "config.json");
+      // Current state after patching: b was changed to 99, c was added
+      writeFileSync(configFile, JSON.stringify({ a: 1, b: 99, c: 3 }));
+
+      await registerDeployment(home, configFile, {
+        kind: "config-patch",
+        patch: { b: 99, c: 3 },
+        undoPatch: { b: 2, c: null }, // b was 2, c was absent
+        skill: "test-skill",
+        agent: "claude-code",
+      });
+
+      const action: ConfigPatchRevertAction = {
+        kind: "config-patch",
+        skill: "test-skill",
+        agent: "claude-code",
+        target: configFile,
+      };
+
+      const { succeeded, skipped } = await executeRevert(
+        [action],
+        false,
+        false,
+        home,
+      );
+      assert.equal(succeeded, 1);
+      assert.equal(skipped, 0);
+
+      const restored = JSON.parse(readFileSync(configFile, "utf-8"));
+      assert.equal(restored.a, 1);
+      assert.equal(restored.b, 2); // restored to original
+      assert.equal("c" in restored, false); // deleted (was absent before)
+
+      const entry = await lookupDeployment(home, configFile);
+      assert.equal(entry, null);
+    } finally {
+      rmSync(home, { recursive: true, force: true });
+    }
+  });
+
+  it("deletes keys that were added by the patch (undoPatch value null)", async () => {
+    const home = makeTmpDir();
+    try {
+      const configFile = path.join(home, "config.json");
+      writeFileSync(configFile, JSON.stringify({ a: 1, newKey: "added" }));
+
+      await registerDeployment(home, configFile, {
+        kind: "config-patch",
+        patch: { newKey: "added" },
+        undoPatch: { newKey: null },
+        skill: "test-skill",
+        agent: "claude-code",
+      });
+
+      const action: ConfigPatchRevertAction = {
+        kind: "config-patch",
+        skill: "test-skill",
+        agent: "claude-code",
+        target: configFile,
+      };
+
+      await executeRevert([action], false, false, home);
+      const restored = JSON.parse(readFileSync(configFile, "utf-8"));
+      assert.equal(restored.a, 1);
+      assert.equal("newKey" in restored, false);
+    } finally {
+      rmSync(home, { recursive: true, force: true });
+    }
+  });
+
+  it("skips when config file is gone", async () => {
+    const home = makeTmpDir();
+    try {
+      const action: ConfigPatchRevertAction = {
+        kind: "config-patch",
+        skill: "test-skill",
+        agent: "claude-code",
+        target: path.join(home, "gone.json"),
+      };
+
+      const { succeeded, skipped } = await executeRevert(
+        [action],
+        false,
+        false,
+        home,
+      );
+      assert.equal(succeeded, 0);
+      assert.equal(skipped, 1);
+    } finally {
+      rmSync(home, { recursive: true, force: true });
+    }
+  });
+
+  it("skips when no registry entry exists", async () => {
+    const home = makeTmpDir();
+    try {
+      const configFile = path.join(home, "config.json");
+      writeFileSync(configFile, JSON.stringify({ a: 1 }));
+
+      const action: ConfigPatchRevertAction = {
+        kind: "config-patch",
+        skill: "test-skill",
+        agent: "claude-code",
+        target: configFile,
+      };
+
+      const { succeeded, skipped } = await executeRevert(
+        [action],
+        false,
+        false,
+        home,
+      );
+      assert.equal(succeeded, 0);
+      assert.equal(skipped, 1);
+      // File should be untouched
+      const content = JSON.parse(readFileSync(configFile, "utf-8"));
+      assert.equal(content.a, 1);
+    } finally {
+      rmSync(home, { recursive: true, force: true });
+    }
+  });
+
+  it("dry-run does not modify config and returns planned change", async () => {
+    const home = makeTmpDir();
+    try {
+      const configFile = path.join(home, "config.json");
+      writeFileSync(configFile, JSON.stringify({ a: 1, b: 99 }));
+
+      await registerDeployment(home, configFile, {
+        kind: "config-patch",
+        patch: { b: 99 },
+        undoPatch: { b: 2 },
+        skill: "test-skill",
+        agent: "claude-code",
+      });
+
+      const action: ConfigPatchRevertAction = {
+        kind: "config-patch",
+        skill: "test-skill",
+        agent: "claude-code",
+        target: configFile,
+      };
+
+      const { succeeded, planned } = await executeRevert(
+        [action],
+        true,
+        false,
+        home,
+      );
+      assert.equal(succeeded, 1);
+
+      const after = JSON.parse(readFileSync(configFile, "utf-8"));
+      assert.equal(after.b, 99, "config should be unchanged after dry-run");
+
+      assert.equal(planned.length, 1);
+      assert.equal(planned[0]?.verb, "unapply-patch");
+      assert.equal(planned[0]?.kind, "config-patch");
+    } finally {
+      rmSync(home, { recursive: true, force: true });
     }
   });
 });

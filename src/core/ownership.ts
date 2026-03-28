@@ -12,6 +12,11 @@ export type { RegistryEntry } from "../schemas/registry.ts";
 const REGISTRY_DIR = ".inception-engine";
 const REGISTRY_FILE = "registry.json";
 
+export type VerifyExpected =
+  | { kind: "skill-dir"; source: string; skill: string; agent: AgentId }
+  | { kind: "file-write"; source: string; skill: string; agent: AgentId }
+  | { kind: "config-patch"; skill: string; agent: AgentId };
+
 export function registryPath(home: string): string {
   return path.join(home, REGISTRY_DIR, REGISTRY_FILE);
 }
@@ -58,7 +63,7 @@ export async function registerDeployment(
   registry.deployments[targetPath] = {
     ...entry,
     deployed: new Date().toISOString(),
-  };
+  } as RegistryEntry;
   await saveRegistry(home, registry);
 }
 
@@ -83,15 +88,17 @@ export async function lookupDeployment(
 export async function verifyDeployment(
   home: string,
   targetPath: string,
-  expected: { kind: string; source: string; skill: string; agent: AgentId },
+  expected: VerifyExpected,
 ): Promise<RegistryEntry | null> {
   const entry = await lookupDeployment(home, targetPath);
   if (!entry) return null;
+  if (entry.kind !== expected.kind) return null;
+  if (entry.skill !== expected.skill) return null;
+  if (entry.agent !== expected.agent) return null;
   if (
-    entry.kind !== expected.kind ||
-    entry.source !== expected.source ||
-    entry.skill !== expected.skill ||
-    entry.agent !== expected.agent
+    (expected.kind === "skill-dir" || expected.kind === "file-write") &&
+    (entry.kind === "skill-dir" || entry.kind === "file-write") &&
+    entry.source !== expected.source
   ) {
     return null;
   }

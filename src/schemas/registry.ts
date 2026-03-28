@@ -1,10 +1,8 @@
 import { z } from "zod";
 import { AgentIdSchema } from "./manifest.ts";
 
-export const RegistryEntrySchema = z.object({
-  kind: z
-    .enum(["skill-dir", "file-write", "config-patch"])
-    .default("skill-dir"),
+const SkillDirRegistryEntrySchema = z.object({
+  kind: z.literal("skill-dir"),
   source: z.string(),
   skill: z.string(),
   agent: AgentIdSchema,
@@ -12,10 +10,40 @@ export const RegistryEntrySchema = z.object({
   deployed: z.string(),
 });
 
+const FileWriteRegistryEntrySchema = z.object({
+  kind: z.literal("file-write"),
+  source: z.string(),
+  skill: z.string(),
+  agent: AgentIdSchema,
+  deployed: z.string(),
+});
+
+const ConfigPatchRegistryEntrySchema = z.object({
+  kind: z.literal("config-patch"),
+  patch: z.record(z.string(), z.unknown()),
+  undoPatch: z.record(z.string(), z.unknown()),
+  skill: z.string(),
+  agent: AgentIdSchema,
+  deployed: z.string(),
+});
+
+export const RegistryEntrySchema = z.discriminatedUnion("kind", [
+  SkillDirRegistryEntrySchema,
+  FileWriteRegistryEntrySchema,
+  ConfigPatchRegistryEntrySchema,
+]);
+
 export const RegistrySchema = z.object({
   version: z.literal(1),
   deployments: z.record(z.string(), RegistryEntrySchema),
 });
 
+export type SkillDirRegistryEntry = z.infer<typeof SkillDirRegistryEntrySchema>;
+export type FileWriteRegistryEntry = z.infer<
+  typeof FileWriteRegistryEntrySchema
+>;
+export type ConfigPatchRegistryEntry = z.infer<
+  typeof ConfigPatchRegistryEntrySchema
+>;
 export type RegistryEntry = z.infer<typeof RegistryEntrySchema>;
 export type Registry = z.infer<typeof RegistrySchema>;

@@ -1,13 +1,16 @@
 import {
   access,
+  copyFile,
   cp,
   lstat,
   mkdir,
+  readFile,
   realpath,
   rename,
   rm,
   symlink,
   unlink,
+  writeFile,
 } from "node:fs/promises";
 import path from "node:path";
 import { AGENT_REGISTRY_BY_ID } from "../config/agents.ts";
@@ -15,12 +18,73 @@ import { UserError } from "../errors.ts";
 import { logger } from "../logger.ts";
 import type {
   AgentId,
+  ConfigPatchDeployAction,
   DeployAction,
+  FileWriteDeployAction,
   Manifest,
+  PlannedChange,
   SkillDirDeployAction,
 } from "../types.ts";
-import { registerDeployment, verifyDeployment } from "./ownership.ts";
+import {
+  lookupDeployment,
+  registerDeployment,
+  verifyDeployment,
+} from "./ownership.ts";
 import { getDeployMethod, resolveAgentSkillPath } from "./resolve.ts";
+
+function isPlainObject(v: unknown): v is Record<string, unknown> {
+  return typeof v === "object" && v !== null && !Array.isArray(v);
+}
+
+async function readJsonConfig(
+  filePath: string,
+): Promise<Record<string, unknown>> {
+  let rawContent: string;
+  try {
+    rawContent = await readFile(filePath, "utf-8");
+  } catch (err) {
+    const code = (err as NodeJS.ErrnoException).code;
+    if (code === "ENOENT")
+      throw new Error(`Config file not found: ${filePath}`);
+    throw err;
+  }
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(rawContent);
+  } catch {
+    throw new Error(`Config file is not valid JSON: ${filePath}`);
+  }
+  if (!isPlainObject(parsed)) {
+    throw new Error(`Config file is not a JSON object: ${filePath}`);
+  }
+  return parsed;
+}
+
+function computeUndoPatch(
+  original: Record<string, unknown>,
+  patch: Record<string, unknown>,
+): Record<string, unknown> {
+  const undoPatch: Record<string, unknown> = {};
+  for (const key of Object.keys(patch)) {
+    undoPatch[key] = key in original ? original[key] : null;
+  }
+  return undoPatch;
+}
+
+function applyMergePatch(
+  original: Record<string, unknown>,
+  patch: Record<string, unknown>,
+): Record<string, unknown> {
+  const patched: Record<string, unknown> = { ...original };
+  for (const [key, value] of Object.entries(patch)) {
+    if (value === null) {
+      delete patched[key];
+    } else {
+      patched[key] = value;
+    }
+  }
+  return patched;
+}
 
 function sourceAccessError(err: unknown, sourcePath: string): string {
   const code = (err as NodeJS.ErrnoException).code;
@@ -84,14 +148,22 @@ export async function executeDeploy(
 ): Promise<{
   succeeded: number;
   failed: Array<{ action: DeployAction; error: string }>;
+  planned: PlannedChange[];
 }> {
   let succeeded = 0;
   const failed: Array<{ action: DeployAction; error: string }> = [];
+  const planned: PlannedChange[] = [];
 
   for (const action of actions) {
     switch (action.kind) {
       case "skill-dir": {
-        const result = await deploySkillDir(action, dryRun, verbose, home);
+        const result = await deploySkillDir(
+          action,
+          dryRun,
+          verbose,
+          home,
+          planned,
+        );
         if (result.error === null) {
           succeeded++;
         } else {
@@ -100,14 +172,34 @@ export async function executeDeploy(
         break;
       }
       case "file-write": {
-        throw new Error(
-          `Deploy action kind "file-write" is not yet implemented`,
+        const result = await deployFileWrite(
+          action,
+          dryRun,
+          verbose,
+          home,
+          planned,
         );
+        if (result.error === null) {
+          succeeded++;
+        } else {
+          failed.push({ action, error: result.error });
+        }
+        break;
       }
       case "config-patch": {
-        throw new Error(
-          `Deploy action kind "config-patch" is not yet implemented`,
+        const result = await deployConfigPatch(
+          action,
+          dryRun,
+          verbose,
+          home,
+          planned,
         );
+        if (result.error === null) {
+          succeeded++;
+        } else {
+          failed.push({ action, error: result.error });
+        }
+        break;
       }
       default: {
         throw new Error(`Unhandled deploy action kind: ${action}`);
@@ -115,7 +207,7 @@ export async function executeDeploy(
     }
   }
 
-  return { succeeded, failed };
+  return { succeeded, failed, planned };
 }
 
 async function deploySkillDir(
@@ -123,6 +215,7 @@ async function deploySkillDir(
   dryRun: boolean,
   verbose: boolean,
   home: string,
+  planned: PlannedChange[],
 ): Promise<{ error: string | null }> {
   const label = `${action.skill} -> ${action.agent}`;
 
@@ -137,11 +230,166 @@ async function deploySkillDir(
   if (dryRun) {
     logger.plan(label);
     logger.detail(`${action.method}: ${action.source} -> ${action.target}`);
+    planned.push({
+      verb: action.method === "symlink" ? "create-symlink" : "copy-dir",
+      kind: "skill-dir",
+      skill: action.skill,
+      agent: action.agent,
+      source: action.source,
+      target: action.target,
+      method: action.method,
+    });
     return { error: null };
   }
 
   try {
     await executeDeployAction(action, verbose, home);
+    return { error: null };
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    logger.fail(label, msg);
+    return { error: msg };
+  }
+}
+
+async function deployFileWrite(
+  action: FileWriteDeployAction,
+  dryRun: boolean,
+  verbose: boolean,
+  home: string,
+  planned: PlannedChange[],
+): Promise<{ error: string | null }> {
+  const label = `${action.skill} -> ${action.agent}`;
+
+  try {
+    await access(action.source);
+  } catch (err) {
+    const msg = sourceAccessError(err, action.source);
+    logger.fail(label, msg);
+    return { error: msg };
+  }
+
+  if (dryRun) {
+    logger.plan(label);
+    logger.detail(`write-file: ${action.source} -> ${action.target}`);
+    planned.push({
+      verb: "write-file",
+      kind: "file-write",
+      skill: action.skill,
+      agent: action.agent,
+      source: action.source,
+      target: action.target,
+    });
+    return { error: null };
+  }
+
+  try {
+    // Check if target exists — only allow overwrite if we own it
+    try {
+      await lstat(action.target);
+      const isOwned = await verifyDeployment(home, action.target, {
+        kind: "file-write",
+        source: action.source,
+        skill: action.skill,
+        agent: action.agent,
+      });
+      if (!isOwned) {
+        throw new Error(
+          `Target "${action.target}" exists but is not managed by inception-engine — refusing to overwrite`,
+        );
+      }
+    } catch (err) {
+      if (err instanceof Error && err.message.includes("refusing to overwrite"))
+        throw err;
+      // ENOENT — target doesn't exist, fine to create
+    }
+
+    await mkdir(path.dirname(action.target), { recursive: true });
+    await copyFile(action.source, action.target);
+    await registerDeployment(home, action.target, {
+      kind: "file-write",
+      source: action.source,
+      skill: action.skill,
+      agent: action.agent,
+    });
+    logger.ok(label);
+    if (verbose) {
+      logger.detail(`write-file: ${action.source} -> ${action.target}`);
+    }
+    return { error: null };
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    logger.fail(label, msg);
+    return { error: msg };
+  }
+}
+
+async function deployConfigPatch(
+  action: ConfigPatchDeployAction,
+  dryRun: boolean,
+  verbose: boolean,
+  home: string,
+  planned: PlannedChange[],
+): Promise<{ error: string | null }> {
+  const label = `${action.skill} -> ${action.agent}`;
+
+  if (!isPlainObject(action.patch)) {
+    const msg = `Config patch for skill "${action.skill}" must be a plain object`;
+    logger.fail(label, msg);
+    return { error: msg };
+  }
+
+  const patch = action.patch;
+
+  if (dryRun) {
+    logger.plan(label);
+    logger.detail(`patch-config: ${JSON.stringify(patch)} -> ${action.target}`);
+    planned.push({
+      verb: "patch-config",
+      kind: "config-patch",
+      skill: action.skill,
+      agent: action.agent,
+      target: action.target,
+      patch,
+    });
+    return { error: null };
+  }
+
+  try {
+    // Guard against double-patching by a different skill/agent
+    const existingEntry = await lookupDeployment(home, action.target);
+    if (
+      existingEntry &&
+      (existingEntry.skill !== action.skill ||
+        existingEntry.agent !== action.agent)
+    ) {
+      throw new Error(
+        `Config "${action.target}" is already patched by skill "${existingEntry.skill}" for agent "${existingEntry.agent}" — refusing to double-patch`,
+      );
+    }
+
+    const original = await readJsonConfig(action.target);
+    const undoPatch = computeUndoPatch(original, patch);
+    const patched = applyMergePatch(original, patch);
+
+    await writeFile(
+      action.target,
+      `${JSON.stringify(patched, null, 2)}\n`,
+      "utf-8",
+    );
+    await registerDeployment(home, action.target, {
+      kind: "config-patch",
+      patch,
+      undoPatch,
+      skill: action.skill,
+      agent: action.agent,
+    });
+    logger.ok(label);
+    if (verbose) {
+      logger.detail(
+        `patch-config: applied ${Object.keys(patch).length} key(s) to ${action.target}`,
+      );
+    }
     return { error: null };
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
@@ -306,7 +554,14 @@ async function backupExisting(
     return null;
   }
 
-  if (!(await verifyDeployment(home, targetPath, expected))) {
+  if (
+    !(await verifyDeployment(home, targetPath, {
+      kind: "skill-dir",
+      source: expected.source,
+      skill: expected.skill,
+      agent: expected.agent,
+    }))
+  ) {
     throw new Error(
       `Target "${targetPath}" exists but is not managed by inception-engine — refusing to overwrite`,
     );

@@ -1,5 +1,11 @@
 import assert from "node:assert/strict";
-import { existsSync, mkdirSync, readFileSync, rmSync } from "node:fs";
+import {
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { describe, it } from "node:test";
@@ -399,6 +405,149 @@ describe("verifyDeployment", () => {
         agent: "claude-code",
       });
       assert.equal(entry, null);
+    } finally {
+      rmSync(home, { recursive: true });
+    }
+  });
+
+  it("returns entry for config-patch when kind, skill, agent match (no source check)", async () => {
+    const home = makeTmpDir();
+    try {
+      const target = "/target/config.json";
+      await registerDeployment(home, target, {
+        kind: "config-patch",
+        patch: { key: "value" },
+        undoPatch: { key: null },
+        skill: "my-skill",
+        agent: "claude-code",
+      });
+
+      const entry = await verifyDeployment(home, target, {
+        kind: "config-patch",
+        skill: "my-skill",
+        agent: "claude-code",
+      });
+      assert.ok(entry);
+      assert.equal(entry.kind, "config-patch");
+      assert.equal(entry.skill, "my-skill");
+      assert.equal(entry.agent, "claude-code");
+    } finally {
+      rmSync(home, { recursive: true });
+    }
+  });
+
+  it("returns null when verifying config-patch but agent mismatches", async () => {
+    const home = makeTmpDir();
+    try {
+      const target = "/target/config.json";
+      await registerDeployment(home, target, {
+        kind: "config-patch",
+        patch: { key: "value" },
+        undoPatch: { key: null },
+        skill: "my-skill",
+        agent: "claude-code",
+      });
+
+      const entry = await verifyDeployment(home, target, {
+        kind: "config-patch",
+        skill: "my-skill",
+        agent: "codex",
+      });
+      assert.equal(entry, null);
+    } finally {
+      rmSync(home, { recursive: true });
+    }
+  });
+
+  it("returns null when kind in expected does not match registry entry kind", async () => {
+    const home = makeTmpDir();
+    try {
+      const target = "/target/config.json";
+      await registerDeployment(home, target, {
+        kind: "config-patch",
+        patch: { key: "value" },
+        undoPatch: { key: null },
+        skill: "my-skill",
+        agent: "claude-code",
+      });
+
+      const entry = await verifyDeployment(home, target, {
+        kind: "skill-dir",
+        source: "/src/skill",
+        skill: "my-skill",
+        agent: "claude-code",
+      });
+      assert.equal(entry, null);
+    } finally {
+      rmSync(home, { recursive: true });
+    }
+  });
+});
+
+describe("registerDeployment — config-patch", () => {
+  it("stores patch and undoPatch in registry", async () => {
+    const home = makeTmpDir();
+    try {
+      const target = "/target/config.json";
+      await registerDeployment(home, target, {
+        kind: "config-patch",
+        patch: { a: 99, b: "new" },
+        undoPatch: { a: 1, b: null },
+        skill: "my-skill",
+        agent: "claude-code",
+      });
+
+      const raw = JSON.parse(readFileSync(registryPath(home), "utf-8"));
+      const entry = raw.deployments[target];
+      assert.ok(entry);
+      assert.equal(entry.kind, "config-patch");
+      assert.equal(entry.patch.a, 99);
+      assert.equal(entry.patch.b, "new");
+      assert.equal(entry.undoPatch.a, 1);
+      assert.equal(entry.undoPatch.b, null);
+      assert.equal(entry.skill, "my-skill");
+      assert.equal(entry.agent, "claude-code");
+      assert.ok(entry.deployed);
+    } finally {
+      rmSync(home, { recursive: true });
+    }
+  });
+});
+
+describe("loadRegistry — backward compatibility", () => {
+  it("reads old-style skill-dir entries without discriminated union", async () => {
+    const home = makeTmpDir();
+    try {
+      // Write a registry.json as it would have been written by the old flat schema
+      const dir = path.join(home, ".inception-engine");
+      mkdirSync(dir, { recursive: true });
+      const oldEntry = {
+        kind: "skill-dir",
+        source: "/old/source",
+        skill: "legacy-skill",
+        agent: "claude-code",
+        method: "symlink",
+        deployed: "2026-01-01T00:00:00.000Z",
+      };
+      const oldRegistry = {
+        version: 1,
+        deployments: { "/old/target": oldEntry },
+      };
+      writeFileSync(
+        registryPath(home),
+        `${JSON.stringify(oldRegistry, null, 2)}\n`,
+        "utf-8",
+      );
+
+      const entry = await lookupDeployment(home, "/old/target");
+      assert.ok(entry, "old skill-dir entry should be readable");
+      assert.equal(entry.kind, "skill-dir");
+      assert.equal(entry.skill, "legacy-skill");
+      assert.equal(entry.agent, "claude-code");
+      if (entry.kind === "skill-dir") {
+        assert.equal(entry.source, "/old/source");
+        assert.equal(entry.method, "symlink");
+      }
     } finally {
       rmSync(home, { recursive: true });
     }

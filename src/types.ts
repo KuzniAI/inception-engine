@@ -80,6 +80,25 @@ export type RevertAction =
   | FileWriteRevertAction
   | ConfigPatchRevertAction;
 
+export type PlannedChangeVerb =
+  | "create-symlink"
+  | "copy-dir"
+  | "write-file"
+  | "patch-config"
+  | "remove"
+  | "unapply-patch";
+
+export interface PlannedChange {
+  verb: PlannedChangeVerb;
+  kind: "skill-dir" | "file-write" | "config-patch";
+  skill: string;
+  agent: AgentId;
+  source?: string;
+  target: string;
+  method?: "symlink" | "copy";
+  patch?: Record<string, unknown>;
+}
+
 export interface CliOptions {
   command: "deploy" | "revert" | "help";
   directory: string;
