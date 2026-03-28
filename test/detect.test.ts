@@ -112,27 +112,118 @@ describe("isBinaryViaWhereExe", {
   });
 });
 
-describe("isBinaryInPath ENOENT fallback", {
-  skip: process.platform === "win32",
-}, () => {
-  // Simulate an environment where `which` is not installed: the injected
-  // execFn always throws ENOENT, forcing isBinaryInPath to fall back to
-  // isBinaryViaCommandV (which uses the real /bin/sh `command -v`).
-  const enoentFn: ExecFn = async () => {
-    const err = Object.assign(new Error("spawn which ENOENT"), {
-      code: "ENOENT",
-    });
-    throw err;
-  };
-
-  it("falls back to isBinaryViaCommandV when which throws ENOENT", async () => {
-    // `node` is definitely in PATH — command -v should find it
-    const result = await isBinaryInPath("node", enoentFn);
+describe("mocked resolution", () => {
+  it("isBinaryViaWhereExe returns true on success", async () => {
+    let calledCmd = "";
+    const mockSuccess: ExecFn = async (cmd) => {
+      calledCmd = cmd;
+    };
+    const result = await isBinaryViaWhereExe("foo", mockSuccess);
     assert.equal(result, true);
+    assert.equal(calledCmd, "where.exe");
   });
 
-  it("returns false when which is absent and binary does not exist", async () => {
-    const result = await isBinaryInPath(NONEXISTENT_BINARY, enoentFn);
+  it("isBinaryViaWhereExe returns false on failure", async () => {
+    const mockFail: ExecFn = async () => {
+      throw new Error("fail");
+    };
+    const result = await isBinaryViaWhereExe("foo", mockFail);
     assert.equal(result, false);
   });
+
+  it("isBinaryViaWhich returns true on success", async () => {
+    let calledCmd = "";
+    const mockSuccess: ExecFn = async (cmd) => {
+      calledCmd = cmd;
+    };
+    const result = await isBinaryViaWhich("foo", mockSuccess);
+    assert.equal(result, true);
+    assert.equal(calledCmd, "which");
+  });
+
+  it("isBinaryViaWhich returns false on failure", async () => {
+    const mockFail: ExecFn = async () => {
+      throw new Error("fail");
+    };
+    const result = await isBinaryViaWhich("foo", mockFail);
+    assert.equal(result, false);
+  });
+
+  it("isBinaryViaCommandV returns true on success", async () => {
+    let calledCmd = "";
+    const mockSuccess: ExecFn = async (cmd) => {
+      calledCmd = cmd;
+    };
+    const result = await isBinaryViaCommandV("foo", mockSuccess);
+    assert.equal(result, true);
+    assert.equal(calledCmd, "sh");
+  });
+
+  it("isBinaryViaCommandV returns false on failure", async () => {
+    const mockFail: ExecFn = async () => {
+      throw new Error("fail");
+    };
+    const result = await isBinaryViaCommandV("foo", mockFail);
+    assert.equal(result, false);
+  });
+
+  it("isBinaryInPath routes to where.exe on win32", async () => {
+    let calledCmd = "";
+    const mockSuccess: ExecFn = async (cmd) => {
+      calledCmd = cmd;
+    };
+    const result = await isBinaryInPath("foo", mockSuccess, "win32");
+    assert.equal(result, true);
+    assert.equal(calledCmd, "where.exe");
+  });
+
+  describe("isBinaryInPath ENOENT fallback", () => {
+    it("falls back to command -v when which throws ENOENT and succeeds", async () => {
+      const calls: string[] = [];
+      const enoentFn: ExecFn = async (cmd) => {
+        calls.push(cmd);
+        if (cmd === "which") {
+          const err = Object.assign(new Error("spawn which ENOENT"), {
+            code: "ENOENT",
+          });
+          throw err;
+        }
+        // "sh" (command -v) succeeds
+      };
+      
+      const result = await isBinaryInPath("foo", enoentFn, "linux");
+      assert.equal(result, true);
+      assert.deepEqual(calls, ["which", "sh"]);
+    });
+
+    it("returns false when which throws ENOENT and command -v fails", async () => {
+      const enoentFn: ExecFn = async (cmd) => {
+        if (cmd === "which") {
+          const err = Object.assign(new Error("spawn which ENOENT"), {
+            code: "ENOENT",
+          });
+          throw err;
+        }
+        if (cmd === "sh") {
+          throw new Error("sh failed");
+        }
+      };
+      
+      const result = await isBinaryInPath("foo", enoentFn, "linux");
+      assert.equal(result, false);
+    });
+
+    it("returns false when which fails with non-ENOENT", async () => {
+      let calledCmd = "";
+      const otherErrFn: ExecFn = async (cmd) => {
+        calledCmd = cmd;
+        throw new Error("some other error");
+      };
+      
+      const result = await isBinaryInPath("foo", otherErrFn, "linux");
+      assert.equal(result, false);
+      assert.equal(calledCmd, "which");
+    });
+  });
 });
+

@@ -49,8 +49,9 @@ async function isAgentInstalled(
 export async function isBinaryInPath(
   binary: string,
   execFn: ExecFn = defaultExecFn,
+  platform: NodeJS.Platform = process.platform,
 ): Promise<boolean> {
-  if (process.platform === "win32") {
+  if (platform === "win32") {
     return isBinaryViaWhereExe(binary, execFn);
   }
 
@@ -60,7 +61,7 @@ export async function isBinaryInPath(
   } catch (err: unknown) {
     // `which` itself is not installed — fall back to the POSIX shell built-in
     if (isENOENT(err)) {
-      return isBinaryViaCommandV(binary);
+      return isBinaryViaCommandV(binary, execFn);
     }
     return false;
   }
@@ -81,10 +82,13 @@ export async function isBinaryViaWhereExe(
 
 // Used only when `which` is absent (e.g. minimal Alpine containers).
 // `command -v` is a POSIX shell built-in available wherever /bin/sh is.
-export async function isBinaryViaCommandV(binary: string): Promise<boolean> {
+export async function isBinaryViaCommandV(
+  binary: string,
+  execFn: ExecFn = defaultExecFn,
+): Promise<boolean> {
   try {
     // Pass binary as a positional arg ($1) to avoid any shell-injection risk.
-    await execFileAsync("sh", ["-c", 'command -v "$1"', "--", binary]);
+    await execFn("sh", ["-c", 'command -v "$1"', "--", binary]);
     return true;
   } catch {
     return false;
