@@ -53,7 +53,7 @@ describe("loadManifest", () => {
   });
 
   it("throws permission error when manifest is unreadable", async () => {
-    if (process.getuid?.() === 0) return; // root bypasses chmod
+    if (process.platform === "win32" || process.getuid?.() === 0) return; // root and Windows bypass chmod
     const dir = makeTmpDir();
     const manifestPath = path.join(dir, "inception.json");
     try {
