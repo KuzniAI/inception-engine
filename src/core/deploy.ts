@@ -13,7 +13,12 @@ import path from "node:path";
 import { AGENT_REGISTRY_BY_ID } from "../config/agents.ts";
 import { UserError } from "../errors.ts";
 import { logger } from "../logger.ts";
-import type { AgentId, DeployAction, Manifest } from "../types.ts";
+import type {
+  AgentId,
+  DeployAction,
+  Manifest,
+  SkillDirDeployAction,
+} from "../types.ts";
 import { registerDeployment, verifyDeployment } from "./ownership.ts";
 import { getDeployMethod, resolveAgentSkillPath } from "./resolve.ts";
 
@@ -58,6 +63,7 @@ export async function planDeploy(
       const target = resolveAgentSkillPath(agent, skill.name, home);
 
       actions.push({
+        kind: "skill-dir",
         skill: skill.name,
         agent: agentId,
         source,
@@ -83,37 +89,58 @@ export async function executeDeploy(
   const failed: Array<{ action: DeployAction; error: string }> = [];
 
   for (const action of actions) {
-    const label = `${action.skill} -> ${action.agent}`;
-
-    try {
-      await access(action.source);
-    } catch (err) {
-      const msg = sourceAccessError(err, action.source);
-      failed.push({ action, error: msg });
-      logger.fail(label, msg);
-      continue;
-    }
-
-    if (dryRun) {
-      logger.plan(label);
-      if (verbose) {
-        logger.detail(`${action.method}: ${action.source} -> ${action.target}`);
+    switch (action.kind) {
+      case "skill-dir": {
+        const result = await deploySkillDir(action, dryRun, verbose, home);
+        if (result.error === null) {
+          succeeded++;
+        } else {
+          failed.push({ action, error: result.error });
+        }
+        break;
       }
-      succeeded++;
-      continue;
-    }
-
-    try {
-      await executeDeployAction(action, verbose, home);
-      succeeded++;
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
-      failed.push({ action, error: msg });
-      logger.fail(label, msg);
+      default: {
+        const _: never = action.kind;
+        throw new Error(`Unhandled deploy action kind: ${_}`);
+      }
     }
   }
 
   return { succeeded, failed };
+}
+
+async function deploySkillDir(
+  action: SkillDirDeployAction,
+  dryRun: boolean,
+  verbose: boolean,
+  home: string,
+): Promise<{ error: string | null }> {
+  const label = `${action.skill} -> ${action.agent}`;
+
+  try {
+    await access(action.source);
+  } catch (err) {
+    const msg = sourceAccessError(err, action.source);
+    logger.fail(label, msg);
+    return { error: msg };
+  }
+
+  if (dryRun) {
+    logger.plan(label);
+    if (verbose) {
+      logger.detail(`${action.method}: ${action.source} -> ${action.target}`);
+    }
+    return { error: null };
+  }
+
+  try {
+    await executeDeployAction(action, verbose, home);
+    return { error: null };
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    logger.fail(label, msg);
+    return { error: msg };
+  }
 }
 
 async function validateSourcePath(

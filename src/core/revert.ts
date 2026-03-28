@@ -20,7 +20,12 @@ export function planRevert(
       if (!agent) continue;
 
       const target = resolveAgentSkillPath(agent, skill.name, home);
-      actions.push({ skill: skill.name, agent: agentId, target });
+      actions.push({
+        kind: "skill-dir",
+        skill: skill.name,
+        agent: agentId,
+        target,
+      });
     }
   }
 
@@ -39,7 +44,12 @@ export function planRevertAll(
       if (!agent) continue;
 
       const target = resolveAgentSkillPath(agent, skill.name, home);
-      actions.push({ skill: skill.name, agent: agentId, target });
+      actions.push({
+        kind: "skill-dir",
+        skill: skill.name,
+        agent: agentId,
+        target,
+      });
     }
   }
 
@@ -76,13 +86,22 @@ export async function executeRevert(
   const failed: Array<{ action: RevertAction; error: string }> = [];
 
   for (const action of actions) {
-    const result = await executeRevertAction(action, dryRun, verbose, home);
-    if (result.outcome === "fail") {
-      failed.push({ action, error: result.error });
-    } else if (result.outcome === "skip") {
-      skipped++;
-    } else {
-      succeeded++;
+    switch (action.kind) {
+      case "skill-dir": {
+        const result = await executeRevertAction(action, dryRun, verbose, home);
+        if (result.outcome === "fail") {
+          failed.push({ action, error: result.error });
+        } else if (result.outcome === "skip") {
+          skipped++;
+        } else {
+          succeeded++;
+        }
+        break;
+      }
+      default: {
+        const _: never = action.kind;
+        throw new Error(`Unhandled revert action kind: ${_}`);
+      }
     }
   }
 

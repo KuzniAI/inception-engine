@@ -580,6 +580,7 @@ describe("atomic redeploy behavior", () => {
       mkdirSync(path.dirname(target), { recursive: true });
 
       const firstAction: import("../src/types.ts").DeployAction = {
+        kind: "skill-dir",
         skill: "test-skill",
         agent: "claude-code",
         source: skillSource,
@@ -604,6 +605,7 @@ describe("atomic redeploy behavior", () => {
 
       const backupPath = `${target}.inception-backup`;
       const failAction: import("../src/types.ts").DeployAction = {
+        kind: "skill-dir",
         skill: "test-skill",
         agent: "claude-code",
         source: unreadableSource,
@@ -780,6 +782,7 @@ describe("source directory immutability", () => {
       const target = path.join(home, ".claude", "skills", "test-skill");
       mkdirSync(path.dirname(target), { recursive: true });
       const action: DeployAction = {
+        kind: "skill-dir",
         skill: "test-skill",
         agent: "claude-code",
         source: skillSource,
@@ -836,6 +839,7 @@ describe("source directory immutability", () => {
       const target = path.join(home, ".claude", "skills", "test-skill");
       mkdirSync(path.dirname(target), { recursive: true });
       const action: DeployAction = {
+        kind: "skill-dir",
         skill: "test-skill",
         agent: "claude-code",
         source: skillSource,

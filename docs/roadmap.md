@@ -16,9 +16,9 @@ It intentionally focuses on code quality, known issues, OS and agent portability
    - ~~Add Windows-realistic coverage for copy deploy or revert, ownership handling, and `%APPDATA%` path behavior.~~
    - ~~Add detection-path tests for `where.exe`, missing `which`, and `/bin/sh` fallback, plus ownership tests that verify source trees remain unmodified after deploy and revert.~~
 
-3. **Generalize the action model before expanding beyond skill directories**
-   - Refactor `DeployAction`, `RevertAction`, and the planner/executor split so the engine can represent directory copy or symlink, file write, and structured config patch as distinct action types (`src/types.ts`, `src/core/deploy.ts`, `src/core/revert.ts`).
-   - Keep dry-run and revert logic action-aware so later work does not get bolted onto the current skill-directory path model.
+3. ~~**Generalize the action model before expanding beyond skill directories**~~
+   - ~~Refactor `DeployAction`, `RevertAction`, and the planner/executor split so the engine can represent directory copy or symlink, file write, and structured config patch as distinct action types (`src/types.ts`, `src/core/deploy.ts`, `src/core/revert.ts`).~~
+   - ~~Keep dry-run and revert logic action-aware so later work does not get bolted onto the current skill-directory path model.~~
 
 ## Roadmap Items
 
@@ -42,7 +42,7 @@ It intentionally focuses on code quality, known issues, OS and agent portability
 
 ### Future Deploy-Surface Expansion
 
-- **Directory-Only Action Model**: `DeployAction`, `RevertAction`, and the current planner or executor split are still centered on skill-directory deploys. Generalize them before adding single-file writes or structured config patches (`src/types.ts`, `src/core/deploy.ts`, `src/core/revert.ts`).
+- ~~**Directory-Only Action Model**: `DeployAction`, `RevertAction`, and the current planner or executor split are still centered on skill-directory deploys. Generalize them before adding single-file writes or structured config patches (`src/types.ts`, `src/core/deploy.ts`, `src/core/revert.ts`).~~
 - **Directory-Only Ownership Semantics**: The current registry model tracks directory symlink or copy deploys, but it is not yet a generalized ownership model for file-level instructions or config patching (`src/schemas/registry.ts`, `src/core/ownership.ts`, `src/core/deploy.ts`, `src/core/revert.ts`).
 
 ### Testing and Validation

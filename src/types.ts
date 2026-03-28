@@ -24,7 +24,8 @@ export interface AgentConfig {
   provenance: AgentProvenance;
 }
 
-export interface DeployAction {
+export interface SkillDirDeployAction {
+  kind: "skill-dir";
   skill: string;
   agent: AgentId;
   source: string;
@@ -32,11 +33,18 @@ export interface DeployAction {
   method: "symlink" | "copy";
 }
 
-export interface RevertAction {
+// Union-ready: add new action kinds here as the engine expands
+export type DeployAction = SkillDirDeployAction;
+
+export interface SkillDirRevertAction {
+  kind: "skill-dir";
   skill: string;
   agent: AgentId;
   target: string;
 }
+
+// Union-ready: add new action kinds here as the engine expands
+export type RevertAction = SkillDirRevertAction;
 
 export interface CliOptions {
   command: "deploy" | "revert" | "help";
