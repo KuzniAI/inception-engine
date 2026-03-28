@@ -15,9 +15,9 @@ jobs:
       id-token: write
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v6
         with:
           node-version: "24"
           cache: "npm"
@@ -29,6 +29,4 @@ jobs:
 
       - run: npm test
 
-      # Use npm trusted publishing via GitHub OIDC. Do not set NODE_AUTH_TOKEN
-      # here, or npm will fall back to token-based auth and may require OTP.
       - run: npm publish --access public
