@@ -1,9 +1,9 @@
 import { readFile } from "node:fs/promises";
 import path from "node:path";
-import { formatZodPath } from "../schemas/errors.ts";
-import { ManifestSchema } from "../schemas/manifest.ts";
-import type { Manifest } from "../schemas/manifest.ts";
 import { UserError } from "../errors.ts";
+import { formatZodPath } from "../schemas/errors.ts";
+import type { Manifest } from "../schemas/manifest.ts";
+import { ManifestSchema } from "../schemas/manifest.ts";
 
 export async function loadManifest(directory: string): Promise<Manifest> {
   const manifestPath = path.join(directory, "inception.json");

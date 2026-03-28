@@ -1,9 +1,9 @@
 import { chmod, mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import {
-  RegistrySchema,
   type Registry,
   type RegistryEntry,
+  RegistrySchema,
 } from "../schemas/registry.ts";
 import type { AgentId } from "../types.ts";
 
