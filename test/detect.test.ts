@@ -5,11 +5,11 @@ import path from "node:path";
 import { describe, it } from "node:test";
 import {
   detectInstalledAgents,
+  type ExecFn,
   isBinaryInPath,
   isBinaryViaCommandV,
   isBinaryViaWhereExe,
   isBinaryViaWhich,
-  type ExecFn,
 } from "../src/core/detect.ts";
 
 function makeTmpDir(): string {
@@ -74,9 +74,7 @@ describe("detectInstalledAgents", () => {
 
 const NONEXISTENT_BINARY = "__nonexistent_binary_inception_test__";
 
-describe("isBinaryViaCommandV", () => {
-  if (process.platform === "win32") return;
-
+describe("isBinaryViaCommandV", { skip: process.platform === "win32" }, () => {
   it("returns true for node (known to be in PATH)", async () => {
     const result = await isBinaryViaCommandV("node");
     assert.equal(result, true);
@@ -88,9 +86,7 @@ describe("isBinaryViaCommandV", () => {
   });
 });
 
-describe("isBinaryViaWhich", () => {
-  if (process.platform === "win32") return;
-
+describe("isBinaryViaWhich", { skip: process.platform === "win32" }, () => {
   it("returns true for node (known to be in PATH)", async () => {
     const result = await isBinaryViaWhich("node");
     assert.equal(result, true);
@@ -102,9 +98,9 @@ describe("isBinaryViaWhich", () => {
   });
 });
 
-describe("isBinaryViaWhereExe", () => {
-  if (process.platform !== "win32") return;
-
+describe("isBinaryViaWhereExe", {
+  skip: process.platform === "win32",
+}, () => {
   it("returns true for node.exe (known to be in PATH)", async () => {
     const result = await isBinaryViaWhereExe("node.exe");
     assert.equal(result, true);
@@ -116,9 +112,9 @@ describe("isBinaryViaWhereExe", () => {
   });
 });
 
-describe("isBinaryInPath ENOENT fallback", () => {
-  if (process.platform === "win32") return;
-
+describe("isBinaryInPath ENOENT fallback", {
+  skip: process.platform === "win32",
+}, () => {
   // Simulate an environment where `which` is not installed: the injected
   // execFn always throws ENOENT, forcing isBinaryInPath to fall back to
   // isBinaryViaCommandV (which uses the real /bin/sh `command -v`).

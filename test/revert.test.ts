@@ -18,6 +18,7 @@ import {
 } from "../src/core/revert.ts";
 import { logger } from "../src/logger.ts";
 import type { Manifest } from "../src/types.ts";
+import { isRoot } from "./helpers.ts";
 
 logger.silence();
 
@@ -74,9 +75,7 @@ describe("planRevertAll", () => {
   });
 });
 
-describe("executeRevert", () => {
-  if (process.platform === "win32") return;
-
+describe("executeRevert", { skip: process.platform === "win32" }, () => {
   it("removes a symlink registered in the deployment registry", async () => {
     const home = makeTmpDir();
     const sourceDir = makeTmpDir();
@@ -166,8 +165,9 @@ describe("executeRevert", () => {
     }
   });
 
-  it("records a failure when removal is blocked by permissions", async () => {
-    if (process.getuid?.() === 0) return; // root bypasses chmod
+  it("records a failure when removal is blocked by permissions", {
+    skip: isRoot,
+  }, async () => {
     const home = makeTmpDir();
     const sourceDir = makeTmpDir();
     const actions = planRevert(testManifest, ["claude-code"], home);

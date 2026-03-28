@@ -19,6 +19,7 @@ import { executeRevert, planRevert } from "../src/core/revert.ts";
 import { UserError } from "../src/errors.ts";
 import { logger } from "../src/logger.ts";
 import type { DeployAction, Manifest } from "../src/types.ts";
+import { isRoot } from "./helpers.ts";
 
 logger.silence();
 
@@ -161,9 +162,7 @@ describe("planDeploy", () => {
   });
 });
 
-describe("executeDeploy", () => {
-  if (process.platform === "win32") return;
-
+describe("executeDeploy", { skip: process.platform === "win32" }, () => {
   it("creates symlinks on POSIX", async () => {
     const sourceDir = makeTmpDir();
     const home = makeTmpDir();
@@ -304,8 +303,9 @@ describe("executeDeploy", () => {
     }
   });
 
-  it("reports permission denied when source is unreadable (caught at planning)", async () => {
-    if (process.getuid?.() === 0) return; // root bypasses chmod
+  it("reports permission denied when source is unreadable (caught at planning)", {
+    skip: isRoot,
+  }, async () => {
     const sourceDir = makeTmpDir();
     const home = makeTmpDir();
     // Chmod the parent so traversal into the skill source dir fails with EACCES
@@ -435,9 +435,9 @@ describe("executeDeploy", () => {
   });
 });
 
-describe("atomic redeploy behavior", () => {
-  if (process.platform === "win32") return;
-
+describe("atomic redeploy behavior", {
+  skip: process.platform === "win32",
+}, () => {
   it("cleans up stale .inception-backup from a previous failed attempt", async () => {
     const sourceDir = makeTmpDir();
     const home = makeTmpDir();
@@ -749,8 +749,9 @@ async function snapshotDir(dir: string): Promise<string[]> {
 }
 
 describe("source directory immutability", () => {
-  it("source dir is unchanged after symlink deploy", async () => {
-    if (process.platform === "win32") return;
+  it("source dir is unchanged after symlink deploy", {
+    skip: process.platform === "win32",
+  }, async () => {
     const sourceDir = makeTmpDir();
     const home = makeTmpDir();
     try {
@@ -804,8 +805,9 @@ describe("source directory immutability", () => {
     }
   });
 
-  it("source dir is unchanged after symlink revert", async () => {
-    if (process.platform === "win32") return;
+  it("source dir is unchanged after symlink revert", {
+    skip: process.platform === "win32",
+  }, async () => {
     const sourceDir = makeTmpDir();
     const home = makeTmpDir();
     try {

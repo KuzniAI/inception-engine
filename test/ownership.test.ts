@@ -75,8 +75,9 @@ describe("registerDeployment", () => {
     }
   });
 
-  it("sets registry file permissions to 0o644 on POSIX", async () => {
-    if (process.platform === "win32") return;
+  it("sets registry file permissions to 0o644 on POSIX", {
+    skip: process.platform === "win32",
+  }, async () => {
     const home = makeTmpDir();
     try {
       await registerDeployment(home, "/fake/target", {
