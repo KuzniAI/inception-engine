@@ -746,9 +746,7 @@ async function snapshotDir(dir: string): Promise<string[]> {
 }
 
 describe("source directory immutability", () => {
-  it("source dir is unchanged after symlink deploy", {
-    skip: process.platform === "win32",
-  }, async () => {
+  it("source dir is unchanged after symlink deploy", async () => {
     const sourceDir = makeTmpDir();
     const home = makeTmpDir();
     try {
@@ -802,9 +800,7 @@ describe("source directory immutability", () => {
     }
   });
 
-  it("source dir is unchanged after symlink revert", {
-    skip: process.platform === "win32",
-  }, async () => {
+  it("source dir is unchanged after symlink revert", async () => {
     const sourceDir = makeTmpDir();
     const home = makeTmpDir();
     try {
