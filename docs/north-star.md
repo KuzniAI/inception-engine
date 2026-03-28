@@ -31,50 +31,50 @@ These are durable instruction surfaces loaded outside a single prompt.
 
 | Agent | Current surface | Confidence | Notes |
 |---|---|---|---|
-| Claude Code | `~/.claude/CLAUDE.md` and repo-local `CLAUDE.md` patterns | Confirmed by current official docs | Instruction loading is a real customization vector and should be a first-class target. |
-| OpenAI Codex | `AGENTS.md` in repo/home context | Confirmed by current official docs | `AGENTS.md` is real; deeper precedence and placement should be treated as agent-specific behavior, not normalized away. |
-| Gemini CLI | `GEMINI.md` in repo/home hierarchy | Confirmed by current official docs | Hierarchical loading exists and should be modeled explicitly. |
-| Antigravity | likely `GEMINI.md`-compatible surfaces | Confirmed by current implementation only | Keep support provisional until backed by stronger official product docs. |
-| OpenCode | `AGENTS.md` | Confirmed by current official docs | Global and repo rules are a real target surface. |
-| GitHub Copilot | `.github/copilot-instructions.md`, `.github/instructions/**/*.instructions.md`, and CLI `AGENTS.md` | Confirmed by current official docs | Copilot has multiple instruction surfaces; avoid reducing this to a single org-level file. |
+| Claude Code | `CLAUDE.md` (root, folder-level) and `~/.claude/CLAUDE.md` | Confirmed by current official docs | Supports hierarchical loading; folder-specific files override root. Compatibility with `AGENTS.md` is emerging. |
+| OpenAI Codex | `AGENTS.md` (root, nested) and `~/.codex/AGENTS.md` | Confirmed by current official docs | Concatenates from root down; files closer to CWD override earlier ones. |
+| Gemini CLI | `GEMINI.md` (root, workspace) and `~/.gemini/GEMINI.md` | Confirmed by current official docs | Hierarchical loading with JIT scanning support. Default filename is configurable via `settings.json`. |
+| Antigravity | `GEMINI.md` and `.agents/rules/*.md` | Confirmed by current official docs | Uses `GEMINI.md` as an "Agent Blueprint." Supports "Always On" vs "Manual" activation modes. |
+| OpenCode | `AGENTS.md` and `opencode.json` | Confirmed by current official docs | Global and repo rules are first-class surfaces. Precedence: Project > Global > Remote. |
+| GitHub Copilot | `.github/copilot-instructions.md` and `.github/instructions/*.instructions.md` | Confirmed by current official docs | Scoped instructions use YAML frontmatter to define `applyTo` glob patterns. |
 
 ### 2. MCP Configuration
 
-MCP support exists across modern coding agents, but the storage shape and transformation rules differ.
+MCP support is standard across modern coding agents, but storage locations and schemas vary.
 
 | Agent | Current surface | Confidence | Notes |
 |---|---|---|---|
-| Claude Code | `~/.claude.json` and project `.mcp.json` | Confirmed by current official docs | JSON-based MCP surfaces are real and should be patchable. |
-| OpenAI Codex | CLI-managed MCP and `~/.codex/config.toml` | Confirmed by current official docs | Treat Codex MCP as config-driven; do not assume skill-local `openai.yaml`. |
-| Gemini CLI | MCP support exists | Confirmed by current official docs | Exact transformation policy should remain adapter-specific. |
-| Antigravity | likely Gemini-adjacent or proprietary MCP integration | Unverified / speculative | Do not lock implementation around assumed format yet. |
-| OpenCode | `opencode.json` under `mcp` | Confirmed by current official docs | Current docs support `type`, command array, and `environment`; transformations should target the documented schema exactly. |
-| GitHub Copilot | MCP config with explicit transport definitions | Confirmed by current official docs | Enterprise policy may override or disable local behavior, so warnings matter. |
+| Claude Code | `.claude/mcp.json` and `~/.claude.json` | Confirmed by current official docs | Project-level config (committed) vs user-level (global). Uses JSON-based `mcpServers` schema. |
+| OpenAI Codex | `~/.codex/config.toml` and `.codex/config.toml` | Confirmed by current official docs | Managed via TOML. Supports tool-specific environment variables and approval policies. |
+| Gemini CLI | `~/.gemini/settings.json` | Confirmed by current official docs | Configured under `mcpServers` key. Supports Stdio, SSE, and HTTP transports. |
+| Antigravity | Integrated MCP config in `.agents/rules/` | Confirmed by current official docs | Extends custom agents with external tools via frontmatter or `mcp-servers` property. |
+| OpenCode | `opencode.json` under `mcp` | Confirmed by current official docs | Supports `local` (command) and `remote` (URL) server types with declarative tool loading. |
+| GitHub Copilot | Agent-level MCP config in frontmatter | Confirmed by current official docs | Custom agents can be extended with MCP tools via the `tools` or `mcp-servers` keys. |
 
 ### 3. Agents and Subagents
 
-Agent orchestration is becoming common, but the representation differs enough that the engine should adapt per platform rather than assume a universal source format.
+Agent orchestration has converged on Markdown files with YAML frontmatter for custom definitions.
 
 | Agent | Current surface | Confidence | Notes |
 |---|---|---|---|
-| Claude Code | Markdown files with YAML frontmatter in `.claude/agents/` or `~/.claude/agents/` | Confirmed by current official docs | Good candidate for first concrete subagent adapter support. |
-| OpenAI Codex | Subagent concepts exist, but user-defined on-disk format is not strongly verified | Unverified / speculative | Do not assume TOML files or stable install paths until backed by primary docs. |
-| Gemini CLI | Agentic workflows exist, but specific user-defined subagent file schema is not strongly verified | Unverified / speculative | Avoid hard claims such as "sequential single event loop" without source support. |
-| Antigravity | multi-agent positioning appears central | Confirmed by current implementation only | Treat as provisional until there is stronger official schema documentation. |
-| OpenCode | agent and subagent support with documented config surfaces | Confirmed by current official docs | Support should follow the documented OpenCode schema, not inferred parity with Claude. |
-| GitHub Copilot | custom agents exist in CLI workflows | Confirmed by current official docs | File formats and deployment surfaces should be modeled from current docs, not guessed from adjacent tools. |
+| Claude Code | `.claude/agents/` or `~/.claude/agents/` | Confirmed by current official docs | Uses Markdown with YAML frontmatter. Supports specific model selection and tool sets. |
+| OpenAI Codex | Custom GPT-like instructions in `~/.codex/` | Confirmed by current official docs | Managed via `AGENTS.md` and `config.toml`. Subagent behavior is largely model-driven. |
+| Gemini CLI | `.gemini/agents/` (provisional) | Confirmed by current implementation only | Moving toward explicit subagent definitions; currently relies on `GEMINI.md` personas. |
+| Antigravity | `.agents/rules/*.md` | Confirmed by current official docs | Defines specialized workflows (invoked via `/`) and personas with explicit roles and goals. |
+| OpenCode | `.opencode/agents/*.md` and `opencode.json` | Confirmed by current official docs | Multi-agent architecture (Primary vs Subagent). Supports manual @mention or automatic invocation. |
+| GitHub Copilot | `.github/agents/*.agent.md` | Confirmed by current official docs | Uses YAML frontmatter (`name`, `description`, `tools`, `model`). Invoked via @mention in chat. |
 
 ### 4. Execution and Safety-Oriented Config
 
-Some agents expose lifecycle hooks or permission controls directly; others only allow indirect safety shaping through config.
+Agents expose granular controls over command execution, tool permissions, and lifecycle hooks.
 
 | Agent | Current surface | Confidence | Notes |
 |---|---|---|---|
-| GitHub Copilot | lifecycle and agent config surfaces | Confirmed by current official docs | Worth targeting once file/config patching exists. |
-| OpenCode | permissions and command config in `opencode.json` | Confirmed by current official docs | Safe-by-default patching is a practical target. |
-| Claude Code | permission and settings surfaces exist | Confirmed by current official docs | Hook-style behavior should be modeled carefully rather than assumed equivalent to Copilot. |
-| OpenAI Codex | safety and config surfaces exist | Confirmed by current official docs | Keep scope to documented config, not undocumented internal orchestration files. |
-| Gemini CLI / Antigravity | execution-hook parity unclear | Unverified / speculative | Do not promise hook support before vendor surfaces are clearly documented. |
+| GitHub Copilot | `.github/copilot-instructions.md` and Agent frontmatter | Confirmed by current official docs | Tool access (`read`, `edit`, `search`) is defined per-agent. Enterprise policies may restrict local config. |
+| OpenCode | `opencode.json` permissions | Confirmed by current official docs | Granular permissions (e.g., `"bash": "ask"`, `"edit": "allow"`) with wildcard support for MCP tools. |
+| Claude Code | `.claude/mcp.json` and session settings | Confirmed by current official docs | Permission surfaces for external tool execution and data access are real targets. |
+| OpenAI Codex | `config.toml` approval policies | Confirmed by current official docs | Defines `approval_policy` (e.g., `always`, `never`, `destructive`) for shell commands. |
+| Gemini CLI | `settings.json` and safe-mode flags | Confirmed by current official docs | Execution-hook parity is emerging; priority is on tool-use safety and human-in-the-loop. |
 
 ## Portability Principles
 
