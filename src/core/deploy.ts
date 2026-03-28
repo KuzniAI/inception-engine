@@ -273,6 +273,9 @@ async function executeDeployAction(
   } catch (createErr) {
     if (backupPath) {
       try {
+        await removeTarget(action.target).catch(() => {
+          /* best-effort cleanup */
+        });
         await rename(backupPath, action.target);
       } catch {
         // Best-effort rollback

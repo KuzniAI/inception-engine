@@ -400,4 +400,50 @@ describe("executeRevert — copy method (cross-platform)", () => {
       rmSync(home, { recursive: true, force: true });
     }
   });
+
+  it("records a failure when unregistering is blocked by permissions on Windows", {
+    skip: process.platform !== "win32",
+  }, async () => {
+    const home = makeTmpDir();
+    const sourceDir = makeTmpDir();
+    const actions = planRevert(testManifest, ["claude-code"], home);
+    const target = actions[0]?.target ?? "";
+    try {
+      mkdirSync(target, { recursive: true });
+      const blockedFile = path.join(target, "SKILL.md");
+      writeFileSync(blockedFile, "test");
+      await registerDeployment(home, target, {
+        kind: "skill-dir",
+        source: sourceDir,
+        skill: "test-skill",
+        agent: "claude-code",
+        method: "copy",
+      });
+
+      const registryFile = path.join(
+        home,
+        ".inception-engine",
+        "registry.json",
+      );
+      chmodSync(registryFile, 0o444);
+
+      const { succeeded, skipped, failed } = await executeRevert(
+        actions,
+        false,
+        false,
+        home,
+      );
+      assert.equal(succeeded, 0);
+      assert.equal(skipped, 0);
+      assert.equal(failed.length, 1);
+    } finally {
+      try {
+        chmodSync(path.join(home, ".inception-engine", "registry.json"), 0o666);
+      } catch {
+        /* best effort */
+      }
+      rmSync(home, { recursive: true, force: true });
+      rmSync(sourceDir, { recursive: true, force: true });
+    }
+  });
 });

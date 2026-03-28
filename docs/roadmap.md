@@ -45,10 +45,6 @@ It intentionally focuses on enabling architecture rather than prematurely implem
 
 - **TOCTOU Race Window**: Backup, ownership check, removal, and recreate are split across multiple `lstat`, `rename`, `rm`, and `unlink` steps, so path state can change between validation and mutation (`src/core/deploy.ts`, `src/core/revert.ts`).
 
-### Portability and Testing
-
-- **Partial Windows Deployment Coverage**: The copy-based deploy or revert path and `%APPDATA%` path handling have test coverage, but Windows-native ownership behavior and more realistic end-to-end Windows execution still need stronger validation (`src/core/deploy.ts`, `src/core/revert.ts`, `test/cross-platform.test.ts`, `test/deploy.test.ts`, `test/revert.test.ts`, `test/ownership.test.ts`).
-
 ### Enterprise and Policy Awareness
 
 - **Enterprise Override Awareness**: Some target environments may ignore or constrain local configuration because of organization policy. The engine should detect and warn where possible instead of presenting local state as fully authoritative (`docs/north-star.md`, `src/core/preflight.ts`, `src/index.ts`).

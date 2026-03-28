@@ -186,7 +186,11 @@ describe("executeDeploy", { skip: process.platform === "win32" }, () => {
       const target = actions[0]?.target;
       assert.ok(existsSync(target));
       assert.ok(lstatSync(target).isSymbolicLink());
-      assert.equal(readlinkSync(target), actions[0]?.source);
+      const action = actions[0];
+      if (action?.kind !== "skill-dir") {
+        assert.fail("Expected skill-dir action");
+      }
+      assert.equal(readlinkSync(target), action.source);
     } finally {
       rmSync(sourceDir, { recursive: true });
       rmSync(home, { recursive: true, force: true });
@@ -854,6 +858,360 @@ describe("source directory immutability", () => {
       );
     } finally {
       rmSync(sourceDir, { recursive: true });
+      rmSync(home, { recursive: true, force: true });
+    }
+  });
+});
+
+describe("executeDeploy (Windows)", {
+  skip: process.platform !== "win32",
+}, () => {
+  it("creates copies on Windows", async () => {
+    const sourceDir = makeTmpDir();
+    const home = makeTmpDir();
+    try {
+      createSkillSource(sourceDir, "skills/test-skill");
+      const actions = await planDeploy(
+        testManifest,
+        sourceDir,
+        ["claude-code"],
+        home,
+      );
+      const { succeeded, failed } = await executeDeploy(
+        actions,
+        false,
+        false,
+        home,
+      );
+
+      assert.equal(succeeded, 1);
+      assert.equal(failed.length, 0);
+
+      const target = actions[0]?.target;
+      assert.ok(existsSync(target));
+      assert.ok(!lstatSync(target).isSymbolicLink());
+      assert.ok(existsSync(path.join(target, "SKILL.md")));
+    } finally {
+      rmSync(sourceDir, { recursive: true, force: true });
+      rmSync(home, { recursive: true, force: true });
+    }
+  });
+
+  it("registers deployment in registry on Windows copy deploy", async () => {
+    const sourceDir = makeTmpDir();
+    const home = makeTmpDir();
+    try {
+      const skillSource = createSkillSource(sourceDir, "skills/test-skill");
+      const actions = await planDeploy(
+        testManifest,
+        sourceDir,
+        ["claude-code"],
+        home,
+      );
+      await executeDeploy(actions, false, false, home);
+
+      const target = actions[0]?.target;
+      const entry = await lookupDeployment(home, target);
+      assert.ok(entry);
+      assert.equal(entry.skill, "test-skill");
+      assert.equal(entry.agent, "claude-code");
+      assert.equal(entry.source, skillSource);
+      assert.equal(entry.method, "copy");
+      assert.ok(!existsSync(path.join(skillSource, ".inception-totem")));
+    } finally {
+      rmSync(sourceDir, { recursive: true, force: true });
+      rmSync(home, { recursive: true, force: true });
+    }
+  });
+
+  it("does not create copies in dry-run mode on Windows", async () => {
+    const sourceDir = makeTmpDir();
+    const home = makeTmpDir();
+    try {
+      createSkillSource(sourceDir, "skills/test-skill");
+      const actions = await planDeploy(
+        testManifest,
+        sourceDir,
+        ["claude-code"],
+        home,
+      );
+      const { succeeded, failed } = await executeDeploy(
+        actions,
+        true,
+        false,
+        home,
+      );
+
+      assert.equal(succeeded, 1);
+      assert.equal(failed.length, 0);
+      const target = actions[0]?.target;
+      assert.ok(!existsSync(target));
+    } finally {
+      rmSync(sourceDir, { recursive: true, force: true });
+      rmSync(home, { recursive: true, force: true });
+    }
+  });
+
+  it("overwrites existing copy (with registry entry) on Windows", async () => {
+    const sourceDir = makeTmpDir();
+    const home = makeTmpDir();
+    try {
+      createSkillSource(sourceDir, "skills/test-skill");
+      const actions = await planDeploy(
+        testManifest,
+        sourceDir,
+        ["claude-code"],
+        home,
+      );
+      await executeDeploy(actions, false, false, home);
+      const { succeeded, failed } = await executeDeploy(
+        actions,
+        false,
+        false,
+        home,
+      );
+      assert.equal(succeeded, 1);
+      assert.equal(failed.length, 0);
+    } finally {
+      rmSync(sourceDir, { recursive: true, force: true });
+      rmSync(home, { recursive: true, force: true });
+    }
+  });
+
+  it("reports error for missing source (caught at planning)", async () => {
+    const home = makeTmpDir();
+    try {
+      await assert.rejects(
+        planDeploy(testManifest, "/nonexistent/source", ["claude-code"], home),
+        (err: unknown) => {
+          assert.ok(err instanceof UserError);
+          assert.equal(err.code, "DEPLOY_FAILED");
+          assert.match(err.message, /source not found/);
+          return true;
+        },
+      );
+    } finally {
+      rmSync(home, { recursive: true, force: true });
+    }
+  });
+
+  it("refuses to overwrite unmanaged target on Windows", async () => {
+    const sourceDir = makeTmpDir();
+    const home = makeTmpDir();
+    try {
+      createSkillSource(sourceDir, "skills/test-skill");
+      const actions = await planDeploy(
+        testManifest,
+        sourceDir,
+        ["claude-code"],
+        home,
+      );
+      const target = actions[0]?.target;
+
+      mkdirSync(target, { recursive: true });
+      writeFileSync(path.join(target, "something.txt"), "user content");
+
+      const { succeeded, failed } = await executeDeploy(
+        actions,
+        false,
+        false,
+        home,
+      );
+      assert.equal(succeeded, 0);
+      assert.equal(failed.length, 1);
+      assert.ok(failed[0]?.error.includes("not managed by inception-engine"));
+      assert.ok(existsSync(path.join(target, "something.txt")));
+    } finally {
+      rmSync(sourceDir, { recursive: true, force: true });
+      rmSync(home, { recursive: true, force: true });
+    }
+  });
+
+  it("refuses to overwrite target with mismatched registry entry on Windows", async () => {
+    const sourceDir = makeTmpDir();
+    const home = makeTmpDir();
+    try {
+      createSkillSource(sourceDir, "skills/test-skill");
+      const actions = await planDeploy(
+        testManifest,
+        sourceDir,
+        ["claude-code"],
+        home,
+      );
+      const target = actions[0]?.target;
+
+      mkdirSync(target, { recursive: true });
+      writeFileSync(path.join(target, "SKILL.md"), "other content");
+      await registerDeployment(home, target, {
+        kind: "skill-dir",
+        source: "/completely/different/source",
+        skill: "different-skill",
+        agent: "codex",
+        method: "copy",
+      });
+
+      const { succeeded, failed } = await executeDeploy(
+        actions,
+        false,
+        false,
+        home,
+      );
+      assert.equal(succeeded, 0);
+      assert.equal(failed.length, 1);
+      assert.ok(failed[0]?.error.includes("not managed by inception-engine"));
+      assert.ok(existsSync(path.join(target, "SKILL.md")));
+    } finally {
+      rmSync(sourceDir, { recursive: true, force: true });
+      rmSync(home, { recursive: true, force: true });
+    }
+  });
+
+  it("backup is removed after successful redeploy on Windows", async () => {
+    const sourceDir = makeTmpDir();
+    const home = makeTmpDir();
+    try {
+      createSkillSource(sourceDir, "skills/test-skill");
+      const actions = await planDeploy(
+        testManifest,
+        sourceDir,
+        ["claude-code"],
+        home,
+      );
+      const target = actions[0]?.target;
+      const backupPath = `${target}.inception-backup`;
+
+      await executeDeploy(actions, false, false, home);
+      await executeDeploy(actions, false, false, home);
+
+      assert.ok(
+        !existsSync(backupPath),
+        "backup should not exist after successful redeploy",
+      );
+      assert.ok(existsSync(target), "target should exist after redeploy");
+    } finally {
+      rmSync(sourceDir, { recursive: true, force: true });
+      rmSync(home, { recursive: true, force: true });
+    }
+  });
+});
+
+describe("atomic redeploy behavior (Windows)", {
+  skip: process.platform !== "win32",
+}, () => {
+  it("cleans up stale .inception-backup from a previous failed attempt on Windows", async () => {
+    const sourceDir = makeTmpDir();
+    const home = makeTmpDir();
+    try {
+      createSkillSource(sourceDir, "skills/test-skill");
+      const actions = await planDeploy(
+        testManifest,
+        sourceDir,
+        ["claude-code"],
+        home,
+      );
+      const target = actions[0]?.target;
+      const backupPath = `${target}.inception-backup`;
+
+      await executeDeploy(actions, false, false, home);
+      mkdirSync(backupPath, { recursive: true });
+      writeFileSync(path.join(backupPath, "stale.txt"), "leftover");
+
+      const { succeeded, failed } = await executeDeploy(
+        actions,
+        false,
+        false,
+        home,
+      );
+      assert.equal(succeeded, 1);
+      assert.equal(failed.length, 0);
+      assert.ok(!existsSync(backupPath), "stale backup should be cleaned up");
+      assert.ok(existsSync(target), "target should exist after redeploy");
+    } finally {
+      rmSync(sourceDir, { recursive: true, force: true });
+      rmSync(home, { recursive: true, force: true });
+    }
+  });
+
+  it("no backup is created on first deploy (no prior target) on Windows", async () => {
+    const sourceDir = makeTmpDir();
+    const home = makeTmpDir();
+    try {
+      createSkillSource(sourceDir, "skills/test-skill");
+      const actions = await planDeploy(
+        testManifest,
+        sourceDir,
+        ["claude-code"],
+        home,
+      );
+      const target = actions[0]?.target;
+      const backupPath = `${target}.inception-backup`;
+
+      const { succeeded } = await executeDeploy(actions, false, false, home);
+      assert.equal(succeeded, 1);
+      assert.ok(existsSync(target));
+      assert.ok(
+        !existsSync(backupPath),
+        "no backup should be created when there was no prior target",
+      );
+    } finally {
+      rmSync(sourceDir, { recursive: true, force: true });
+      rmSync(home, { recursive: true, force: true });
+    }
+  });
+
+  it("restores backup when deploy fails (registry not writable) on Windows", async () => {
+    const sourceDir = makeTmpDir();
+    const home = makeTmpDir();
+    try {
+      createSkillSource(sourceDir, "skills/test-skill");
+      const actions = await planDeploy(
+        testManifest,
+        sourceDir,
+        ["claude-code"],
+        home,
+      );
+      const target = actions[0]?.target;
+      const backupPath = `${target}.inception-backup`;
+
+      const { succeeded: firstSucceeded } = await executeDeploy(
+        actions,
+        false,
+        false,
+        home,
+      );
+      assert.equal(firstSucceeded, 1);
+
+      const registryFile = path.join(
+        home,
+        ".inception-engine",
+        "registry.json",
+      );
+      chmodSync(registryFile, 0o444); // trigger EPERM on Windows
+
+      const { succeeded, failed } = await executeDeploy(
+        actions,
+        false,
+        false,
+        home,
+      );
+      assert.equal(succeeded, 0);
+      assert.equal(failed.length, 1);
+      assert.ok(
+        !existsSync(backupPath),
+        "backup should be gone after rollback",
+      );
+      assert.ok(existsSync(target), "original target must be restored");
+      assert.ok(
+        existsSync(path.join(target, "SKILL.md")),
+        "original content must be present",
+      );
+    } finally {
+      try {
+        chmodSync(path.join(home, ".inception-engine", "registry.json"), 0o666);
+      } catch {
+        /* best effort */
+      }
+      rmSync(sourceDir, { recursive: true, force: true });
       rmSync(home, { recursive: true, force: true });
     }
   });

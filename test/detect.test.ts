@@ -190,7 +190,7 @@ describe("mocked resolution", () => {
         }
         // "sh" (command -v) succeeds
       };
-      
+
       const result = await isBinaryInPath("foo", enoentFn, "linux");
       assert.equal(result, true);
       assert.deepEqual(calls, ["which", "sh"]);
@@ -208,7 +208,7 @@ describe("mocked resolution", () => {
           throw new Error("sh failed");
         }
       };
-      
+
       const result = await isBinaryInPath("foo", enoentFn, "linux");
       assert.equal(result, false);
     });
@@ -219,11 +219,10 @@ describe("mocked resolution", () => {
         calledCmd = cmd;
         throw new Error("some other error");
       };
-      
+
       const result = await isBinaryInPath("foo", otherErrFn, "linux");
       assert.equal(result, false);
       assert.equal(calledCmd, "which");
     });
   });
 });
-
