@@ -55,6 +55,7 @@ describe("planDeploy", () => {
   it("creates actions for detected agents only", async () => {
     const sourceDir = makeTmpDir();
     try {
+      createSkillSource(sourceDir, "skills/test-skill");
       const actions = await planDeploy(
         testManifest,
         sourceDir,
@@ -72,6 +73,7 @@ describe("planDeploy", () => {
   it("creates actions for multiple agents", async () => {
     const sourceDir = makeTmpDir();
     try {
+      createSkillSource(sourceDir, "skills/test-skill");
       const actions = await planDeploy(
         testManifest,
         sourceDir,
@@ -87,6 +89,7 @@ describe("planDeploy", () => {
   it("skips agents not in detected list", async () => {
     const sourceDir = makeTmpDir();
     try {
+      createSkillSource(sourceDir, "skills/test-skill");
       const actions = await planDeploy(
         testManifest,
         sourceDir,
@@ -94,6 +97,62 @@ describe("planDeploy", () => {
         "/home/test",
       );
       assert.equal(actions.length, 0);
+    } finally {
+      rmSync(sourceDir, { recursive: true });
+    }
+  });
+
+  it("throws when skill source path does not exist", async () => {
+    const sourceDir = makeTmpDir();
+    try {
+      await assert.rejects(
+        planDeploy(testManifest, sourceDir, ["claude-code"], "/home/test"),
+        (err: unknown) => {
+          assert.ok(err instanceof UserError);
+          assert.equal(err.code, "DEPLOY_FAILED");
+          assert.match(err.message, /source not found/);
+          return true;
+        },
+      );
+    } finally {
+      rmSync(sourceDir, { recursive: true });
+    }
+  });
+
+  it("throws when skill source path is a file, not a directory", async () => {
+    const sourceDir = makeTmpDir();
+    try {
+      mkdirSync(path.join(sourceDir, "skills"), { recursive: true });
+      writeFileSync(path.join(sourceDir, "skills", "test-skill"), "not a dir");
+      await assert.rejects(
+        planDeploy(testManifest, sourceDir, ["claude-code"], "/home/test"),
+        (err: unknown) => {
+          assert.ok(err instanceof UserError);
+          assert.equal(err.code, "DEPLOY_FAILED");
+          assert.match(err.message, /not a directory/);
+          return true;
+        },
+      );
+    } finally {
+      rmSync(sourceDir, { recursive: true });
+    }
+  });
+
+  it("throws when skill source directory is missing SKILL.md", async () => {
+    const sourceDir = makeTmpDir();
+    try {
+      mkdirSync(path.join(sourceDir, "skills", "test-skill"), {
+        recursive: true,
+      });
+      await assert.rejects(
+        planDeploy(testManifest, sourceDir, ["claude-code"], "/home/test"),
+        (err: unknown) => {
+          assert.ok(err instanceof UserError);
+          assert.equal(err.code, "DEPLOY_FAILED");
+          assert.match(err.message, /missing SKILL\.md/);
+          return true;
+        },
+      );
     } finally {
       rmSync(sourceDir, { recursive: true });
     }
@@ -226,31 +285,24 @@ describe("executeDeploy", () => {
     }
   });
 
-  it("reports error for missing source", async () => {
+  it("reports error for missing source (caught at planning)", async () => {
     const home = makeTmpDir();
     try {
-      const actions = await planDeploy(
-        testManifest,
-        "/nonexistent/source",
-        ["claude-code"],
-        home,
+      await assert.rejects(
+        planDeploy(testManifest, "/nonexistent/source", ["claude-code"], home),
+        (err: unknown) => {
+          assert.ok(err instanceof UserError);
+          assert.equal(err.code, "DEPLOY_FAILED");
+          assert.match(err.message, /source not found/);
+          return true;
+        },
       );
-      const { succeeded, failed } = await executeDeploy(
-        actions,
-        false,
-        false,
-        home,
-      );
-
-      assert.equal(succeeded, 0);
-      assert.equal(failed.length, 1);
-      assert.ok(failed[0]?.error.includes("Source not found"));
     } finally {
       rmSync(home, { recursive: true, force: true });
     }
   });
 
-  it("reports permission denied when source is unreadable", async () => {
+  it("reports permission denied when source is unreadable (caught at planning)", async () => {
     if (process.getuid?.() === 0) return; // root bypasses chmod
     const sourceDir = makeTmpDir();
     const home = makeTmpDir();
@@ -259,23 +311,14 @@ describe("executeDeploy", () => {
     try {
       createSkillSource(sourceDir, "skills/test-skill");
       chmodSync(skillsDir, 0o000);
-      const actions = await planDeploy(
-        testManifest,
-        sourceDir,
-        ["claude-code"],
-        home,
-      );
-      const { succeeded, failed } = await executeDeploy(
-        actions,
-        false,
-        false,
-        home,
-      );
-      assert.equal(succeeded, 0);
-      assert.equal(failed.length, 1);
-      assert.match(
-        failed[0]?.error ?? "",
-        /Permission denied accessing source/,
+      await assert.rejects(
+        planDeploy(testManifest, sourceDir, ["claude-code"], home),
+        (err: unknown) => {
+          assert.ok(err instanceof UserError);
+          assert.equal(err.code, "DEPLOY_FAILED");
+          assert.match(err.message, /Permission denied/);
+          return true;
+        },
       );
     } finally {
       chmodSync(skillsDir, 0o755);

@@ -248,4 +248,100 @@ describe("loadManifest", () => {
       rmSync(dir, { recursive: true });
     }
   });
+
+  it("throws when mcpServers is not an array", async () => {
+    const dir = makeTmpDir();
+    try {
+      writeFileSync(
+        path.join(dir, "inception.json"),
+        JSON.stringify({ skills: [], mcpServers: "not-an-array" }),
+      );
+      await assert.rejects(loadManifest(dir), (err: unknown) => {
+        assert.ok(err instanceof UserError);
+        assert.equal(err.code, "MANIFEST_INVALID");
+        assert.match(err.message, /"mcpServers" must be an array/);
+        return true;
+      });
+    } finally {
+      rmSync(dir, { recursive: true });
+    }
+  });
+
+  it("throws when agentRules is not an array", async () => {
+    const dir = makeTmpDir();
+    try {
+      writeFileSync(
+        path.join(dir, "inception.json"),
+        JSON.stringify({ skills: [], agentRules: 42 }),
+      );
+      await assert.rejects(loadManifest(dir), (err: unknown) => {
+        assert.ok(err instanceof UserError);
+        assert.equal(err.code, "MANIFEST_INVALID");
+        assert.match(err.message, /"agentRules" must be an array/);
+        return true;
+      });
+    } finally {
+      rmSync(dir, { recursive: true });
+    }
+  });
+
+  it("defaults mcpServers and agentRules to [] when omitted", async () => {
+    const dir = makeTmpDir();
+    try {
+      writeFileSync(
+        path.join(dir, "inception.json"),
+        JSON.stringify({ skills: [] }),
+      );
+      const manifest = await loadManifest(dir);
+      assert.deepEqual(manifest.mcpServers, []);
+      assert.deepEqual(manifest.agentRules, []);
+    } finally {
+      rmSync(dir, { recursive: true });
+    }
+  });
+
+  it("throws on duplicate skill names", async () => {
+    const dir = makeTmpDir();
+    try {
+      writeFileSync(
+        path.join(dir, "inception.json"),
+        JSON.stringify({
+          skills: [
+            { name: "my-skill", path: "skills/a", agents: ["claude-code"] },
+            { name: "my-skill", path: "skills/b", agents: ["codex"] },
+          ],
+        }),
+      );
+      await assert.rejects(loadManifest(dir), (err: unknown) => {
+        assert.ok(err instanceof UserError);
+        assert.equal(err.code, "MANIFEST_INVALID");
+        assert.match(err.message, /duplicate skill name "my-skill"/);
+        return true;
+      });
+    } finally {
+      rmSync(dir, { recursive: true });
+    }
+  });
+
+  it("deduplicates agent IDs within a skill", async () => {
+    const dir = makeTmpDir();
+    try {
+      writeFileSync(
+        path.join(dir, "inception.json"),
+        JSON.stringify({
+          skills: [
+            {
+              name: "my-skill",
+              path: "skills/s",
+              agents: ["claude-code", "claude-code", "codex"],
+            },
+          ],
+        }),
+      );
+      const manifest = await loadManifest(dir);
+      assert.deepEqual(manifest.skills[0]?.agents, ["claude-code", "codex"]);
+    } finally {
+      rmSync(dir, { recursive: true });
+    }
+  });
 });

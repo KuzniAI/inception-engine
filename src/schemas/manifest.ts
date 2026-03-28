@@ -52,13 +52,26 @@ export const SkillEntrySchema = z.object({
     }),
   agents: z
     .array(agentIdElement, { message: "agents must be a non-empty array" })
-    .min(1, { message: "agents must be a non-empty array" }),
+    .min(1, { message: "agents must be a non-empty array" })
+    .transform((arr) => [...new Set(arr)]),
 });
 
 export const ManifestSchema = z.object({
-  skills: z.array(SkillEntrySchema),
-  mcpServers: z.array(z.unknown()).catch([]),
-  agentRules: z.array(z.unknown()).catch([]),
+  skills: z.array(SkillEntrySchema).superRefine((skills, ctx) => {
+    const seen = new Set<string>();
+    for (const [i, skill] of skills.entries()) {
+      if (seen.has(skill.name)) {
+        ctx.addIssue({
+          code: "custom",
+          path: [i, "name"],
+          message: `duplicate skill name "${skill.name}"`,
+        });
+      }
+      seen.add(skill.name);
+    }
+  }),
+  mcpServers: z.array(z.unknown()).default([]),
+  agentRules: z.array(z.unknown()).default([]),
 });
 
 export type SkillEntry = z.infer<typeof SkillEntrySchema>;

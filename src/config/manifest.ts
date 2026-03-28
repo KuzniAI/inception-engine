@@ -57,6 +57,17 @@ function validateManifest(data: unknown, filePath: string): Manifest {
       );
     }
 
+    // Top-level "mcpServers" or "agentRules": wrong type → uniform message
+    if (
+      issuePath.length === 1 &&
+      (issuePath[0] === "mcpServers" || issuePath[0] === "agentRules")
+    ) {
+      throw new UserError(
+        "MANIFEST_INVALID",
+        `${filePath}: "${issuePath[0]}" must be an array`,
+      );
+    }
+
     throw new UserError(
       "MANIFEST_INVALID",
       `${filePath}: ${formatZodPath(issuePath)}${issue.message}`,

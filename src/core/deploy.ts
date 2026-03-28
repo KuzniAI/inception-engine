@@ -47,6 +47,8 @@ export async function planDeploy(
     const source = path.resolve(sourceDir, skill.path);
     await validateSourcePath(source, skill.path, resolvedSourceDir, realRoot);
 
+    await validateSkillContract(source, skill.path);
+
     for (const agentId of skill.agents) {
       if (!detectedAgents.includes(agentId)) continue;
 
@@ -141,6 +143,48 @@ async function validateSourcePath(
   } catch (err) {
     if (err instanceof UserError) throw err;
     // Source doesn't exist yet — will be caught during execute
+  }
+}
+
+async function validateSkillContract(
+  source: string,
+  skillPath: string,
+): Promise<void> {
+  let stat: import("node:fs").Stats;
+  try {
+    stat = await lstat(source);
+  } catch (err) {
+    const code = (err as NodeJS.ErrnoException).code;
+    if (code === "ENOENT") {
+      throw new UserError(
+        "DEPLOY_FAILED",
+        `Skill "${skillPath}" source not found: ${source}`,
+      );
+    }
+    if (code === "EACCES" || code === "EPERM") {
+      throw new UserError(
+        "DEPLOY_FAILED",
+        `Permission denied accessing skill "${skillPath}" source: ${source}`,
+      );
+    }
+    throw new UserError(
+      "DEPLOY_FAILED",
+      `Cannot access skill "${skillPath}" source: ${source}`,
+    );
+  }
+  if (!stat.isDirectory()) {
+    throw new UserError(
+      "DEPLOY_FAILED",
+      `Skill "${skillPath}" source is not a directory: ${source}`,
+    );
+  }
+  try {
+    await access(path.join(source, "SKILL.md"));
+  } catch {
+    throw new UserError(
+      "DEPLOY_FAILED",
+      `Skill "${skillPath}" source is missing SKILL.md: ${source}`,
+    );
   }
 }
 
