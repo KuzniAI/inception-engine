@@ -1,0 +1,4 @@
+Work on second roadmap item: **Close the validation gaps with platform-realistic tests**
+   - Add CLI end-to-end tests that exercise `src/index.ts` result codes and user-visible reporting.
+   - Add Windows-realistic coverage for copy deploy or revert, ownership handling, and `%APPDATA%` path behavior.
+   - Add detection-path tests for `where.exe`, missing `which`, and `/bin/sh` fallback, plus ownership tests that verify source trees remain unmodified after deploy and revert.

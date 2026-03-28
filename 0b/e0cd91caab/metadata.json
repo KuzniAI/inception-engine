@@ -1,0 +1,30 @@
+{
+  "cli_version": "0.5.1",
+  "checkpoint_id": "0be0cd91caab",
+  "strategy": "manual-commit",
+  "branch": "main",
+  "checkpoints_count": 1,
+  "files_touched": [
+    "docs/roadmap.md",
+    "src/core/detect.ts",
+    "test/cli.test.ts",
+    "test/deploy.test.ts",
+    "test/detect.test.ts",
+    "test/revert.test.ts"
+  ],
+  "sessions": [
+    {
+      "metadata": "/0b/e0cd91caab/0/metadata.json",
+      "transcript": "/0b/e0cd91caab/0/full.jsonl",
+      "content_hash": "/0b/e0cd91caab/0/content_hash.txt",
+      "prompt": "/0b/e0cd91caab/0/prompt.txt"
+    }
+  ],
+  "token_usage": {
+    "input_tokens": 55,
+    "cache_creation_tokens": 80501,
+    "cache_read_tokens": 2883336,
+    "output_tokens": 24493,
+    "api_call_count": 47
+  }
+}
