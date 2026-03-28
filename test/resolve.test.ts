@@ -93,7 +93,7 @@ describe("resolveHome", () => {
   });
 
   it("throws UserError when SUDO_USER is a non-existent user (only when running as root)", {
-    skip: process.platform === "win32",
+    skip: process.platform === "win32" || process.getuid?.() === 0,
   }, () => {
     const saved = process.env.SUDO_USER;
     try {
