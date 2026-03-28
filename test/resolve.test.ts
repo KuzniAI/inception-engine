@@ -73,7 +73,7 @@ describe("resolveHome", () => {
   });
 
   it("ignores SUDO_USER when not running as root and returns os.homedir()", {
-    skip: process.platform === "win32",
+    skip: process.platform === "win32" || process.getuid?.() === 0,
   }, () => {
     const currentUser = process.env.USER ?? os.userInfo().username;
     if (!currentUser) return;
@@ -93,7 +93,7 @@ describe("resolveHome", () => {
   });
 
   it("throws UserError when SUDO_USER is a non-existent user (only when running as root)", {
-    skip: process.platform === "win32" || process.getuid?.() === 0,
+    skip: process.platform === "win32" || process.getuid?.() !== 0,
   }, () => {
     const saved = process.env.SUDO_USER;
     try {
