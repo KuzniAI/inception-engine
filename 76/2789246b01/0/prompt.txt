@@ -1,0 +1,4 @@
+Work on item 2 from roadmap: 2. **Strengthen planning semantics before widening support**
+   - Add confidence-aware planning so each supported surface can be classified as doc-backed, implementation-only, or speculative, with planner-visible consequences for warnings and support claims (`docs/north-star.md`, `src/config/agents.ts`, `src/core/preflight.ts`).
+   - Preserve agent-specific adapter boundaries instead of drifting toward a single lossy universal deploy model (`docs/north-star.md`, `src/config/agents.ts`, `src/core/deploy.ts`, `src/core/revert.ts`).
+   - Add cross-agent collision and ambiguity handling for overlapping or related targets before more surfaces are introduced (`docs/north-star.md`, `src/core/resolve.ts`, `src/core/deploy.ts`, `src/core/revert.ts`).
