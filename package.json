@@ -41,10 +41,9 @@
     "predev": "node scripts/assert-direct-ts-node.mjs",
     "dev": "node src/index.ts",
     "pretest": "node scripts/assert-direct-ts-node.mjs",
-    "test": "node --test --test-isolation=none test/unit/*.test.ts test/os/cross-platform/*.test.ts test/os/posix/*.test.ts test/os/windows/*.test.ts",
+    "test": "node --test --test-isolation=none test/**/*.test.ts",
     "test:windows": "node --test --test-isolation=none test/unit/*.test.ts test/os/cross-platform/*.test.ts test/os/windows/*.test.ts",
-    "test:posix": "node --test --test-isolation=none test/unit/*.test.ts test/os/cross-platform/*.test.ts test/os/posix/*.test.ts",
-    "prepublishOnly": "npm run typecheck && npm run lint && npm run build"
+    "test:posix": "node --test --test-isolation=none test/unit/*.test.ts test/os/cross-platform/*.test.ts test/os/posix/*.test.ts"
   },
   "dependencies": {
     "zod": "^4.0.0"

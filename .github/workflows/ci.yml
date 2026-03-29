@@ -27,6 +27,8 @@ jobs:
 
       - run: npm run typecheck
 
+      - run: npm run lint
+
       - if: runner.os != 'Windows'
         run: npm run test:posix
 
