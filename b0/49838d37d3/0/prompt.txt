@@ -1,0 +1,3 @@
+Work on this roadmap item: **Add the adapter boundary for future capability surfaces**
+   - Introduce a planner-facing adapter layer that can compile higher-level manifest intent into engine-owned actions for instruction files, MCP configuration, and agent/rule definitions, instead of wiring each future capability directly into ad hoc file writes or config patches.
+   - Keep ownership tracking, revert behavior, conflict detection, and exact dry-run output at the compiled-action layer so new vectors inherit the current safety model rather than reimplementing it.
