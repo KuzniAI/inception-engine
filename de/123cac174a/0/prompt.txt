@@ -1,0 +1,3 @@
+Work on these 2 items from roadmap:
+* Complete planner and manifest-level support for distinct action types so the public engine can actually plan and revert file-write and structured config patch actions, not only execute them when constructed internally (src/core/deploy.ts, src/core/revert.ts, src/config/manifest.ts, src/schemas/manifest.ts).
+* Add enterprise-override awareness so planner and reporting layers can warn when local configuration may not be authoritative, instead of overstating support in constrained environments (docs/north-star.md, src/core/preflight.ts, src/index.ts).

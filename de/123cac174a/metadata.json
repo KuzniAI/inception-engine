@@ -1,0 +1,36 @@
+{
+  "cli_version": "0.5.1",
+  "checkpoint_id": "de123cac174a",
+  "strategy": "manual-commit",
+  "branch": "main",
+  "checkpoints_count": 1,
+  "files_touched": [
+    "README.md",
+    "docs/north-star.md",
+    "docs/roadmap.md",
+    "src/config/agents.ts",
+    "src/config/manifest.ts",
+    "src/core/deploy.ts",
+    "src/core/preflight.ts",
+    "src/core/revert.ts",
+    "src/index.ts",
+    "src/schemas/manifest.ts",
+    "src/types.ts",
+    "test/preflight.test.ts"
+  ],
+  "sessions": [
+    {
+      "metadata": "/de/123cac174a/0/metadata.json",
+      "transcript": "/de/123cac174a/0/full.jsonl",
+      "content_hash": "/de/123cac174a/0/content_hash.txt",
+      "prompt": "/de/123cac174a/0/prompt.txt"
+    }
+  ],
+  "token_usage": {
+    "input_tokens": 85,
+    "cache_creation_tokens": 104723,
+    "cache_read_tokens": 5528148,
+    "output_tokens": 38523,
+    "api_call_count": 77
+  }
+}
