@@ -1,10 +1,9 @@
 import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import os from "node:os";
-import path from "node:path";
 import { UserError } from "../errors.ts";
 import type { AgentConfig } from "../types.ts";
-import { resolveRuntimePaths } from "./runtime-paths.ts";
+import { getPathApi, resolveRuntimePaths } from "./runtime-paths.ts";
 
 export function resolveHome(): string {
   if (process.platform === "win32") {
@@ -162,5 +161,6 @@ export function resolvePlaceholders(
       .replace("{appdata}", appdata)
       .replace("{xdg_config}", xdgConfig),
   );
-  return path.join(...resolved);
+  const root = resolved.find((segment) => segment.length > 0) ?? home;
+  return getPathApi(root).join(...resolved);
 }

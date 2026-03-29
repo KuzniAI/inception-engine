@@ -15,6 +15,12 @@ import { UserError } from "../../../src/errors.ts";
 
 const HOME = "/home/u";
 const SKILL = "s";
+const posixJoin = path.posix.join;
+const joinLikeRoot = (root: string, ...segments: string[]) =>
+  (root.includes("\\") || /^[a-zA-Z]:/.test(root)
+    ? path.win32
+    : path.posix
+  ).join(root, ...segments);
 
 function getAgent(id: string) {
   const agent = AGENT_REGISTRY.find((a) => a.id === id);
@@ -33,7 +39,7 @@ describe("resolveAgentSkillPathFor — posix", () => {
     const agent = getAgent("claude-code");
     assert.equal(
       resolveAgentSkillPathFor(agent, SKILL, HOME, p),
-      path.join(HOME, ".claude", "skills", SKILL),
+      posixJoin(HOME, ".claude", "skills", SKILL),
     );
   });
 
@@ -41,7 +47,7 @@ describe("resolveAgentSkillPathFor — posix", () => {
     const agent = getAgent("codex");
     assert.equal(
       resolveAgentSkillPathFor(agent, SKILL, HOME, p),
-      path.join(HOME, ".codex", "skills", SKILL),
+      posixJoin(HOME, ".codex", "skills", SKILL),
     );
   });
 
@@ -49,7 +55,7 @@ describe("resolveAgentSkillPathFor — posix", () => {
     const agent = getAgent("gemini-cli");
     assert.equal(
       resolveAgentSkillPathFor(agent, SKILL, HOME, p),
-      path.join(HOME, ".gemini", "skills", SKILL),
+      posixJoin(HOME, ".gemini", "skills", SKILL),
     );
   });
 
@@ -57,7 +63,7 @@ describe("resolveAgentSkillPathFor — posix", () => {
     const agent = getAgent("antigravity");
     assert.equal(
       resolveAgentSkillPathFor(agent, SKILL, HOME, p),
-      path.join(HOME, ".gemini", "antigravity", "skills", SKILL),
+      posixJoin(HOME, ".gemini", "antigravity", "skills", SKILL),
     );
   });
 
@@ -68,7 +74,7 @@ describe("resolveAgentSkillPathFor — posix", () => {
       delete process.env.XDG_CONFIG_HOME;
       assert.equal(
         resolveAgentSkillPathFor(agent, SKILL, HOME, p),
-        path.join(HOME, ".config", "opencode", "skills", SKILL),
+        posixJoin(HOME, ".config", "opencode", "skills", SKILL),
       );
     } finally {
       if (saved === undefined) delete process.env.XDG_CONFIG_HOME;
@@ -83,7 +89,7 @@ describe("resolveAgentSkillPathFor — posix", () => {
       process.env.XDG_CONFIG_HOME = "/custom/config";
       assert.equal(
         resolveAgentSkillPathFor(agent, SKILL, HOME, p),
-        path.join("/custom/config", "opencode", "skills", SKILL),
+        posixJoin("/custom/config", "opencode", "skills", SKILL),
       );
     } finally {
       if (saved === undefined) delete process.env.XDG_CONFIG_HOME;
@@ -98,7 +104,7 @@ describe("resolveAgentSkillPathFor — posix", () => {
       process.env.XDG_CONFIG_HOME = "relative/path";
       assert.equal(
         resolveAgentSkillPathFor(agent, SKILL, HOME, p),
-        path.join(HOME, ".config", "opencode", "skills", SKILL),
+        posixJoin(HOME, ".config", "opencode", "skills", SKILL),
       );
     } finally {
       if (saved === undefined) delete process.env.XDG_CONFIG_HOME;
@@ -110,7 +116,7 @@ describe("resolveAgentSkillPathFor — posix", () => {
     const agent = getAgent("github-copilot");
     assert.equal(
       resolveAgentSkillPathFor(agent, SKILL, HOME, p),
-      path.join(HOME, ".copilot", "skills", SKILL),
+      posixJoin(HOME, ".copilot", "skills", SKILL),
     );
   });
 });
@@ -126,7 +132,7 @@ describe("resolveAgentSkillPathFor — windows", () => {
     const agent = getAgent("claude-code");
     assert.equal(
       resolveAgentSkillPathFor(agent, SKILL, HOME, p),
-      path.join(HOME, ".claude", "skills", SKILL),
+      posixJoin(HOME, ".claude", "skills", SKILL),
     );
   });
 
@@ -138,7 +144,7 @@ describe("resolveAgentSkillPathFor — windows", () => {
       process.env.APPDATA = appdata;
       assert.equal(
         resolveAgentSkillPathFor(agent, SKILL, HOME, p),
-        path.join(appdata, "opencode", "skills", SKILL),
+        joinLikeRoot(appdata, "opencode", "skills", SKILL),
       );
     } finally {
       if (saved === undefined) delete process.env.APPDATA;
@@ -153,7 +159,7 @@ describe("resolveAgentSkillPathFor — windows", () => {
       delete process.env.APPDATA;
       assert.equal(
         resolveAgentSkillPathFor(agent, SKILL, HOME, p),
-        path.join(HOME, "AppData", "Roaming", "opencode", "skills", SKILL),
+        posixJoin(HOME, "AppData", "Roaming", "opencode", "skills", SKILL),
       );
     } finally {
       if (saved === undefined) delete process.env.APPDATA;
@@ -165,7 +171,7 @@ describe("resolveAgentSkillPathFor — windows", () => {
     const agent = getAgent("antigravity");
     assert.equal(
       resolveAgentSkillPathFor(agent, SKILL, HOME, p),
-      path.join(HOME, ".gemini", "antigravity", "skills", SKILL),
+      posixJoin(HOME, ".gemini", "antigravity", "skills", SKILL),
     );
   });
 
@@ -173,7 +179,7 @@ describe("resolveAgentSkillPathFor — windows", () => {
     const agent = getAgent("github-copilot");
     assert.equal(
       resolveAgentSkillPathFor(agent, SKILL, HOME, p),
-      path.join(HOME, ".copilot", "skills", SKILL),
+      posixJoin(HOME, ".copilot", "skills", SKILL),
     );
   });
 });
@@ -189,7 +195,7 @@ describe("resolveAgentDetectPathFor — posix", () => {
     const agent = getAgent("claude-code");
     assert.equal(
       resolveAgentDetectPathFor(agent, HOME, p),
-      path.join(HOME, ".claude"),
+      posixJoin(HOME, ".claude"),
     );
   });
 
@@ -200,7 +206,7 @@ describe("resolveAgentDetectPathFor — posix", () => {
       delete process.env.XDG_CONFIG_HOME;
       assert.equal(
         resolveAgentDetectPathFor(agent, HOME, p),
-        path.join(HOME, ".config", "opencode"),
+        posixJoin(HOME, ".config", "opencode"),
       );
     } finally {
       if (saved === undefined) delete process.env.XDG_CONFIG_HOME;
@@ -215,7 +221,7 @@ describe("resolveAgentDetectPathFor — posix", () => {
       process.env.XDG_CONFIG_HOME = "/custom/config";
       assert.equal(
         resolveAgentDetectPathFor(agent, HOME, p),
-        path.join("/custom/config", "opencode"),
+        posixJoin("/custom/config", "opencode"),
       );
     } finally {
       if (saved === undefined) delete process.env.XDG_CONFIG_HOME;
@@ -227,7 +233,7 @@ describe("resolveAgentDetectPathFor — posix", () => {
     const agent = getAgent("antigravity");
     assert.equal(
       resolveAgentDetectPathFor(agent, HOME, p),
-      path.join(HOME, ".gemini", "antigravity"),
+      posixJoin(HOME, ".gemini", "antigravity"),
     );
   });
 });
@@ -247,7 +253,7 @@ describe("resolveAgentDetectPathFor — windows", () => {
       process.env.APPDATA = appdata;
       assert.equal(
         resolveAgentDetectPathFor(agent, HOME, p),
-        path.join(appdata, "opencode"),
+        joinLikeRoot(appdata, "opencode"),
       );
     } finally {
       if (saved === undefined) delete process.env.APPDATA;
@@ -259,7 +265,7 @@ describe("resolveAgentDetectPathFor — windows", () => {
     const agent = getAgent("claude-code");
     assert.equal(
       resolveAgentDetectPathFor(agent, HOME, p),
-      path.join(HOME, ".claude"),
+      posixJoin(HOME, ".claude"),
     );
   });
 });
@@ -459,7 +465,7 @@ describe("resolveTargetTemplate", () => {
       delete process.env.APPDATA;
       assert.equal(
         resolveTargetTemplate("{appdata}/opencode/AGENTS.md", "/home/u"),
-        `${path.join("/home/u", "AppData", "Roaming")}/opencode/AGENTS.md`,
+        `${posixJoin("/home/u", "AppData", "Roaming")}/opencode/AGENTS.md`,
       );
     } finally {
       if (saved === undefined) delete process.env.APPDATA;
@@ -479,7 +485,7 @@ describe("resolveTargetTemplate", () => {
       process.env.XDG_CONFIG_HOME = "relative/path";
       assert.equal(
         resolveTargetTemplate("{xdg_config}/opencode/AGENTS.md", "/home/u"),
-        `${path.join("/home/u", ".config")}/opencode/AGENTS.md`,
+        `${posixJoin("/home/u", ".config")}/opencode/AGENTS.md`,
       );
     } finally {
       if (saved === undefined) delete process.env.XDG_CONFIG_HOME;

@@ -10,6 +10,8 @@ import type {
   FileWriteDeployAction,
 } from "../../src/types.ts";
 
+const posixJoin = path.posix.join;
+
 function makeTmpDir(): string {
   const dir = path.join(
     os.tmpdir(),
@@ -192,7 +194,7 @@ describe("compileAgentRuleActions", () => {
       assert.equal(action.agent, "claude-code");
       assert.equal(action.source, rulesFile);
       assert.ok(
-        action.target.endsWith(path.join(".claude", "CLAUDE.md")),
+        action.target.endsWith(posixJoin(".claude", "CLAUDE.md")),
         `expected target under .claude/CLAUDE.md, got: ${action.target}`,
       );
       assert.equal(action.confidence, "documented");

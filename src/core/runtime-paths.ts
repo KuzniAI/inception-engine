@@ -10,7 +10,9 @@ type TargetRoot = "home" | "appdata" | "xdg_config";
 const TARGET_TEMPLATE_RE =
   /^\{(home|appdata|xdg_config)\}(?<suffix>(?:[\\/].*)?)$/;
 
-function getPathApi(root: string): typeof path.posix | typeof path.win32 {
+export function getPathApi(
+  root: string,
+): typeof path.posix | typeof path.win32 {
   if (root.includes("\\") || /^[a-zA-Z]:/.test(root)) {
     return path.win32;
   }
@@ -40,13 +42,16 @@ function isSameOrDescendantPath(candidate: string, root: string): boolean {
 
 export function resolveRuntimePaths(home: string): RuntimePaths {
   const appdataRaw = process.env.APPDATA;
+  const homePathApi = getPathApi(home);
   const appdata =
-    appdataRaw && path.isAbsolute(appdataRaw)
+    appdataRaw && getPathApi(appdataRaw).isAbsolute(appdataRaw)
       ? appdataRaw
-      : path.join(home, "AppData", "Roaming");
+      : homePathApi.join(home, "AppData", "Roaming");
   const xdgRaw = process.env.XDG_CONFIG_HOME;
   const xdgConfig =
-    xdgRaw && path.isAbsolute(xdgRaw) ? xdgRaw : path.join(home, ".config");
+    xdgRaw && getPathApi(xdgRaw).isAbsolute(xdgRaw)
+      ? xdgRaw
+      : homePathApi.join(home, ".config");
   return { appdata, xdgConfig };
 }
 

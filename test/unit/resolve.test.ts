@@ -11,6 +11,8 @@ import {
 import { resolveTargetTemplate } from "../../src/core/runtime-paths.ts";
 import { UserError } from "../../src/errors.ts";
 
+const posixJoin = path.posix.join;
+
 function getAgent(id: string) {
   const agent = AGENT_REGISTRY.find((a) => a.id === id);
   assert.ok(agent, `agent "${id}" not found in AGENT_REGISTRY`);
@@ -23,7 +25,7 @@ describe("resolveAgentSkillPath", () => {
     const result = resolveAgentSkillPath(claude, "my-skill", "/Users/test");
     assert.equal(
       result,
-      path.join("/Users/test", ".claude", "skills", "my-skill"),
+      posixJoin("/Users/test", ".claude", "skills", "my-skill"),
     );
   });
 
@@ -39,7 +41,7 @@ describe("resolveAgentSkillPath", () => {
     const result = resolveAgentSkillPath(antigravity, "my-skill", "/home/user");
     assert.equal(
       result,
-      path.join("/home/user", ".gemini", "antigravity", "skills", "my-skill"),
+      posixJoin("/home/user", ".gemini", "antigravity", "skills", "my-skill"),
     );
   });
 });
