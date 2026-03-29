@@ -1,0 +1,2 @@
+Plan changes for this work item:
+   - Replace user-facing log-string dry-run summaries with structured exact-change reporting that the CLI actually surfaces, instead of only returning `planned` entries from the executor internals (`src/core/deploy.ts`, `src/core/revert.ts`, `src/index.ts`, `src/logger.ts`).
