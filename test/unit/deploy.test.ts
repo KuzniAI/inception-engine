@@ -14,17 +14,20 @@ import { readdir } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { describe, it } from "node:test";
-import { executeDeploy, planDeploy } from "../src/core/deploy.ts";
-import { lookupDeployment, registerDeployment } from "../src/core/ownership.ts";
-import { executeRevert, planRevert } from "../src/core/revert.ts";
-import { UserError } from "../src/errors.ts";
-import { logger } from "../src/logger.ts";
+import { executeDeploy, planDeploy } from "../../src/core/deploy.ts";
+import {
+  lookupDeployment,
+  registerDeployment,
+} from "../../src/core/ownership.ts";
+import { executeRevert, planRevert } from "../../src/core/revert.ts";
+import { UserError } from "../../src/errors.ts";
+import { logger } from "../../src/logger.ts";
 import type {
   ConfigPatchDeployAction,
   DeployAction,
   FileWriteDeployAction,
   Manifest,
-} from "../src/types.ts";
+} from "../../src/types.ts";
 
 logger.silence();
 
@@ -839,7 +842,7 @@ describe("atomic redeploy behavior", {
       const target = path.join(home, ".claude", "skills", "test-skill");
       mkdirSync(path.dirname(target), { recursive: true });
 
-      const firstAction: import("../src/types.ts").DeployAction = {
+      const firstAction: import("../../src/types.ts").DeployAction = {
         kind: "skill-dir",
         skill: "test-skill",
         agent: "claude-code",
@@ -865,7 +868,7 @@ describe("atomic redeploy behavior", {
       chmodSync(unreadableSource, 0o000);
 
       const backupPath = `${target}.inception-backup`;
-      const failAction: import("../src/types.ts").DeployAction = {
+      const failAction: import("../../src/types.ts").DeployAction = {
         kind: "skill-dir",
         skill: "test-skill",
         agent: "claude-code",

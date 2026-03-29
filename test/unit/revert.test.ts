@@ -11,18 +11,21 @@ import {
 import os from "node:os";
 import path from "node:path";
 import { describe, it } from "node:test";
-import { lookupDeployment, registerDeployment } from "../src/core/ownership.ts";
+import {
+  lookupDeployment,
+  registerDeployment,
+} from "../../src/core/ownership.ts";
 import {
   executeRevert,
   planRevert,
   planRevertAll,
-} from "../src/core/revert.ts";
-import { logger } from "../src/logger.ts";
+} from "../../src/core/revert.ts";
+import { logger } from "../../src/logger.ts";
 import type {
   ConfigPatchRevertAction,
   FileWriteRevertAction,
   Manifest,
-} from "../src/types.ts";
+} from "../../src/types.ts";
 
 logger.silence();
 

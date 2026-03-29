@@ -15,6 +15,11 @@ export type { RegistryEntry } from "../schemas/registry.ts";
 const REGISTRY_DIR = ".inception-engine";
 const REGISTRY_FILE = "registry.json";
 
+export interface RegistryPersistence {
+  load(home: string): Promise<Registry>;
+  save(home: string, registry: Registry): Promise<void>;
+}
+
 export type VerifyExpected =
   | { kind: "skill-dir"; source: string; skill: string; agent: AgentId }
   | { kind: "file-write"; source: string; skill: string; agent: AgentId }
@@ -43,6 +48,11 @@ async function saveRegistry(home: string, registry: Registry): Promise<void> {
   await setFilePermissions(filePath);
 }
 
+export const defaultRegistryPersistence: RegistryPersistence = {
+  load: loadRegistry,
+  save: saveRegistry,
+};
+
 /**
  * Ensure the file is not world-writable regardless of umask.
  * On Windows, the OS inherits ACLs from the parent directory — no-op is correct.
@@ -66,30 +76,33 @@ export async function registerDeployment(
   home: string,
   targetPath: string,
   entry: RegisterEntry,
+  persistence: RegistryPersistence = defaultRegistryPersistence,
 ): Promise<void> {
-  const registry = await loadRegistry(home);
+  const registry = await persistence.load(home);
   registry.deployments[targetPath] = {
     ...entry,
     deployed: new Date().toISOString(),
   } as RegistryEntry;
-  await saveRegistry(home, registry);
+  await persistence.save(home, registry);
 }
 
 export async function unregisterDeployment(
   home: string,
   targetPath: string,
+  persistence: RegistryPersistence = defaultRegistryPersistence,
 ): Promise<void> {
-  const registry = await loadRegistry(home);
+  const registry = await persistence.load(home);
   if (!(targetPath in registry.deployments)) return;
   delete registry.deployments[targetPath];
-  await saveRegistry(home, registry);
+  await persistence.save(home, registry);
 }
 
 export async function lookupDeployment(
   home: string,
   targetPath: string,
+  persistence: RegistryPersistence = defaultRegistryPersistence,
 ): Promise<RegistryEntry | null> {
-  const registry = await loadRegistry(home);
+  const registry = await persistence.load(home);
   return registry.deployments[targetPath] ?? null;
 }
 
@@ -97,8 +110,9 @@ export async function verifyDeployment(
   home: string,
   targetPath: string,
   expected: VerifyExpected,
+  persistence: RegistryPersistence = defaultRegistryPersistence,
 ): Promise<RegistryEntry | null> {
-  const entry = await lookupDeployment(home, targetPath);
+  const entry = await lookupDeployment(home, targetPath, persistence);
   if (!entry) return null;
   if (entry.kind !== expected.kind) return null;
   if (entry.skill !== expected.skill) return null;

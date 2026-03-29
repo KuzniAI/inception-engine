@@ -3,12 +3,12 @@ import { mkdirSync, realpathSync, rmSync, writeFileSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { describe, it } from "node:test";
-import { compileMcpServerActions } from "../src/core/adapters/mcp.ts";
-import { compileAgentRuleActions } from "../src/core/adapters/rules.ts";
+import { compileMcpServerActions } from "../../src/core/adapters/mcp.ts";
+import { compileAgentRuleActions } from "../../src/core/adapters/rules.ts";
 import type {
   ConfigPatchDeployAction,
   FileWriteDeployAction,
-} from "../src/types.ts";
+} from "../../src/types.ts";
 
 function makeTmpDir(): string {
   const dir = path.join(

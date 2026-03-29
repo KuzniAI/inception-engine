@@ -3,8 +3,8 @@ import { chmodSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { describe, it } from "node:test";
-import { loadManifest } from "../src/config/manifest.ts";
-import { UserError } from "../src/errors.ts";
+import { loadManifest } from "../../src/config/manifest.ts";
+import { UserError } from "../../src/errors.ts";
 
 function makeTmpDir(): string {
   const dir = path.join(

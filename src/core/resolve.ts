@@ -4,6 +4,7 @@ import os from "node:os";
 import path from "node:path";
 import { UserError } from "../errors.ts";
 import type { AgentConfig } from "../types.ts";
+import { resolveRuntimePaths } from "./runtime-paths.ts";
 
 export function resolveHome(): string {
   if (process.platform === "win32") {
@@ -153,10 +154,7 @@ export function resolvePlaceholders(
   skillName: string,
   home: string,
 ): string {
-  const appdata = process.env.APPDATA ?? path.join(home, "AppData", "Roaming");
-  const xdgRaw = process.env.XDG_CONFIG_HOME;
-  const xdgConfig =
-    xdgRaw && path.isAbsolute(xdgRaw) ? xdgRaw : path.join(home, ".config");
+  const { appdata, xdgConfig } = resolveRuntimePaths(home);
   const resolved = segments.map((seg) =>
     seg
       .replace("{home}", home)

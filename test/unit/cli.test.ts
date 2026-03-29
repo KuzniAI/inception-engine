@@ -5,7 +5,7 @@ import os from "node:os";
 import path from "node:path";
 import { describe, it } from "node:test";
 
-const PROJECT_ROOT = path.resolve(import.meta.dirname, "..");
+const PROJECT_ROOT = path.resolve(import.meta.dirname, "..", "..");
 
 interface RunResult {
   stdout: string;

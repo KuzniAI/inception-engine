@@ -3,13 +3,15 @@ import type { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import { describe, it } from "node:test";
-import { AGENT_REGISTRY } from "../src/config/agents.ts";
+import { AGENT_REGISTRY } from "../../../src/config/agents.ts";
 import {
+  getDeployMethod,
   lookupHomeForUserWith,
   resolveAgentDetectPathFor,
   resolveAgentSkillPathFor,
-} from "../src/core/resolve.ts";
-import { UserError } from "../src/errors.ts";
+} from "../../../src/core/resolve.ts";
+import { resolveTargetTemplate } from "../../../src/core/runtime-paths.ts";
+import { UserError } from "../../../src/errors.ts";
 
 const HOME = "/home/u";
 const SKILL = "s";
@@ -432,6 +434,65 @@ describe("lookupHomeForUserWith — all methods fail", () => {
         assert.match(err.message, /Cannot determine home directory/);
         return true;
       },
+    );
+  });
+});
+
+describe("resolveTargetTemplate", () => {
+  it("uses APPDATA for Windows-style target templates", () => {
+    const saved = process.env.APPDATA;
+    try {
+      process.env.APPDATA = "C:\\Users\\u\\AppData\\Roaming";
+      assert.equal(
+        resolveTargetTemplate("{appdata}\\opencode\\AGENTS.md", "/unused/home"),
+        "C:\\Users\\u\\AppData\\Roaming\\opencode\\AGENTS.md",
+      );
+    } finally {
+      if (saved === undefined) delete process.env.APPDATA;
+      else process.env.APPDATA = saved;
+    }
+  });
+
+  it("falls back to home/AppData/Roaming when APPDATA is unset", () => {
+    const saved = process.env.APPDATA;
+    try {
+      delete process.env.APPDATA;
+      assert.equal(
+        resolveTargetTemplate("{appdata}/opencode/AGENTS.md", "/home/u"),
+        path.join("/home/u", "AppData", "Roaming") + "/opencode/AGENTS.md",
+      );
+    } finally {
+      if (saved === undefined) delete process.env.APPDATA;
+      else process.env.APPDATA = saved;
+    }
+  });
+
+  it("uses absolute XDG_CONFIG_HOME and ignores relative values", () => {
+    const saved = process.env.XDG_CONFIG_HOME;
+    try {
+      process.env.XDG_CONFIG_HOME = "/custom/config";
+      assert.equal(
+        resolveTargetTemplate("{xdg_config}/opencode/AGENTS.md", "/home/u"),
+        "/custom/config/opencode/AGENTS.md",
+      );
+
+      process.env.XDG_CONFIG_HOME = "relative/path";
+      assert.equal(
+        resolveTargetTemplate("{xdg_config}/opencode/AGENTS.md", "/home/u"),
+        path.join("/home/u", ".config") + "/opencode/AGENTS.md",
+      );
+    } finally {
+      if (saved === undefined) delete process.env.XDG_CONFIG_HOME;
+      else process.env.XDG_CONFIG_HOME = saved;
+    }
+  });
+});
+
+describe("getDeployMethod", () => {
+  it("returns a host-appropriate skill-dir deployment method", () => {
+    assert.equal(
+      getDeployMethod(),
+      process.platform === "win32" ? "copy" : "symlink",
     );
   });
 });

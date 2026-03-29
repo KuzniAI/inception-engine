@@ -10,7 +10,7 @@ import {
   isBinaryViaCommandV,
   isBinaryViaWhereExe,
   isBinaryViaWhich,
-} from "../src/core/detect.ts";
+} from "../../src/core/detect.ts";
 
 function makeTmpDir(): string {
   const dir = path.join(

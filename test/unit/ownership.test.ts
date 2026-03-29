@@ -10,12 +10,13 @@ import os from "node:os";
 import path from "node:path";
 import { describe, it } from "node:test";
 import {
+  defaultRegistryPersistence,
   lookupDeployment,
   registerDeployment,
   registryPath,
   unregisterDeployment,
   verifyDeployment,
-} from "../src/core/ownership.ts";
+} from "../../src/core/ownership.ts";
 
 function makeTmpDir(): string {
   const dir = path.join(
@@ -111,47 +112,6 @@ describe("registerDeployment", () => {
         agent: "claude-code",
         method: "symlink",
       });
-
-      it("throws when registry file is read-only on Windows", {
-        skip: process.platform !== "win32",
-      }, async () => {
-        const home = makeTmpDir();
-        try {
-          await registerDeployment(home, "/fake/target", {
-            kind: "skill-dir",
-            source: "/fake/source",
-            skill: "my-skill",
-            agent: "claude-code",
-            method: "copy",
-          });
-          const { chmodSync } = await import("node:fs");
-          chmodSync(registryPath(home), 0o444);
-
-          await assert.rejects(
-            registerDeployment(home, "/fake/target2", {
-              kind: "skill-dir",
-              source: "/fake/source2",
-              skill: "my-skill",
-              agent: "claude-code",
-              method: "copy",
-            }),
-            (err: unknown) => {
-              return (
-                (err as NodeJS.ErrnoException).code === "EPERM" ||
-                (err as NodeJS.ErrnoException).code === "EACCES"
-              );
-            },
-          );
-        } finally {
-          const { chmodSync } = await import("node:fs");
-          try {
-            chmodSync(registryPath(home), 0o666);
-          } catch {
-            /* best effort */
-          }
-          rmSync(home, { recursive: true, force: true });
-        }
-      });
       await registerDeployment(home, "/target/b", {
         kind: "skill-dir",
         source: "/src/b",
@@ -165,6 +125,34 @@ describe("registerDeployment", () => {
       assert.ok(registry.deployments["/target/b"]);
     } finally {
       rmSync(home, { recursive: true });
+    }
+  });
+
+  it("surfaces persistence failures from the registry writer", async () => {
+    const home = makeTmpDir();
+    try {
+      await assert.rejects(
+        registerDeployment(
+          home,
+          "/fake/target",
+          {
+            kind: "skill-dir",
+            source: "/fake/source",
+            skill: "my-skill",
+            agent: "claude-code",
+            method: "copy",
+          },
+          {
+            load: defaultRegistryPersistence.load,
+            async save() {
+              throw new Error("simulated registry persistence failure");
+            },
+          },
+        ),
+        /simulated registry persistence failure/,
+      );
+    } finally {
+      rmSync(home, { recursive: true, force: true });
     }
   });
 });

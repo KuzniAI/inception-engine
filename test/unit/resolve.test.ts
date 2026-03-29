@@ -2,13 +2,13 @@ import assert from "node:assert/strict";
 import os from "node:os";
 import path from "node:path";
 import { describe, it } from "node:test";
-import { AGENT_REGISTRY } from "../src/config/agents.ts";
+import { AGENT_REGISTRY } from "../../src/config/agents.ts";
 import {
   resolveAgentDetectPath,
   resolveAgentSkillPath,
   resolveHome,
-} from "../src/core/resolve.ts";
-import { UserError } from "../src/errors.ts";
+} from "../../src/core/resolve.ts";
+import { UserError } from "../../src/errors.ts";
 
 function getAgent(id: string) {
   const agent = AGENT_REGISTRY.find((a) => a.id === id);

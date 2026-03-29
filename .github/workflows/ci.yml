@@ -7,9 +7,12 @@ on:
 
 jobs:
   ci:
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.os }}
     env:
       FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest]
 
     steps:
       - uses: actions/checkout@v6
@@ -24,4 +27,8 @@ jobs:
 
       - run: npm run typecheck
 
-      - run: npm test
+      - if: runner.os != 'Windows'
+        run: npm run test:posix
+
+      - if: runner.os == 'Windows'
+        run: npm run test:windows

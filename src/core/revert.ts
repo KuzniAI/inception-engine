@@ -16,19 +16,13 @@ import {
   compileMcpServerReverts,
   compileAgentRuleReverts,
 } from "./adapters/index.ts";
-import { lookupDeployment, unregisterDeployment } from "./ownership.ts";
+import {
+  type RegistryPersistence,
+  lookupDeployment,
+  unregisterDeployment,
+} from "./ownership.ts";
 import { resolveAgentSkillPath } from "./resolve.ts";
-
-function resolveTargetTemplate(template: string, home: string): string {
-  const appdata = process.env.APPDATA ?? path.join(home, "AppData", "Roaming");
-  const xdgRaw = process.env.XDG_CONFIG_HOME;
-  const xdgConfig =
-    xdgRaw && path.isAbsolute(xdgRaw) ? xdgRaw : path.join(home, ".config");
-  return template
-    .replace("{home}", home)
-    .replace("{appdata}", appdata)
-    .replace("{xdg_config}", xdgConfig);
-}
+import { resolveTargetTemplate } from "./runtime-paths.ts";
 
 function buildSkillDirReverts(
   manifest: Manifest,
@@ -206,6 +200,7 @@ export async function executeRevert(
   dryRun: boolean,
   verbose: boolean,
   home: string,
+  deps: RevertDependencies = {},
 ): Promise<{
   succeeded: number;
   skipped: number;
@@ -228,10 +223,18 @@ export async function executeRevert(
           verbose,
           home,
           planned,
+          deps,
         );
         break;
       case "file-write":
-        result = await revertFileWrite(action, dryRun, verbose, home, planned);
+        result = await revertFileWrite(
+          action,
+          dryRun,
+          verbose,
+          home,
+          planned,
+          deps,
+        );
         break;
       case "config-patch":
         result = await revertConfigPatch(
@@ -240,6 +243,7 @@ export async function executeRevert(
           verbose,
           home,
           planned,
+          deps,
         );
         break;
       default:
@@ -254,12 +258,17 @@ export async function executeRevert(
   return { succeeded, skipped, failed, planned };
 }
 
+interface RevertDependencies {
+  registry?: RegistryPersistence;
+}
+
 async function executeRevertAction(
   action: RevertAction,
   dryRun: boolean,
   verbose: boolean,
   home: string,
   planned: PlannedChange[],
+  deps: RevertDependencies,
 ): Promise<RevertOutcome> {
   const label = `${action.skill} -> ${action.agent}`;
 
@@ -275,7 +284,7 @@ async function executeRevertAction(
     return result;
   }
 
-  const entry = await lookupDeployment(home, action.target);
+  const entry = await lookupDeployment(home, action.target, deps.registry);
   if (!entry || entry.skill !== action.skill || entry.agent !== action.agent) {
     logger.warn(
       label,
@@ -304,7 +313,7 @@ async function executeRevertAction(
     } else {
       await rm(action.target, { recursive: true });
     }
-    await unregisterDeployment(home, action.target);
+    await unregisterDeployment(home, action.target, deps.registry);
     logger.ok(label);
     if (verbose) {
       logger.detail(`removed: ${action.target}`);
@@ -328,6 +337,7 @@ async function revertFileWrite(
   verbose: boolean,
   home: string,
   planned: PlannedChange[],
+  deps: RevertDependencies,
 ): Promise<RevertOutcome> {
   const label = `${action.skill} -> ${action.agent}`;
 
@@ -343,7 +353,7 @@ async function revertFileWrite(
     return result;
   }
 
-  const entry = await lookupDeployment(home, action.target);
+  const entry = await lookupDeployment(home, action.target, deps.registry);
   if (!entry || entry.skill !== action.skill || entry.agent !== action.agent) {
     logger.warn(
       label,
@@ -368,7 +378,7 @@ async function revertFileWrite(
     // removal window; handle the case where the file has since disappeared.
     await lstat(action.target);
     await unlink(action.target);
-    await unregisterDeployment(home, action.target);
+    await unregisterDeployment(home, action.target, deps.registry);
     logger.ok(label);
     if (verbose) {
       logger.detail(`removed: ${action.target}`);
@@ -391,6 +401,7 @@ async function revertConfigPatch(
   verbose: boolean,
   home: string,
   planned: PlannedChange[],
+  deps: RevertDependencies,
 ): Promise<RevertOutcome> {
   const label = `${action.skill} -> ${action.agent}`;
 
@@ -406,7 +417,7 @@ async function revertConfigPatch(
     return result;
   }
 
-  const entry = await lookupDeployment(home, action.target);
+  const entry = await lookupDeployment(home, action.target, deps.registry);
   if (
     !entry ||
     entry.kind !== "config-patch" ||
@@ -443,7 +454,7 @@ async function revertConfigPatch(
       `${JSON.stringify(restored, null, 2)}\n`,
       "utf-8",
     );
-    await unregisterDeployment(home, action.target);
+    await unregisterDeployment(home, action.target, deps.registry);
     logger.ok(label);
     if (verbose) {
       logger.detail(`unapplied patch from: ${action.target}`);

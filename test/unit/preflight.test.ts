@@ -1,8 +1,8 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { runPreflight } from "../src/core/preflight.ts";
-import { logger } from "../src/logger.ts";
-import type { CliOptions, Manifest } from "../src/types.ts";
+import { runPreflight } from "../../src/core/preflight.ts";
+import { logger } from "../../src/logger.ts";
+import type { CliOptions, Manifest } from "../../src/types.ts";
 
 logger.silence();
 

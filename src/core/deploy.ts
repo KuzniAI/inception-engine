@@ -28,12 +28,14 @@ import type {
   SkillDirDeployAction,
 } from "../types.ts";
 import {
+  type RegistryPersistence,
   lookupDeployment,
   registerDeployment,
   verifyDeployment,
 } from "./ownership.ts";
 import { compileAdapterActions } from "./adapters/index.ts";
 import { getDeployMethod, resolveAgentSkillPath } from "./resolve.ts";
+import { resolveTargetTemplate } from "./runtime-paths.ts";
 import {
   sourceAccessError,
   validateSourceFile,
@@ -105,17 +107,6 @@ function applyMergePatch(
     }
   }
   return patched;
-}
-
-function resolveTargetTemplate(template: string, home: string): string {
-  const appdata = process.env.APPDATA ?? path.join(home, "AppData", "Roaming");
-  const xdgRaw = process.env.XDG_CONFIG_HOME;
-  const xdgConfig =
-    xdgRaw && path.isAbsolute(xdgRaw) ? xdgRaw : path.join(home, ".config");
-  return template
-    .replace("{home}", home)
-    .replace("{appdata}", appdata)
-    .replace("{xdg_config}", xdgConfig);
 }
 
 function detectCollisions(actions: DeployAction[]): PlanWarning[] {
@@ -300,6 +291,7 @@ export async function executeDeploy(
   dryRun: boolean,
   verbose: boolean,
   home: string,
+  deps: DeployDependencies = {},
 ): Promise<{
   succeeded: number;
   failed: Array<{ action: DeployAction; error: string }>;
@@ -318,6 +310,7 @@ export async function executeDeploy(
           verbose,
           home,
           planned,
+          deps,
         );
         if (result.error === null) {
           succeeded++;
@@ -333,6 +326,7 @@ export async function executeDeploy(
           verbose,
           home,
           planned,
+          deps,
         );
         if (result.error === null) {
           succeeded++;
@@ -348,6 +342,7 @@ export async function executeDeploy(
           verbose,
           home,
           planned,
+          deps,
         );
         if (result.error === null) {
           succeeded++;
@@ -365,12 +360,41 @@ export async function executeDeploy(
   return { succeeded, failed, planned };
 }
 
+interface SkillDirOps {
+  createTarget(action: SkillDirDeployAction): Promise<void>;
+  removeTarget(targetPath: string): Promise<void>;
+}
+
+interface DeployDependencies {
+  registry?: RegistryPersistence;
+  skillDirOps?: SkillDirOps;
+}
+
+const defaultSkillDirOps: SkillDirOps = {
+  async createTarget(action) {
+    if (action.method === "symlink") {
+      await symlink(action.source, action.target, "dir");
+    } else {
+      await cp(action.source, action.target, { recursive: true });
+    }
+  },
+  async removeTarget(targetPath) {
+    const stat = await lstat(targetPath);
+    if (stat.isSymbolicLink()) {
+      await unlink(targetPath);
+    } else {
+      await rm(targetPath, { recursive: true });
+    }
+  },
+};
+
 async function deploySkillDir(
   action: SkillDirDeployAction,
   dryRun: boolean,
   verbose: boolean,
   home: string,
   planned: PlannedChange[],
+  deps: DeployDependencies,
 ): Promise<{ error: string | null }> {
   const label = `${action.skill} -> ${action.agent}`;
 
@@ -397,7 +421,7 @@ async function deploySkillDir(
   }
 
   try {
-    await executeDeployAction(action, verbose, home);
+    await executeDeployAction(action, verbose, home, deps);
     return { error: null };
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
@@ -412,6 +436,7 @@ async function deployFileWrite(
   verbose: boolean,
   home: string,
   planned: PlannedChange[],
+  deps: DeployDependencies,
 ): Promise<{ error: string | null }> {
   const label = `${action.skill} -> ${action.agent}`;
 
@@ -444,7 +469,7 @@ async function deployFileWrite(
         source: action.source,
         skill: action.skill,
         agent: action.agent,
-      });
+      }, deps.registry);
       if (!isOwned) {
         throw new Error(
           `Target "${action.target}" exists but is not managed by inception-engine — refusing to overwrite`,
@@ -463,7 +488,7 @@ async function deployFileWrite(
       source: action.source,
       skill: action.skill,
       agent: action.agent,
-    });
+    }, deps.registry);
     logger.ok(label);
     if (verbose) {
       logger.detail(`write-file: ${action.source} -> ${action.target}`);
@@ -482,6 +507,7 @@ async function deployConfigPatch(
   verbose: boolean,
   home: string,
   planned: PlannedChange[],
+  deps: DeployDependencies,
 ): Promise<{ error: string | null }> {
   const label = `${action.skill} -> ${action.agent}`;
 
@@ -507,7 +533,11 @@ async function deployConfigPatch(
 
   try {
     // Guard against double-patching by a different skill/agent
-    const existingEntry = await lookupDeployment(home, action.target);
+    const existingEntry = await lookupDeployment(
+      home,
+      action.target,
+      deps.registry,
+    );
     if (
       existingEntry &&
       (existingEntry.skill !== action.skill ||
@@ -533,7 +563,7 @@ async function deployConfigPatch(
       undoPatch,
       skill: action.skill,
       agent: action.agent,
-    });
+    }, deps.registry);
     logger.ok(label);
     if (verbose) {
       logger.detail(
@@ -628,25 +658,23 @@ async function assertTargetAbsent(targetPath: string): Promise<void> {
 async function createDeployTarget(
   action: SkillDirDeployAction,
   home: string,
+  deps: DeployDependencies,
 ): Promise<void> {
-  if (action.method === "symlink") {
-    await symlink(action.source, action.target, "dir");
-  } else {
-    await cp(action.source, action.target, { recursive: true });
-  }
+  await (deps.skillDirOps ?? defaultSkillDirOps).createTarget(action);
   await registerDeployment(home, action.target, {
     kind: action.kind,
     source: action.source,
     skill: action.skill,
     agent: action.agent,
     method: action.method,
-  });
+  }, deps.registry);
 }
 
 async function executeDeployAction(
   action: SkillDirDeployAction,
   verbose: boolean,
   home: string,
+  deps: DeployDependencies,
 ): Promise<void> {
   const label = `${action.skill} -> ${action.agent}`;
   const backupPath = await backupExisting(action.target, verbose, home, {
@@ -654,16 +682,18 @@ async function executeDeployAction(
     source: action.source,
     skill: action.skill,
     agent: action.agent,
-  });
+  }, deps);
   await mkdir(path.dirname(action.target), { recursive: true });
 
   try {
     await assertTargetAbsent(action.target);
-    await createDeployTarget(action, home);
+    await createDeployTarget(action, home, deps);
   } catch (createErr) {
     if (backupPath) {
       try {
-        await removeTarget(action.target).catch(() => {
+        await (deps.skillDirOps ?? defaultSkillDirOps)
+          .removeTarget(action.target)
+          .catch(() => {
           /* best-effort cleanup */
         });
         await rename(backupPath, action.target);
@@ -675,7 +705,7 @@ async function executeDeployAction(
   }
 
   if (backupPath) {
-    await removeTarget(backupPath);
+    await (deps.skillDirOps ?? defaultSkillDirOps).removeTarget(backupPath);
   }
 
   logger.ok(label);
@@ -689,6 +719,7 @@ async function backupExisting(
   verbose: boolean,
   home: string,
   expected: { kind: string; source: string; skill: string; agent: AgentId },
+  deps: DeployDependencies,
 ): Promise<string | null> {
   try {
     await lstat(targetPath);
@@ -702,7 +733,7 @@ async function backupExisting(
       source: expected.source,
       skill: expected.skill,
       agent: expected.agent,
-    }))
+    }, deps.registry))
   ) {
     throw new Error(
       `Target "${targetPath}" exists but is not managed by inception-engine — refusing to overwrite`,
@@ -723,13 +754,4 @@ async function backupExisting(
   await rm(backupPath, { recursive: true, force: true });
   await rename(targetPath, backupPath);
   return backupPath;
-}
-
-async function removeTarget(targetPath: string): Promise<void> {
-  const stat = await lstat(targetPath);
-  if (stat.isSymbolicLink()) {
-    await unlink(targetPath);
-  } else {
-    await rm(targetPath, { recursive: true });
-  }
 }
