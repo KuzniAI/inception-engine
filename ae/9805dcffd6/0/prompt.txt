@@ -1,0 +1,5 @@
+Plan work on roadmap item 1: **Adapter-backed deploy without adapter-backed revert**
+   - `mcpServers` compiles into `config-patch` deploy actions.
+   - `agentRules` compiles into `file-write` deploy actions.
+   - `planRevert` and `planRevertAll` still explicitly omit both surfaces (`src/core/revert.ts:95`, `src/core/revert.ts:112`).
+   - This means README is currently accurate when it says revert is not implemented for those surfaces, and the old struck-through roadmap item was premature.
