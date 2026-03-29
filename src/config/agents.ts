@@ -17,6 +17,16 @@ export const AGENT_REGISTRY: readonly AgentConfig[] = [
       skills: "documented",
       detectPaths: "documented",
       detectBinary: "documented",
+      mcpConfig: "documented",
+      agentRules: "documented",
+    },
+    mcpConfigPath: {
+      posix: ["{home}", ".claude.json"],
+      windows: ["{home}", ".claude.json"],
+    },
+    agentRulesPath: {
+      posix: ["{home}", ".claude", "CLAUDE.md"],
+      windows: ["{home}", ".claude", "CLAUDE.md"],
     },
   },
   {
@@ -35,6 +45,12 @@ export const AGENT_REGISTRY: readonly AgentConfig[] = [
       skills: "documented",
       detectPaths: "documented",
       detectBinary: "documented",
+      agentRules: "documented",
+    },
+    // mcpConfigPath omitted: Codex uses TOML config, not JSON — not supported by config-patch
+    agentRulesPath: {
+      posix: ["{home}", ".codex", "AGENTS.md"],
+      windows: ["{home}", ".codex", "AGENTS.md"],
     },
   },
   {
@@ -53,6 +69,16 @@ export const AGENT_REGISTRY: readonly AgentConfig[] = [
       skills: "documented",
       detectPaths: "documented",
       detectBinary: "documented",
+      mcpConfig: "documented",
+      agentRules: "documented",
+    },
+    mcpConfigPath: {
+      posix: ["{home}", ".gemini", "settings.json"],
+      windows: ["{home}", ".gemini", "settings.json"],
+    },
+    agentRulesPath: {
+      posix: ["{home}", ".gemini", "GEMINI.md"],
+      windows: ["{home}", ".gemini", "GEMINI.md"],
     },
   },
   {
@@ -72,6 +98,7 @@ export const AGENT_REGISTRY: readonly AgentConfig[] = [
       detectPaths: "implementation-only",
       detectBinary: "provisional",
     },
+    // mcpConfigPath and agentRulesPath omitted: paths not documented strongly enough for this release
   },
   {
     id: "opencode",
@@ -89,6 +116,12 @@ export const AGENT_REGISTRY: readonly AgentConfig[] = [
       skills: "documented",
       detectPaths: "documented",
       detectBinary: "documented",
+      agentRules: "documented",
+    },
+    // mcpConfigPath omitted: OpenCode uses opencode.json (TOML-adjacent format), not plain JSON
+    agentRulesPath: {
+      posix: ["{xdg_config}", "opencode", "AGENTS.md"],
+      windows: ["{appdata}", "opencode", "AGENTS.md"],
     },
   },
   {
@@ -108,6 +141,7 @@ export const AGENT_REGISTRY: readonly AgentConfig[] = [
       detectPaths: "documented",
       detectBinary: "documented",
     },
+    // mcpConfigPath and agentRulesPath omitted: rules live in repo, not home dir; MCP config unclear
     policyNote:
       "Organization policies may override locally deployed skills. Verify with your GitHub org admin if deployed skills are not active.",
   },

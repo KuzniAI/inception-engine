@@ -97,6 +97,11 @@ export function planRevert(
   detectedAgents: AgentId[],
   home: string,
 ): RevertAction[] {
+  // TODO: planRevert needs to cover manifest.mcpServers and manifest.agentRules
+  // via adapter mirror functions (compileMcpServerReverts / compileAgentRuleReverts)
+  // that produce ConfigPatchRevertAction and FileWriteRevertAction respectively.
+  // Registry entries for adapter-deployed targets persist until then; they are
+  // safe because the engine never overwrites non-owned files.
   return [
     ...buildSkillDirReverts(manifest, home, detectedAgents),
     ...buildFileWriteReverts(manifest, home, detectedAgents),
@@ -108,6 +113,7 @@ export function planRevertAll(
   manifest: Manifest,
   home: string,
 ): RevertAction[] {
+  // TODO: same as planRevert — needs adapter mirror for mcpServers and agentRules.
   return [
     ...buildSkillDirReverts(manifest, home, null),
     ...buildFileWriteReverts(manifest, home, null),

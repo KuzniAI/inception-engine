@@ -88,21 +88,20 @@ export const ConfigEntrySchema = z.object({
   agents: agentsField,
 });
 
-export const McpServerEntrySchema = z
-  .object({
-    name: z
-      .string({ message: "mcpServers entry name must be a non-empty string" })
-      .min(1, { message: "mcpServers entry name must be a non-empty string" }),
-  })
-  .passthrough();
+export const McpServerEntrySchema = z.object({
+  name: nameField,
+  agents: agentsField,
+  // Raw server descriptor passed verbatim to each agent adapter.
+  // Adapters are responsible for validating the shape they need.
+  config: z.record(z.string(), z.unknown()),
+});
 
-export const AgentRuleEntrySchema = z
-  .object({
-    name: z
-      .string({ message: "agentRules entry name must be a non-empty string" })
-      .min(1, { message: "agentRules entry name must be a non-empty string" }),
-  })
-  .passthrough();
+export const AgentRuleEntrySchema = z.object({
+  name: nameField,
+  agents: agentsField,
+  // Relative path to the rules/instruction file within the source bundle.
+  path: sourcePathField,
+});
 
 export const ManifestSchema = z.object({
   skills: z.array(SkillEntrySchema).superRefine((skills, ctx) => {

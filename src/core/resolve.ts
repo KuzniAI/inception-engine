@@ -148,7 +148,7 @@ export function resolveAgentDetectPath(
   return resolveAgentDetectPathFor(agent, home, getPlatformKey());
 }
 
-function resolvePlaceholders(
+export function resolvePlaceholders(
   segments: string[],
   skillName: string,
   home: string,

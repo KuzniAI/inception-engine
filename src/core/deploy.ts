@@ -32,7 +32,13 @@ import {
   registerDeployment,
   verifyDeployment,
 } from "./ownership.ts";
+import { compileAdapterActions } from "./adapters/index.ts";
 import { getDeployMethod, resolveAgentSkillPath } from "./resolve.ts";
+import {
+  sourceAccessError,
+  validateSourceFile,
+  validateSourcePath,
+} from "./validation.ts";
 
 function isPlainObject(v: unknown): v is Record<string, unknown> {
   return typeof v === "object" && v !== null && !Array.isArray(v);
@@ -88,15 +94,6 @@ function applyMergePatch(
   return patched;
 }
 
-function sourceAccessError(err: unknown, sourcePath: string): string {
-  const code = (err as NodeJS.ErrnoException).code;
-  if (code === "ENOENT") return `Source not found: ${sourcePath}`;
-  if (code === "EACCES" || code === "EPERM")
-    return `Permission denied accessing source: ${sourcePath}`;
-  const detail = err instanceof Error ? err.message : String(err);
-  return `Failed to access source ${sourcePath}: ${detail}`;
-}
-
 function resolveTargetTemplate(template: string, home: string): string {
   const appdata = process.env.APPDATA ?? path.join(home, "AppData", "Roaming");
   const xdgRaw = process.env.XDG_CONFIG_HOME;
@@ -106,24 +103,6 @@ function resolveTargetTemplate(template: string, home: string): string {
     .replace("{home}", home)
     .replace("{appdata}", appdata)
     .replace("{xdg_config}", xdgConfig);
-}
-
-async function validateSourceFile(
-  sourcePath: string,
-  manifestPath: string,
-): Promise<void> {
-  let stat: Awaited<ReturnType<typeof lstat>>;
-  try {
-    stat = await lstat(sourcePath);
-  } catch (err) {
-    throw new UserError("DEPLOY_FAILED", sourceAccessError(err, manifestPath));
-  }
-  if (!stat.isFile()) {
-    throw new UserError(
-      "DEPLOY_FAILED",
-      `Source is not a file: ${manifestPath}`,
-    );
-  }
 }
 
 function detectCollisions(actions: DeployAction[]): PlanWarning[] {
@@ -283,9 +262,21 @@ export async function planDeploy(
     ...planConfigPatchActions(manifest, detectedAgents, home),
   ];
 
+  const adapterResult = await compileAdapterActions(
+    manifest.mcpServers,
+    manifest.agentRules,
+    sourceDir,
+    resolvedSourceDir,
+    realRoot,
+    detectedAgents,
+    home,
+  );
+  actions.push(...adapterResult.actions);
+
   const warnings: PlanWarning[] = [
     ...detectAmbiguities(detectedAgents),
     ...detectCollisions(actions),
+    ...adapterResult.warnings,
   ];
 
   return { actions, warnings };
@@ -541,36 +532,6 @@ async function deployConfigPatch(
     const msg = err instanceof Error ? err.message : String(err);
     logger.fail(label, msg);
     return { error: msg };
-  }
-}
-
-async function validateSourcePath(
-  source: string,
-  skillPath: string,
-  resolvedSourceDir: string,
-  realRoot: string,
-): Promise<void> {
-  if (!source.startsWith(resolvedSourceDir + path.sep)) {
-    throw new UserError(
-      "DEPLOY_FAILED",
-      `Skill path "${skillPath}" resolves outside the repository root: ${source}`,
-    );
-  }
-
-  try {
-    const realSource = await realpath(source);
-    if (
-      realSource !== realRoot &&
-      !realSource.startsWith(realRoot + path.sep)
-    ) {
-      throw new UserError(
-        "DEPLOY_FAILED",
-        `Skill path "${skillPath}" resolves outside the repository root via symlink: ${source} -> ${realSource}`,
-      );
-    }
-  } catch (err) {
-    if (err instanceof UserError) throw err;
-    // Source doesn't exist yet — will be caught during execute
   }
 }
 

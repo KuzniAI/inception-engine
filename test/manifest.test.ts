@@ -293,16 +293,15 @@ describe("loadManifest", () => {
         path.join(dir, "inception.json"),
         JSON.stringify({
           skills: [],
-          mcpServers: [{ url: "http://example.com" }],
+          mcpServers: [
+            { agents: ["claude-code"], config: { command: "my-server" } },
+          ],
         }),
       );
       await assert.rejects(loadManifest(dir), (err: unknown) => {
         assert.ok(err instanceof UserError);
         assert.equal(err.code, "MANIFEST_INVALID");
-        assert.match(
-          err.message,
-          /mcpServers entry name must be a non-empty string/,
-        );
+        assert.match(err.message, /name must be a non-empty string/);
         return true;
       });
     } finally {
@@ -315,16 +314,89 @@ describe("loadManifest", () => {
     try {
       writeFileSync(
         path.join(dir, "inception.json"),
-        JSON.stringify({ skills: [], mcpServers: [{ name: "" }] }),
+        JSON.stringify({
+          skills: [],
+          mcpServers: [
+            { name: "", agents: ["claude-code"], config: { command: "s" } },
+          ],
+        }),
       );
       await assert.rejects(loadManifest(dir), (err: unknown) => {
         assert.ok(err instanceof UserError);
         assert.equal(err.code, "MANIFEST_INVALID");
-        assert.match(
-          err.message,
-          /mcpServers entry name must be a non-empty string/,
-        );
+        assert.match(err.message, /name must be a non-empty string/);
         return true;
+      });
+    } finally {
+      rmSync(dir, { recursive: true });
+    }
+  });
+
+  it("throws when mcpServers entry is missing 'agents'", async () => {
+    const dir = makeTmpDir();
+    try {
+      writeFileSync(
+        path.join(dir, "inception.json"),
+        JSON.stringify({
+          skills: [],
+          mcpServers: [{ name: "my-mcp", config: { command: "s" } }],
+        }),
+      );
+      await assert.rejects(loadManifest(dir), (err: unknown) => {
+        assert.ok(err instanceof UserError);
+        assert.equal(err.code, "MANIFEST_INVALID");
+        assert.match(err.message, /agents must be a non-empty array/);
+        return true;
+      });
+    } finally {
+      rmSync(dir, { recursive: true });
+    }
+  });
+
+  it("throws when mcpServers entry is missing 'config'", async () => {
+    const dir = makeTmpDir();
+    try {
+      writeFileSync(
+        path.join(dir, "inception.json"),
+        JSON.stringify({
+          skills: [],
+          mcpServers: [{ name: "my-mcp", agents: ["claude-code"] }],
+        }),
+      );
+      await assert.rejects(loadManifest(dir), (err: unknown) => {
+        assert.ok(err instanceof UserError);
+        assert.equal(err.code, "MANIFEST_INVALID");
+        assert.match(err.message, /mcpServers\[0\]/);
+        return true;
+      });
+    } finally {
+      rmSync(dir, { recursive: true });
+    }
+  });
+
+  it("accepts a valid mcpServers entry", async () => {
+    const dir = makeTmpDir();
+    try {
+      writeFileSync(
+        path.join(dir, "inception.json"),
+        JSON.stringify({
+          skills: [],
+          mcpServers: [
+            {
+              name: "my-mcp",
+              agents: ["claude-code"],
+              config: { command: "my-server", args: ["--flag"] },
+            },
+          ],
+        }),
+      );
+      const manifest = await loadManifest(dir);
+      assert.equal(manifest.mcpServers.length, 1);
+      assert.equal(manifest.mcpServers[0]?.name, "my-mcp");
+      assert.deepEqual(manifest.mcpServers[0]?.agents, ["claude-code"]);
+      assert.deepEqual(manifest.mcpServers[0]?.config, {
+        command: "my-server",
+        args: ["--flag"],
       });
     } finally {
       rmSync(dir, { recursive: true });
@@ -354,15 +426,17 @@ describe("loadManifest", () => {
     try {
       writeFileSync(
         path.join(dir, "inception.json"),
-        JSON.stringify({ skills: [], agentRules: [{ name: "" }] }),
+        JSON.stringify({
+          skills: [],
+          agentRules: [
+            { name: "", agents: ["claude-code"], path: "rules/CLAUDE.md" },
+          ],
+        }),
       );
       await assert.rejects(loadManifest(dir), (err: unknown) => {
         assert.ok(err instanceof UserError);
         assert.equal(err.code, "MANIFEST_INVALID");
-        assert.match(
-          err.message,
-          /agentRules entry name must be a non-empty string/,
-        );
+        assert.match(err.message, /name must be a non-empty string/);
         return true;
       });
     } finally {
@@ -370,24 +444,96 @@ describe("loadManifest", () => {
     }
   });
 
-  it("accepts mcpServers and agentRules entries with extra forward-compat fields", async () => {
+  it("throws when agentRules entry is missing 'agents'", async () => {
     const dir = makeTmpDir();
     try {
       writeFileSync(
         path.join(dir, "inception.json"),
         JSON.stringify({
           skills: [],
-          mcpServers: [
-            { name: "my-mcp", url: "http://example.com", version: 2 },
+          agentRules: [{ name: "my-rule", path: "rules/AGENTS.md" }],
+        }),
+      );
+      await assert.rejects(loadManifest(dir), (err: unknown) => {
+        assert.ok(err instanceof UserError);
+        assert.equal(err.code, "MANIFEST_INVALID");
+        assert.match(err.message, /agents must be a non-empty array/);
+        return true;
+      });
+    } finally {
+      rmSync(dir, { recursive: true });
+    }
+  });
+
+  it("throws when agentRules entry is missing 'path'", async () => {
+    const dir = makeTmpDir();
+    try {
+      writeFileSync(
+        path.join(dir, "inception.json"),
+        JSON.stringify({
+          skills: [],
+          agentRules: [{ name: "my-rule", agents: ["claude-code"] }],
+        }),
+      );
+      await assert.rejects(loadManifest(dir), (err: unknown) => {
+        assert.ok(err instanceof UserError);
+        assert.equal(err.code, "MANIFEST_INVALID");
+        assert.match(err.message, /agentRules\[0\]/);
+        return true;
+      });
+    } finally {
+      rmSync(dir, { recursive: true });
+    }
+  });
+
+  it("throws when agentRules entry has an escaping 'path'", async () => {
+    const dir = makeTmpDir();
+    try {
+      writeFileSync(
+        path.join(dir, "inception.json"),
+        JSON.stringify({
+          skills: [],
+          agentRules: [
+            {
+              name: "my-rule",
+              agents: ["claude-code"],
+              path: "../../../etc/passwd",
+            },
           ],
-          agentRules: [{ name: "my-rule", pattern: "*.ts", priority: 1 }],
+        }),
+      );
+      await assert.rejects(loadManifest(dir), (err: unknown) => {
+        assert.ok(err instanceof UserError);
+        assert.equal(err.code, "MANIFEST_INVALID");
+        assert.match(err.message, /must not escape the repository root/);
+        return true;
+      });
+    } finally {
+      rmSync(dir, { recursive: true });
+    }
+  });
+
+  it("accepts a valid agentRules entry", async () => {
+    const dir = makeTmpDir();
+    try {
+      writeFileSync(
+        path.join(dir, "inception.json"),
+        JSON.stringify({
+          skills: [],
+          agentRules: [
+            {
+              name: "my-rule",
+              agents: ["claude-code"],
+              path: "rules/CLAUDE.md",
+            },
+          ],
         }),
       );
       const manifest = await loadManifest(dir);
-      assert.equal(manifest.mcpServers.length, 1);
-      assert.equal(manifest.mcpServers[0]?.name, "my-mcp");
       assert.equal(manifest.agentRules.length, 1);
       assert.equal(manifest.agentRules[0]?.name, "my-rule");
+      assert.deepEqual(manifest.agentRules[0]?.agents, ["claude-code"]);
+      assert.equal(manifest.agentRules[0]?.path, "rules/CLAUDE.md");
     } finally {
       rmSync(dir, { recursive: true });
     }

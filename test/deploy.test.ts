@@ -258,6 +258,98 @@ describe("planDeploy", () => {
       rmSync(sourceDir, { recursive: true });
     }
   });
+
+  it("adapter: mcpServers entry produces a config-patch action for claude-code", async () => {
+    const sourceDir = makeTmpDir();
+    try {
+      const manifest: Manifest = {
+        skills: [],
+        files: [],
+        configs: [],
+        mcpServers: [
+          {
+            name: "my-mcp",
+            agents: ["claude-code"],
+            config: { command: "my-server" },
+          },
+        ],
+        agentRules: [],
+      };
+      const { actions, warnings } = await planDeploy(
+        manifest,
+        sourceDir,
+        ["claude-code"],
+        "/home/test",
+      );
+      assert.equal(actions.length, 1);
+      const action = actions[0] as ConfigPatchDeployAction;
+      assert.equal(action.kind, "config-patch");
+      assert.equal(action.skill, "my-mcp");
+      assert.equal(action.agent, "claude-code");
+      assert.ok(
+        action.target.endsWith(".claude.json"),
+        `expected target to end with .claude.json, got: ${action.target}`,
+      );
+      assert.deepEqual(action.patch, {
+        mcpServers: { "my-mcp": { command: "my-server" } },
+      });
+      assert.equal(warnings.length, 0);
+    } finally {
+      rmSync(sourceDir, { recursive: true });
+    }
+  });
+
+  it("adapter: mcpServers entry emits a warning for agent without documented mcpConfigPath", async () => {
+    const sourceDir = makeTmpDir();
+    try {
+      const manifest: Manifest = {
+        skills: [],
+        files: [],
+        configs: [],
+        mcpServers: [
+          {
+            name: "my-mcp",
+            agents: ["github-copilot"],
+            config: { command: "my-server" },
+          },
+        ],
+        agentRules: [],
+      };
+      const { actions, warnings } = await planDeploy(
+        manifest,
+        sourceDir,
+        ["github-copilot"],
+        "/home/test",
+      );
+      assert.equal(actions.length, 0);
+      assert.equal(warnings.length, 1);
+      assert.equal(warnings[0]?.kind, "confidence");
+      assert.match(
+        warnings[0]?.message ?? "",
+        /does not have a documented MCP config path/,
+      );
+    } finally {
+      rmSync(sourceDir, { recursive: true });
+    }
+  });
+
+  it("adapter: empty mcpServers and agentRules produce no extra actions or warnings", async () => {
+    const sourceDir = makeTmpDir();
+    try {
+      createSkillSource(sourceDir, "skills/test-skill");
+      const { actions, warnings } = await planDeploy(
+        testManifest,
+        sourceDir,
+        ["claude-code"],
+        "/home/test",
+      );
+      // Only the one skill-dir action — no adapter output
+      assert.equal(actions.length, 1);
+      assert.equal(warnings.length, 0);
+    } finally {
+      rmSync(sourceDir, { recursive: true });
+    }
+  });
 });
 
 describe("executeDeploy", { skip: process.platform === "win32" }, () => {

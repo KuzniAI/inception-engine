@@ -19,6 +19,8 @@ export interface AgentProvenance {
   skills: Confidence;
   detectPaths: Confidence;
   detectBinary: Confidence;
+  mcpConfig?: Confidence;
+  agentRules?: Confidence;
 }
 
 export interface AgentConfig {
@@ -28,6 +30,12 @@ export interface AgentConfig {
   detectPaths: AgentPaths;
   detectBinary: string | null;
   provenance: AgentProvenance;
+  // Path to the JSON config file that holds mcpServers for this agent.
+  // Absent if MCP config location is unknown or not yet documented.
+  mcpConfigPath?: AgentPaths;
+  // Path for deploying a rules/instruction file for this agent.
+  // Absent if rules files are not yet documented for this agent.
+  agentRulesPath?: AgentPaths;
   policyNote?: string;
 }
 

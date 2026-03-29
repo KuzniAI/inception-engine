@@ -2,7 +2,7 @@
 
 Plant skills directly into the minds of your installed AI coding agents — Claude Code, Codex, Gemini CLI, Antigravity, OpenCode, and GitHub Copilot. One command. They'll think they thought of it themselves.
 
-Today, inception-engine deploys skills, single files, and JSON config patches to AI coding agents. MCP configuration and agent rules remain unimplemented at the manifest level.
+Today, inception-engine deploys skills, single files, JSON config patches, MCP server registrations, and agent instruction files to AI coding agents.
 
 ## Quick Start
 
@@ -43,8 +43,8 @@ Managed skills overwrite their previous version. If a target exists but was not 
 | Skills (SKILL.md) | Supported via manifest and CLI |
 | File write | Supported via manifest and CLI |
 | Config patch (JSON merge) | Supported via manifest and CLI |
-| MCP Servers | Accepted in manifest for forward compatibility, not implemented |
-| Agent Rules | Accepted in manifest for forward compatibility, not implemented |
+| MCP Servers | Supported for claude-code and gemini-cli; stub warning for other agents |
+| Agent Rules | Supported for claude-code, codex, gemini-cli, opencode; stub warning for others |
 
 ## Manifest Format
 
@@ -75,8 +75,20 @@ Create an `inception.json` file at the root of your skills directory:
       "agents": ["claude-code"]
     }
   ],
-  "mcpServers": [],
-  "agentRules": []
+  "mcpServers": [
+    {
+      "name": "my-server",
+      "agents": ["claude-code", "gemini-cli"],
+      "config": { "command": "npx", "args": ["-y", "my-mcp-server"] }
+    }
+  ],
+  "agentRules": [
+    {
+      "name": "my-rules",
+      "path": "rules/CLAUDE.md",
+      "agents": ["claude-code"]
+    }
+  ]
 }
 ```
 
@@ -102,7 +114,21 @@ Each **config** entry applies a [JSON merge patch (RFC 7386)](https://datatracke
 
 The engine records an undo-patch for each config-patch deployment so that `revert` can restore the original values.
 
-`mcpServers` and `agentRules` are currently parsed for forward compatibility, but the deployment engine ignores them today.
+Each **mcpServer** entry registers an MCP server into the agent's config file by applying a JSON merge patch under the `mcpServers` key:
+
+- **name** - Unique identifier (same format as skill names); used as the server's key in the config
+- **agents** - Array of agent IDs to register this server with
+- **config** - Raw server descriptor object (e.g. `{ "command": "...", "args": [...] }` for stdio transport). The exact shape is passed through verbatim; agent adapters handle agent-specific requirements.
+
+MCP server registration is currently supported for `claude-code` (`~/.claude.json`) and `gemini-cli` (`~/.gemini/settings.json`). Other agents emit a warning and are skipped. Revert support for mcpServers is not yet implemented.
+
+Each **agentRules** entry deploys a Markdown instruction file to the agent's global rules location:
+
+- **name** - Unique identifier (same format as skill names)
+- **path** - Relative path to the source Markdown file within the repo
+- **agents** - Array of agent IDs to deploy this file to
+
+Agent rules deployment is currently supported for `claude-code` (`~/.claude/CLAUDE.md`), `codex` (`~/.codex/AGENTS.md`), `gemini-cli` (`~/.gemini/GEMINI.md`), and `opencode` (`~/.config/opencode/AGENTS.md`). Other agents emit a warning and are skipped. Revert support for agentRules is not yet implemented.
 
 ## Creating Skills
 
