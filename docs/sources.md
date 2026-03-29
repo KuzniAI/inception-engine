@@ -1,0 +1,1 @@
+https://devblogs.microsoft.com/all-things-azure/your-entire-engineering-floor-just-stopped-coding/
