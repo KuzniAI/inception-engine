@@ -238,9 +238,8 @@ async function executeRevertAction(
 ): Promise<RevertOutcome> {
   const label = `${action.skill} -> ${action.agent}`;
 
-  let stat: Awaited<ReturnType<typeof lstat>>;
   try {
-    stat = await lstat(action.target);
+    await lstat(action.target);
   } catch (err) {
     const result = lstatOutcome(err);
     if (result.outcome === "skip") {
@@ -272,7 +271,10 @@ async function executeRevertAction(
   }
 
   try {
-    if (stat.isSymbolicLink()) {
+    // Re-stat immediately before deletion to minimise the window between the
+    // type-check and the removal syscall.
+    const currentStat = await lstat(action.target);
+    if (currentStat.isSymbolicLink()) {
       await unlink(action.target);
     } else {
       await rm(action.target, { recursive: true });
@@ -284,6 +286,11 @@ async function executeRevertAction(
     }
     return { outcome: "ok" };
   } catch (err) {
+    if ((err as NodeJS.ErrnoException).code === "ENOENT") {
+      // Target disappeared between ownership check and removal — treat as skip.
+      logger.skip(label, "(disappeared before removal, skipping)");
+      return { outcome: "skip" };
+    }
     const msg = err instanceof Error ? err.message : String(err);
     logger.fail(label, msg);
     return { outcome: "fail", error: msg };
@@ -332,6 +339,9 @@ async function revertFileWrite(
   }
 
   try {
+    // Re-stat immediately before deletion to minimise the type-check to
+    // removal window; handle the case where the file has since disappeared.
+    await lstat(action.target);
     await unlink(action.target);
     await unregisterDeployment(home, action.target);
     logger.ok(label);
@@ -340,6 +350,10 @@ async function revertFileWrite(
     }
     return { outcome: "ok" };
   } catch (err) {
+    if ((err as NodeJS.ErrnoException).code === "ENOENT") {
+      logger.skip(label, "(disappeared before removal, skipping)");
+      return { outcome: "skip" };
+    }
     const msg = err instanceof Error ? err.message : String(err);
     logger.fail(label, msg);
     return { outcome: "fail", error: msg };

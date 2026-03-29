@@ -88,6 +88,22 @@ export const ConfigEntrySchema = z.object({
   agents: agentsField,
 });
 
+export const McpServerEntrySchema = z
+  .object({
+    name: z
+      .string({ message: "mcpServers entry name must be a non-empty string" })
+      .min(1, { message: "mcpServers entry name must be a non-empty string" }),
+  })
+  .passthrough();
+
+export const AgentRuleEntrySchema = z
+  .object({
+    name: z
+      .string({ message: "agentRules entry name must be a non-empty string" })
+      .min(1, { message: "agentRules entry name must be a non-empty string" }),
+  })
+  .passthrough();
+
 export const ManifestSchema = z.object({
   skills: z.array(SkillEntrySchema).superRefine((skills, ctx) => {
     const seen = new Set<string>();
@@ -104,13 +120,15 @@ export const ManifestSchema = z.object({
   }),
   files: z.array(FileEntrySchema).default([]),
   configs: z.array(ConfigEntrySchema).default([]),
-  mcpServers: z.array(z.unknown()).default([]),
-  agentRules: z.array(z.unknown()).default([]),
+  mcpServers: z.array(McpServerEntrySchema).default([]),
+  agentRules: z.array(AgentRuleEntrySchema).default([]),
 });
 
 export type SkillEntry = z.infer<typeof SkillEntrySchema>;
 export type FileEntry = z.infer<typeof FileEntrySchema>;
 export type ConfigEntry = z.infer<typeof ConfigEntrySchema>;
+export type McpServerEntry = z.infer<typeof McpServerEntrySchema>;
+export type AgentRuleEntry = z.infer<typeof AgentRuleEntrySchema>;
 export type Manifest = z.infer<typeof ManifestSchema>;
 
 // Parses the --agents CLI flag: comma-separated agent IDs → AgentId[]

@@ -11,9 +11,9 @@ It intentionally focuses on enabling architecture rather than prematurely implem
    - ~~Replace user-facing log-string dry-run summaries with structured exact-change reporting that the CLI actually surfaces, instead of only returning `planned` entries from the executor internals (`src/core/deploy.ts`, `src/core/revert.ts`, `src/index.ts`, `src/logger.ts`).~~
 
 2. **Close the remaining safety and validation gaps**
-   - Reduce the current TOCTOU window in deploy and revert so ownership checks and mutations are less exposed to path-state changes between validation and mutation (`src/core/deploy.ts`, `src/core/revert.ts`).
-   - Tighten schema-backed validation for `mcpServers` and `agentRules`. Wrong top-level types are now rejected, but entry shape still resolves to `unknown[]` and is not validated (`src/config/manifest.ts`, `src/schemas/manifest.ts`).
-   - Finish the skill contract validation story so the implementation fully matches the intended readable-directory-plus-`SKILL.md` contract and reports permission failures clearly (`src/core/deploy.ts`).
+   - ~~Reduce the current TOCTOU window in deploy and revert so ownership checks and mutations are less exposed to path-state changes between validation and mutation (`src/core/deploy.ts`, `src/core/revert.ts`).~~
+   - ~~Tighten schema-backed validation for `mcpServers` and `agentRules`. Wrong top-level types are now rejected, but entry shape still resolves to `unknown[]` and is not validated (`src/config/manifest.ts`, `src/schemas/manifest.ts`).~~
+   - ~~Finish the skill contract validation story so the implementation fully matches the intended readable-directory-plus-`SKILL.md` contract and reports permission failures clearly (`src/core/deploy.ts`).~~
 
 3. **Improve portability, policy awareness, and confidence in real-world behavior**
    - Add stronger Windows-realistic coverage for copy deploy or revert, ownership handling, and `%APPDATA%` path behavior. `%APPDATA%` path resolution and cross-platform copy paths are covered, but much of the Windows-specific behavior still depends on platform-gated tests (`test/cross-platform.test.ts`, `test/deploy.test.ts`, `test/revert.test.ts`, `test/ownership.test.ts`).
@@ -28,12 +28,12 @@ It intentionally focuses on enabling architecture rather than prematurely implem
 
 ### Planning and Support Semantics
 
-- **Partial Manifest Validation**: Wrong top-level types for `mcpServers` and `agentRules` are now rejected, but their entries still resolve to `unknown[]` and are not schema-validated. That is useful for forward compatibility, but it is not yet strict planner-ready validation (`src/config/manifest.ts`, `src/schemas/manifest.ts`).
-- **Partially Closed Skill Contract Validation**: Planning now checks that each skill source exists, is a directory, and contains `SKILL.md`, but the implementation should fully match the intended readable-directory contract and keep failure messages specific (`src/core/deploy.ts`).
+- ~~**Partial Manifest Validation**: Wrong top-level types for `mcpServers` and `agentRules` are now rejected, but their entries still resolve to `unknown[]` and are not schema-validated. That is useful for forward compatibility, but it is not yet strict planner-ready validation (`src/config/manifest.ts`, `src/schemas/manifest.ts`).~~
+- ~~**Partially Closed Skill Contract Validation**: Planning now checks that each skill source exists, is a directory, and contains `SKILL.md`, but the implementation should fully match the intended readable-directory contract and keep failure messages specific (`src/core/deploy.ts`).~~
 
 ### Safety and Reversibility
 
-- **TOCTOU Race Window**: Backup, ownership check, removal, and recreate are split across multiple `lstat`, `rename`, `rm`, and `unlink` steps, so path state can change between validation and mutation (`src/core/deploy.ts`, `src/core/revert.ts`).
+- ~~**TOCTOU Race Window**: Backup, ownership check, removal, and recreate are split across multiple `lstat`, `rename`, `rm`, and `unlink` steps, so path state can change between validation and mutation (`src/core/deploy.ts`, `src/core/revert.ts`).~~
 
 ### Enterprise and Policy Awareness
 

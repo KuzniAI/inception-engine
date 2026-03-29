@@ -1,3 +1,4 @@
+import { constants } from "node:fs";
 import {
   access,
   copyFile,
@@ -606,8 +607,30 @@ async function validateSkillContract(
     );
   }
   try {
-    await access(path.join(source, "SKILL.md"));
-  } catch {
+    await access(source, constants.R_OK);
+  } catch (err) {
+    const code = (err as NodeJS.ErrnoException).code;
+    if (code === "EACCES" || code === "EPERM") {
+      throw new UserError(
+        "DEPLOY_FAILED",
+        `Permission denied reading skill directory "${skillPath}": ${source}`,
+      );
+    }
+    throw new UserError(
+      "DEPLOY_FAILED",
+      `Cannot read skill directory "${skillPath}": ${source}`,
+    );
+  }
+  try {
+    await access(path.join(source, "SKILL.md"), constants.R_OK);
+  } catch (err) {
+    const code = (err as NodeJS.ErrnoException).code;
+    if (code === "EACCES" || code === "EPERM") {
+      throw new UserError(
+        "DEPLOY_FAILED",
+        `Permission denied reading SKILL.md in skill "${skillPath}": ${source}`,
+      );
+    }
     throw new UserError(
       "DEPLOY_FAILED",
       `Skill "${skillPath}" source is missing SKILL.md: ${source}`,
@@ -714,18 +737,16 @@ async function backupExisting(
 
   const backupPath = `${targetPath}.inception-backup`;
 
-  // Clean up any stale backup from a previous failed attempt
-  try {
-    await lstat(backupPath);
-    await removeTarget(backupPath);
-  } catch {
-    // No stale backup — expected
-  }
-
   if (verbose) {
     logger.detail(`backing up existing target: ${targetPath}`);
   }
 
+  // Remove any stale backup from a previous failed attempt. Using rm with
+  // { force: true } avoids a separate lstat existence check and handles
+  // the case where the stale backup is a directory (which rename cannot
+  // atomically replace on POSIX). This reduces the window between the
+  // stale-backup removal and the rename to a single step.
+  await rm(backupPath, { recursive: true, force: true });
   await rename(targetPath, backupPath);
   return backupPath;
 }

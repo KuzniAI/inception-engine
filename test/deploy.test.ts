@@ -429,6 +429,73 @@ describe("executeDeploy", { skip: process.platform === "win32" }, () => {
     }
   });
 
+  it("reports permission denied when skill directory is not readable (execute-only)", {
+    skip: process.platform === "win32" || process.getuid?.() === 0,
+  }, async () => {
+    const sourceDir = makeTmpDir();
+    const home = makeTmpDir();
+    const skillDir = path.join(sourceDir, "skills", "test-skill");
+    try {
+      createSkillSource(sourceDir, "skills/test-skill");
+      // 0o111 = --x--x--x: directory exists and is traversable but not readable
+      chmodSync(skillDir, 0o111);
+      await assert.rejects(
+        planDeploy(testManifest, sourceDir, ["claude-code"], home),
+        (err: unknown) => {
+          assert.ok(err instanceof UserError);
+          assert.equal(err.code, "DEPLOY_FAILED");
+          assert.match(
+            err.message,
+            /Permission denied reading skill directory/,
+          );
+          return true;
+        },
+      );
+    } finally {
+      try {
+        chmodSync(skillDir, 0o755);
+      } catch {
+        /* best effort */
+      }
+      rmSync(sourceDir, { recursive: true });
+      rmSync(home, { recursive: true, force: true });
+    }
+  });
+
+  it("reports permission denied when SKILL.md is not readable", {
+    skip: process.platform === "win32" || process.getuid?.() === 0,
+  }, async () => {
+    const sourceDir = makeTmpDir();
+    const home = makeTmpDir();
+    const skillMdPath = path.join(
+      sourceDir,
+      "skills",
+      "test-skill",
+      "SKILL.md",
+    );
+    try {
+      createSkillSource(sourceDir, "skills/test-skill");
+      chmodSync(skillMdPath, 0o000);
+      await assert.rejects(
+        planDeploy(testManifest, sourceDir, ["claude-code"], home),
+        (err: unknown) => {
+          assert.ok(err instanceof UserError);
+          assert.equal(err.code, "DEPLOY_FAILED");
+          assert.match(err.message, /Permission denied reading SKILL\.md/);
+          return true;
+        },
+      );
+    } finally {
+      try {
+        chmodSync(skillMdPath, 0o644);
+      } catch {
+        /* best effort */
+      }
+      rmSync(sourceDir, { recursive: true });
+      rmSync(home, { recursive: true, force: true });
+    }
+  });
+
   it("refuses to overwrite unmanaged target", async () => {
     const sourceDir = makeTmpDir();
     const home = makeTmpDir();
@@ -746,6 +813,49 @@ describe("atomic redeploy behavior", {
         /* best effort */
       }
       rmSync(sourceDir, { recursive: true, force: true });
+      rmSync(home, { recursive: true, force: true });
+    }
+  });
+
+  it("rename atomically replaces stale .inception-backup — no stale content leaks into target", async () => {
+    const sourceDir = makeTmpDir();
+    const home = makeTmpDir();
+    try {
+      createSkillSource(sourceDir, "skills/test-skill");
+      const { actions } = await planDeploy(
+        testManifest,
+        sourceDir,
+        ["claude-code"],
+        home,
+      );
+      const target = actions[0]?.target;
+      const backupPath = `${target}.inception-backup`;
+
+      // First deploy to establish a managed target
+      await executeDeploy(actions, false, false, home);
+
+      // Simulate a stale backup containing sentinel content
+      mkdirSync(backupPath, { recursive: true });
+      writeFileSync(path.join(backupPath, "stale.txt"), "leftover content");
+
+      // Redeploy: rename(target, backupPath) atomically replaces the stale dir
+      const { succeeded, failed } = await executeDeploy(
+        actions,
+        false,
+        false,
+        home,
+      );
+      assert.equal(succeeded, 1);
+      assert.equal(failed.length, 0);
+      assert.ok(existsSync(target), "target must exist after redeploy");
+      assert.ok(!existsSync(backupPath), "stale backup must be cleaned up");
+      // The stale sentinel file must not appear in the new target
+      assert.ok(
+        !existsSync(path.join(target, "stale.txt")),
+        "stale content must not leak into the new target",
+      );
+    } finally {
+      rmSync(sourceDir, { recursive: true });
       rmSync(home, { recursive: true, force: true });
     }
   });
