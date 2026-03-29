@@ -4,13 +4,20 @@ import {
   existsSync,
   lstatSync,
   mkdirSync,
+  readdirSync,
   readFileSync,
   readlinkSync,
   rmSync,
   symlinkSync,
   writeFileSync,
 } from "node:fs";
-import { readdir } from "node:fs/promises";
+import {
+  copyFile as copyFileAsync,
+  readdir,
+  rename as renameAsync,
+  rm as rmAsync,
+  writeFile as writeFileAsync,
+} from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { describe, it } from "node:test";
@@ -1861,6 +1868,7 @@ describe("executeDeploy — file-write", () => {
       assert.equal(succeeded, 0);
       assert.equal(failed.length, 1);
       assert.ok(!existsSync(targetFile), "target file should be rolled back");
+      assert.ok(!existsSync(`${targetFile}.inception-backup`));
     } finally {
       rmSync(sourceDir, { recursive: true });
       rmSync(home, { recursive: true, force: true });
@@ -1919,6 +1927,110 @@ describe("executeDeploy — file-write", () => {
       assert.equal(succeeded, 0);
       assert.equal(failed.length, 1);
       assert.equal(readFileSync(targetFile, "utf-8"), "old content");
+      assert.ok(!existsSync(`${targetFile}.inception-backup`));
+    } finally {
+      rmSync(sourceDir, { recursive: true });
+      rmSync(home, { recursive: true, force: true });
+    }
+  });
+
+  it("leaves the original managed file untouched when the final swap fails", async () => {
+    const sourceDir = makeTmpDir();
+    const home = makeTmpDir();
+    try {
+      const sourceFile = path.join(sourceDir, "file.txt");
+      const targetFile = path.join(home, "managed.txt");
+      writeFileSync(sourceFile, "new content");
+      writeFileSync(targetFile, "old content");
+
+      await registerDeployment(home, targetFile, {
+        kind: "file-write",
+        source: sourceFile,
+        skill: "test-skill",
+        agent: "claude-code",
+      });
+
+      const action: FileWriteDeployAction = {
+        kind: "file-write",
+        skill: "test-skill",
+        agent: "claude-code",
+        source: sourceFile,
+        target: targetFile,
+      };
+
+      const { succeeded, failed } = await executeDeploy(
+        [action],
+        false,
+        false,
+        home,
+        {
+          fileOps: {
+            copyFile: copyFileAsync,
+            writeFile: writeFileAsync,
+            rm: rmAsync,
+            async rename(source, target) {
+              if (source.includes(".inception-tmp-") && target === targetFile) {
+                throw new Error("swap failed");
+              }
+              await renameAsync(source, target);
+            },
+          },
+        },
+      );
+
+      assert.equal(succeeded, 0);
+      assert.equal(failed.length, 1);
+      assert.equal(readFileSync(targetFile, "utf-8"), "old content");
+      assert.ok(!existsSync(`${targetFile}.inception-backup`));
+      assert.deepEqual(
+        readdirSync(path.dirname(targetFile)).filter((entry) =>
+          entry.includes(".inception-tmp-"),
+        ),
+        [],
+      );
+    } finally {
+      rmSync(sourceDir, { recursive: true });
+      rmSync(home, { recursive: true, force: true });
+    }
+  });
+
+  it("cleans up a stale file-write backup before replacing a managed file", async () => {
+    const sourceDir = makeTmpDir();
+    const home = makeTmpDir();
+    try {
+      const sourceFile = path.join(sourceDir, "file.txt");
+      const targetFile = path.join(home, "managed.txt");
+      const backupPath = `${targetFile}.inception-backup`;
+      writeFileSync(sourceFile, "new content");
+      writeFileSync(targetFile, "old content");
+      writeFileSync(backupPath, "stale backup");
+
+      await registerDeployment(home, targetFile, {
+        kind: "file-write",
+        source: sourceFile,
+        skill: "test-skill",
+        agent: "claude-code",
+      });
+
+      const action: FileWriteDeployAction = {
+        kind: "file-write",
+        skill: "test-skill",
+        agent: "claude-code",
+        source: sourceFile,
+        target: targetFile,
+      };
+
+      const { succeeded, failed } = await executeDeploy(
+        [action],
+        false,
+        false,
+        home,
+      );
+
+      assert.equal(succeeded, 1);
+      assert.equal(failed.length, 0);
+      assert.equal(readFileSync(targetFile, "utf-8"), "new content");
+      assert.ok(!existsSync(backupPath));
     } finally {
       rmSync(sourceDir, { recursive: true });
       rmSync(home, { recursive: true, force: true });
@@ -2304,6 +2416,94 @@ describe("executeDeploy — config-patch", () => {
         a: 1,
         b: 2,
       });
+      assert.ok(!existsSync(`${configFile}.inception-backup`));
+    } finally {
+      rmSync(home, { recursive: true, force: true });
+    }
+  });
+
+  it("leaves the original config untouched when the final swap fails", async () => {
+    const home = makeTmpDir();
+    try {
+      const configFile = path.join(home, "config.json");
+      writeFileSync(configFile, JSON.stringify({ a: 1, b: 2 }));
+
+      const action: ConfigPatchDeployAction = {
+        kind: "config-patch",
+        skill: "test-skill",
+        agent: "claude-code",
+        target: configFile,
+        patch: { b: 99 },
+      };
+
+      const { succeeded, failed } = await executeDeploy(
+        [action],
+        false,
+        false,
+        home,
+        {
+          fileOps: {
+            copyFile: copyFileAsync,
+            writeFile: writeFileAsync,
+            rm: rmAsync,
+            async rename(source, target) {
+              if (source.includes(".inception-tmp-") && target === configFile) {
+                throw new Error("swap failed");
+              }
+              await renameAsync(source, target);
+            },
+          },
+        },
+      );
+
+      assert.equal(succeeded, 0);
+      assert.equal(failed.length, 1);
+      assert.deepEqual(JSON.parse(readFileSync(configFile, "utf-8")), {
+        a: 1,
+        b: 2,
+      });
+      assert.ok(!existsSync(`${configFile}.inception-backup`));
+      assert.deepEqual(
+        readdirSync(path.dirname(configFile)).filter((entry) =>
+          entry.includes(".inception-tmp-"),
+        ),
+        [],
+      );
+    } finally {
+      rmSync(home, { recursive: true, force: true });
+    }
+  });
+
+  it("cleans up a stale config-patch backup before replacing the config", async () => {
+    const home = makeTmpDir();
+    try {
+      const configFile = path.join(home, "config.json");
+      const backupPath = `${configFile}.inception-backup`;
+      writeFileSync(configFile, JSON.stringify({ a: 1, b: 2 }));
+      writeFileSync(backupPath, "stale backup");
+
+      const action: ConfigPatchDeployAction = {
+        kind: "config-patch",
+        skill: "test-skill",
+        agent: "claude-code",
+        target: configFile,
+        patch: { b: 99 },
+      };
+
+      const { succeeded, failed } = await executeDeploy(
+        [action],
+        false,
+        false,
+        home,
+      );
+
+      assert.equal(succeeded, 1);
+      assert.equal(failed.length, 0);
+      assert.deepEqual(JSON.parse(readFileSync(configFile, "utf-8")), {
+        a: 1,
+        b: 99,
+      });
+      assert.ok(!existsSync(backupPath));
     } finally {
       rmSync(home, { recursive: true, force: true });
     }

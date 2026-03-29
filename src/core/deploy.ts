@@ -48,7 +48,7 @@ function isPlainObject(v: unknown): v is Record<string, unknown> {
 
 async function readJsonConfigFile(
   filePath: string,
-): Promise<{ rawContent: string; parsed: Record<string, unknown> }> {
+): Promise<Record<string, unknown>> {
   let rawContent: string;
   try {
     rawContent = await readFile(filePath, "utf-8");
@@ -70,7 +70,7 @@ async function readJsonConfigFile(
     throw new Error(`Config file is not a JSON object: ${filePath}`);
   }
 
-  return { rawContent, parsed };
+  return parsed;
 }
 
 function computeUndoPatch(
@@ -376,9 +376,24 @@ interface SkillDirOps {
   removeTarget(targetPath: string): Promise<void>;
 }
 
+interface DeployFileOps {
+  copyFile(source: string, target: string): Promise<void>;
+  rename(source: string, target: string): Promise<void>;
+  rm(
+    targetPath: string,
+    options?: { recursive?: boolean; force?: boolean },
+  ): Promise<void>;
+  writeFile(
+    filePath: string,
+    content: string,
+    encoding: BufferEncoding,
+  ): Promise<void>;
+}
+
 interface DeployDependencies {
   registry?: RegistryPersistence;
   skillDirOps?: SkillDirOps;
+  fileOps?: DeployFileOps;
 }
 
 const defaultSkillDirOps: SkillDirOps = {
@@ -399,6 +414,13 @@ const defaultSkillDirOps: SkillDirOps = {
   },
 };
 
+const defaultDeployFileOps: DeployFileOps = {
+  copyFile,
+  rename,
+  rm,
+  writeFile,
+};
+
 async function removeFileSystemTarget(targetPath: string): Promise<void> {
   const stat = await lstat(targetPath);
   if (stat.isDirectory() && !stat.isSymbolicLink()) {
@@ -411,7 +433,7 @@ async function removeFileSystemTarget(targetPath: string): Promise<void> {
 async function backupManagedFileWriteTarget(
   action: FileWriteDeployAction,
   home: string,
-  registry?: RegistryPersistence,
+  deps: DeployDependencies,
 ): Promise<string | null> {
   try {
     await lstat(action.target);
@@ -428,7 +450,7 @@ async function backupManagedFileWriteTarget(
       skill: action.skill,
       agent: action.agent,
     },
-    registry,
+    deps.registry,
   );
   if (!isOwned) {
     throw new Error(
@@ -437,41 +459,60 @@ async function backupManagedFileWriteTarget(
   }
 
   const backupPath = `${action.target}.inception-backup`;
-  await rm(backupPath, { recursive: true, force: true });
-  await rename(action.target, backupPath);
+  await (deps.fileOps ?? defaultDeployFileOps).rm(backupPath, {
+    recursive: true,
+    force: true,
+  });
+  await (deps.fileOps ?? defaultDeployFileOps).rename(
+    action.target,
+    backupPath,
+  );
   return backupPath;
 }
 
-async function commitFileWriteDeploy(
-  action: FileWriteDeployAction,
-  home: string,
-  registry: RegistryPersistence | undefined,
-  backupPath: string | null,
+function createAtomicTempPath(targetPath: string): string {
+  return `${targetPath}.inception-tmp-${process.pid}-${Date.now()}-${Math.random()
+    .toString(36)
+    .slice(2)}`;
+}
+
+async function replaceFileAtomically(
+  targetPath: string,
+  deps: DeployDependencies,
+  stageTempFile: (tempPath: string, fileOps: DeployFileOps) => Promise<void>,
+  prepareBackup: () => Promise<string | null>,
+  commit: () => Promise<void>,
 ): Promise<void> {
+  const fileOps = deps.fileOps ?? defaultDeployFileOps;
+  const tempPath = createAtomicTempPath(targetPath);
+  let backupPath: string | null = null;
+  let replacedTarget = false;
+
   try {
-    await mkdir(path.dirname(action.target), { recursive: true });
-    await copyFile(action.source, action.target);
-    await registerDeployment(
-      home,
-      action.target,
-      {
-        kind: "file-write",
-        source: action.source,
-        skill: action.skill,
-        agent: action.agent,
-      },
-      registry,
-    );
+    await mkdir(path.dirname(targetPath), { recursive: true });
+    await stageTempFile(tempPath, fileOps);
+    backupPath = await prepareBackup();
+    await fileOps.rename(tempPath, targetPath);
+    replacedTarget = true;
+    await commit();
   } catch (writeErr) {
-    try {
-      await removeFileSystemTarget(action.target);
-    } catch {
-      /* best-effort cleanup */
+    if (replacedTarget) {
+      try {
+        await removeFileSystemTarget(targetPath);
+      } catch {
+        /* best-effort cleanup */
+      }
+    } else {
+      try {
+        await fileOps.rm(tempPath, { recursive: true, force: true });
+      } catch {
+        /* best-effort cleanup */
+      }
     }
 
     if (backupPath) {
       try {
-        await rename(backupPath, action.target);
+        await fileOps.rename(backupPath, targetPath);
       } catch {
         /* best-effort rollback */
       }
@@ -481,7 +522,7 @@ async function commitFileWriteDeploy(
   }
 
   if (backupPath) {
-    await rm(backupPath, { recursive: true, force: true });
+    await fileOps.rm(backupPath, { recursive: true, force: true });
   }
 }
 
@@ -558,12 +599,24 @@ async function deployFileWrite(
   }
 
   try {
-    const backupPath = await backupManagedFileWriteTarget(
-      action,
-      home,
-      deps.registry,
+    await replaceFileAtomically(
+      action.target,
+      deps,
+      (tempPath, fileOps) => fileOps.copyFile(action.source, tempPath),
+      () => backupManagedFileWriteTarget(action, home, deps),
+      () =>
+        registerDeployment(
+          home,
+          action.target,
+          {
+            kind: "file-write",
+            source: action.source,
+            skill: action.skill,
+            agent: action.agent,
+          },
+          deps.registry,
+        ),
     );
-    await commitFileWriteDeploy(action, home, deps.registry, backupPath);
     logger.ok(label);
     if (verbose) {
       logger.detail(`write-file: ${action.source} -> ${action.target}`);
@@ -623,37 +676,45 @@ async function deployConfigPatch(
       );
     }
 
-    const { rawContent: originalRaw, parsed: original } =
-      await readJsonConfigFile(action.target);
+    const original = await readJsonConfigFile(action.target);
     const undoPatch = computeUndoPatch(original, patch);
     const patched = applyMergePatch(original, patch);
 
-    try {
-      await writeFile(
-        action.target,
-        `${JSON.stringify(patched, null, 2)}\n`,
-        "utf-8",
-      );
-      await registerDeployment(
-        home,
-        action.target,
-        {
-          kind: "config-patch",
-          patch,
-          undoPatch,
-          skill: action.skill,
-          agent: action.agent,
-        },
-        deps.registry,
-      );
-    } catch (writeErr) {
-      try {
-        await writeFile(action.target, originalRaw, "utf-8");
-      } catch {
-        /* best-effort rollback */
-      }
-      throw writeErr;
-    }
+    await replaceFileAtomically(
+      action.target,
+      deps,
+      (tempPath, fileOps) =>
+        fileOps.writeFile(
+          tempPath,
+          `${JSON.stringify(patched, null, 2)}\n`,
+          "utf-8",
+        ),
+      async () => {
+        const backupPath = `${action.target}.inception-backup`;
+        await (deps.fileOps ?? defaultDeployFileOps).rm(backupPath, {
+          recursive: true,
+          force: true,
+        });
+        await (deps.fileOps ?? defaultDeployFileOps).rename(
+          action.target,
+          backupPath,
+        );
+        return backupPath;
+      },
+      () =>
+        registerDeployment(
+          home,
+          action.target,
+          {
+            kind: "config-patch",
+            patch,
+            undoPatch,
+            skill: action.skill,
+            agent: action.agent,
+          },
+          deps.registry,
+        ),
+    );
 
     logger.ok(label);
     if (verbose) {
