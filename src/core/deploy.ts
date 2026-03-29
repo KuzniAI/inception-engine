@@ -378,8 +378,6 @@ async function deploySkillDir(
   }
 
   if (dryRun) {
-    logger.plan(label);
-    logger.detail(`${action.method}: ${action.source} -> ${action.target}`);
     planned.push({
       verb: action.method === "symlink" ? "create-symlink" : "copy-dir",
       kind: "skill-dir",
@@ -421,8 +419,6 @@ async function deployFileWrite(
   }
 
   if (dryRun) {
-    logger.plan(label);
-    logger.detail(`write-file: ${action.source} -> ${action.target}`);
     planned.push({
       verb: "write-file",
       kind: "file-write",
@@ -493,8 +489,6 @@ async function deployConfigPatch(
   const patch = action.patch;
 
   if (dryRun) {
-    logger.plan(label);
-    logger.detail(`patch-config: ${JSON.stringify(patch)} -> ${action.target}`);
     planned.push({
       verb: "patch-config",
       kind: "config-patch",

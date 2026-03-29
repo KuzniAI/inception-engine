@@ -261,8 +261,6 @@ async function executeRevertAction(
   }
 
   if (dryRun) {
-    logger.plan(label);
-    logger.detail(`would remove: ${action.target}`);
     planned.push({
       verb: "remove",
       kind: "skill-dir",
@@ -323,8 +321,6 @@ async function revertFileWrite(
   }
 
   if (dryRun) {
-    logger.plan(label);
-    logger.detail(`would remove: ${action.target}`);
     planned.push({
       verb: "remove",
       kind: "file-write",
@@ -388,10 +384,6 @@ async function revertConfigPatch(
   const configPatchEntry = entry as ConfigPatchRegistryEntry;
 
   if (dryRun) {
-    logger.plan(label);
-    logger.detail(
-      `would unapply patch: ${JSON.stringify(configPatchEntry.undoPatch)} -> ${action.target}`,
-    );
     planned.push({
       verb: "unapply-patch",
       kind: "config-patch",

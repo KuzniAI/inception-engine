@@ -13,7 +13,7 @@ import type { ErrorCode } from "./errors.ts";
 import { UserError } from "./errors.ts";
 import { dryRunPrefix, logger } from "./logger.ts";
 import { AgentListSchema } from "./schemas/manifest.ts";
-import type { AgentId, CliOptions, Manifest } from "./types.ts";
+import type { AgentId, CliOptions, Manifest, PlannedChange } from "./types.ts";
 
 const USAGE = `
 inception-engine - Deploy AI agent skills
@@ -131,6 +131,21 @@ async function main(): Promise<number> {
   return runRevert(options, manifest, home);
 }
 
+function renderDryRunPlan(planned: PlannedChange[]): void {
+  for (const change of planned) {
+    logger.plan(`[${change.agent}] ${change.verb}  ${change.skill}`);
+    if (change.source !== undefined) {
+      logger.detail(`source: ${change.source}`);
+    }
+    logger.detail(`target: ${change.target}`);
+    if (change.verb === "patch-config" && change.patch !== undefined) {
+      logger.detail(`patch:  ${JSON.stringify(change.patch)}`);
+    } else if (change.verb === "unapply-patch" && change.patch !== undefined) {
+      logger.detail(`undo:   ${JSON.stringify(change.patch)}`);
+    }
+  }
+}
+
 async function runDeploy(
   options: CliOptions,
   manifest: Manifest,
@@ -182,23 +197,29 @@ async function runDeploy(
   }
 
   logger.info(
-    `${dryRunPrefix(options.dryRun)}Deploying ${actions.length} skill(s):`,
+    `${dryRunPrefix(options.dryRun)}Deploying ${actions.length} action(s):`,
   );
-  const { succeeded, failed } = await executeDeploy(
+  const { succeeded, failed, planned } = await executeDeploy(
     actions,
     options.dryRun,
     options.verbose,
     home,
   );
 
+  if (options.dryRun) {
+    logger.info("");
+    renderDryRunPlan(planned);
+    logger.info("");
+    logger.info(`${planned.length} action(s) would be applied (dry-run)`);
+    return 0;
+  }
+
   logger.info("");
   if (failed.length > 0) {
     logger.info(`${succeeded} succeeded, ${failed.length} failed`);
     return 1;
   }
-  logger.info(
-    `${succeeded} skill(s) deployed${options.dryRun ? " (dry-run)" : ""}`,
-  );
+  logger.info(`${succeeded} action(s) deployed`);
   return 0;
 }
 
@@ -216,26 +237,34 @@ async function runRevert(
   }
 
   logger.info(
-    `${dryRunPrefix(options.dryRun)}Reverting ${actions.length} skill(s):`,
+    `${dryRunPrefix(options.dryRun)}Reverting ${actions.length} action(s):`,
   );
-  const { succeeded, skipped, failed } = await executeRevert(
+  const { succeeded, skipped, failed, planned } = await executeRevert(
     actions,
     options.dryRun,
     options.verbose,
     home,
   );
 
+  if (options.dryRun) {
+    logger.info("");
+    renderDryRunPlan(planned);
+    logger.info("");
+    logger.info(`${planned.length} action(s) would be removed (dry-run)`);
+    return 0;
+  }
+
   logger.info("");
   if (failed.length > 0) {
     const parts = [`${succeeded} removed`];
     if (skipped > 0) parts.push(`${skipped} skipped`);
     parts.push(`${failed.length} failed`);
-    logger.info(`${parts.join(", ")}${options.dryRun ? " (dry-run)" : ""}`);
+    logger.info(parts.join(", "));
     return 1;
   }
   const parts = [`${succeeded} removed`];
   if (skipped > 0) parts.push(`${skipped} skipped`);
-  logger.info(`${parts.join(", ")}${options.dryRun ? " (dry-run)" : ""}`);
+  logger.info(parts.join(", "));
   return 0;
 }
 

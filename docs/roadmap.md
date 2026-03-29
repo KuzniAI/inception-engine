@@ -8,7 +8,7 @@ It intentionally focuses on enabling architecture rather than prematurely implem
 
 1. **Finish the remaining public-surface action model work**
    - ~~Complete planner and manifest-level support for distinct action types so the public engine can actually plan and revert file-write and structured config patch actions, not only execute them when constructed internally (`src/core/deploy.ts`, `src/core/revert.ts`, `src/config/manifest.ts`, `src/schemas/manifest.ts`).~~
-   - Replace user-facing log-string dry-run summaries with structured exact-change reporting that the CLI actually surfaces, instead of only returning `planned` entries from the executor internals (`src/core/deploy.ts`, `src/core/revert.ts`, `src/index.ts`, `src/logger.ts`).
+   - ~~Replace user-facing log-string dry-run summaries with structured exact-change reporting that the CLI actually surfaces, instead of only returning `planned` entries from the executor internals (`src/core/deploy.ts`, `src/core/revert.ts`, `src/index.ts`, `src/logger.ts`).~~
 
 2. **Close the remaining safety and validation gaps**
    - Reduce the current TOCTOU window in deploy and revert so ownership checks and mutations are less exposed to path-state changes between validation and mutation (`src/core/deploy.ts`, `src/core/revert.ts`).
@@ -24,7 +24,7 @@ It intentionally focuses on enabling architecture rather than prematurely implem
 ### Core Architecture
 
 - ~~**Public Action Model Gap**: `DeployAction` and `RevertAction` can represent `file-write` and `config-patch`, and the executors can run them, but the manifest-driven planner and revert flow still only derive `skill-dir` actions. Finish the public planning surface before treating the deploy model as fully generalized (`src/types.ts`, `src/core/deploy.ts`, `src/core/revert.ts`, `src/config/manifest.ts`, `src/schemas/manifest.ts`).~~
-- **User-Facing Dry-Run Precision Gap**: Executors now return structured `planned` changes for writes, removals, and patches, but the CLI still reports dry-runs through logger strings and does not surface the structured plan output (`src/core/deploy.ts`, `src/core/revert.ts`, `src/index.ts`, `src/logger.ts`).
+- ~~**User-Facing Dry-Run Precision Gap**: Executors now return structured `planned` changes for writes, removals, and patches, but the CLI still reports dry-runs through logger strings and does not surface the structured plan output (`src/core/deploy.ts`, `src/core/revert.ts`, `src/index.ts`, `src/logger.ts`).~~
 
 ### Planning and Support Semantics
 
