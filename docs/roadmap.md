@@ -8,41 +8,23 @@ As of the current implementation:
 - `mcpServers` and `agentRules` are no longer validation-only. They compile into deploy actions and are exercised by tests.
 - Revert is now implemented for `mcpServers` and `agentRules` as well as `skills`, `files`, and `configs`.
 
-## What Is Actually Implemented
+## Implemented But Not Complete Enough To Call Closed
 
-### Stable Enough To Treat As Present
-
-- Skill deploy planning and execution for detected agents (`src/core/deploy.ts`)
-- Registry-backed ownership checks and safe revert for `skills`, `files`, `configs`, `mcpServers`, and `agentRules` (`src/core/ownership.ts`, `src/core/revert.ts`)
-- Adapter compilation for `mcpServers` and `agentRules` into existing action kinds (`src/core/adapters/index.ts`)
-- Dry-run output and collision warnings for compiled actions (`src/core/deploy.ts`)
-- Agent detection, privilege-aware home resolution, and path placeholder handling (`src/core/detect.ts`, `src/core/resolve.ts`)
-
-### Implemented But Not Complete Enough To Call Closed
-
-1. **Atomic overwrite guarantees are narrower than the docs suggest**
-   - Atomic backup-and-restore exists for `skill-dir` redeploys only (`src/core/deploy.ts:633`).
-   - `file-write` and `config-patch` deployments write directly to the target without the same backup/rollback model (`src/core/deploy.ts:376`, `src/core/deploy.ts:454`).
-   - The README statement about atomic redeploy for "existing managed targets" is therefore broader than the actual code.
-
-2. **"Skill contract validation" only checks presence/readability of `SKILL.md`**
-   - The planner validates that the source is a readable directory and that `SKILL.md` exists (`src/core/deploy.ts:539`).
-   - It does not validate YAML frontmatter, `name`, or `description`, even though README presents those fields as required for skills.
-
-3. **Raise Windows confidence from inferred to demonstrated**
-   - The codebase has useful path-resolution tests and some cross-platform copy/revert coverage.
-   - Important behavior is still more thoroughly exercised on POSIX than on real Windows execution paths (`test/cross-platform.test.ts`, `test/deploy.test.ts`, `test/revert.test.ts`).
-   - CI should prove Windows copy deploy, overwrite protection, registry handling, and revert behavior directly.
-
-## Obvious Code Problems To Fix Before More Surface Area
-
-- The docs imply stronger safety guarantees for all managed target types than the code actually provides.
-- The docs imply stronger skill-file contract enforcement than the code currently performs.
+1. **Atomic overwrite guarantees are narrower across deployment kinds**
+   - `skill-dir` redeploys have the strongest overwrite protection: the existing managed target is renamed to a backup before replacement and restored if the new deploy fails (`src/core/deploy.ts:769`, `src/core/deploy.ts:819`).
+   - `file-write` redeploys also back up an existing managed target first, but the replacement is still written directly to the final path rather than being atomically swapped into place (`src/core/deploy.ts:411`, `src/core/deploy.ts:445`).
+   - `config-patch` deployments patch the target in place and only attempt to rewrite the original content on failure, so they do not provide the same backup-and-restore semantics as `skill-dir` (`src/core/deploy.ts:579`).
 
 ## Exit Criteria For New Capability Work
 
 Feature expansion should wait until these are true:
 
 - `mcpServers` and `agentRules` support deploy, dry-run, ownership checks, and revert end to end.
-- README capability claims match the actual guarantees in code.
-- Windows behavior is exercised in CI with real execution, not mostly path-resolution tests plus POSIX inference.
+
+## Things to do later
+
+1. **Expand Windows coverage** for additional edge cases
+2. **Skill contract validation is intentionally minimal**
+   - The planner validates that the source is a readable directory and that `SKILL.md` exists and is readable (`src/core/deploy.ts:672`).
+   - It does not parse or validate YAML frontmatter fields such as `name` and `description`.
+   - README already documents this limitation, so any follow-up here is hardening work rather than a docs-correction issue.

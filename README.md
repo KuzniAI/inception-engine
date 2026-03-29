@@ -109,7 +109,7 @@ Each **config** entry applies a [JSON merge patch (RFC 7386)](https://datatracke
 
 - **name** - Unique identifier (same format as skill names)
 - **target** - Config file to patch, using the same placeholder prefix as file entries
-- **patch** - JSON object of keys to set. A `null` value removes the key from the target file. Non-null values are set directly (deep merge is not applied).
+- **patch** - JSON object of keys to set. A `null` value removes the key from the target file. Nested object values are merged recursively; non-object values replace the existing value directly.
 - **agents** - Array of agent IDs to apply this patch to
 
 The engine records an undo-patch for each config-patch deployment so that `revert` can restore the original values.
@@ -175,19 +175,19 @@ inception-engine revert <directory> [options]
 
 ```bash
 # Deploy all skills to all detected agents
-npx inception-engine ./my-skills-repo
+npx @kuznai/inception-engine ./my-skills-repo
 
 # Preview what would be deployed
-npx inception-engine ./my-skills-repo --dry-run
+npx @kuznai/inception-engine ./my-skills-repo --dry-run
 
 # Deploy only to Claude Code and Codex
-npx inception-engine ./my-skills-repo --agents claude-code,codex
+npx @kuznai/inception-engine ./my-skills-repo --agents claude-code,codex
 
 # Remove deployed skills
-npx inception-engine revert ./my-skills-repo
+npx @kuznai/inception-engine revert ./my-skills-repo
 
 # Preview what would be removed
-npx inception-engine revert ./my-skills-repo --dry-run
+npx @kuznai/inception-engine revert ./my-skills-repo --dry-run
 ```
 
 ## Sample Skills
@@ -197,7 +197,7 @@ The `limbo/` directory contains exceptional sample skills for testing purposes o
 Try them out:
 
 ```bash
-npx inception-engine limbo --dry-run
+npx @kuznai/inception-engine limbo --dry-run
 ```
 
 ## Agent Detection
@@ -221,11 +221,11 @@ Revert targets all agents listed in the manifest by default (regardless of detec
 
 ### Ownership Tracking and Safe Revert
 
-inception-engine maintains a centralized deployment registry at `~/.inception-engine/registry.json`. Each deploy records the target path, source path, skill name, agent ID, deploy method, and timestamp. No files are written to the source repository.
+inception-engine maintains a centralized deployment registry at `~/.inception-engine/registry.json`. Each deploy records the target path, skill name, agent ID, action-specific provenance (`source`/`method` for skill-dir, `source` for file-write, `patch`/`undoPatch` for config-patch), and timestamp. No files are written to the source repository.
 
 - **Registry-based ownership**: On revert, the registry is checked before removing any target. Only targets with a valid registry entry are removed. On redeploy, unmanaged targets are never replaced.
 
-- **Strong binding**: Each registry entry binds a specific target path to its skill, agent, and action kind, with action-specific provenance fields (`source` and `method` for skill-dir and file-write; `patch` and `undoPatch` for config-patch). A target is only considered managed if all relevant fields match — a stray entry or a different deployment cannot satisfy the check.
+- **Strong binding**: Each registry entry binds a specific target path to its skill, agent, and action kind. For `skill-dir` and `file-write`, ownership checks also require the recorded `source` to match before an existing target is treated as managed. For `config-patch`, overwrite protection is keyed by target path, kind, skill, and agent; the stored `patch` and `undoPatch` are used for revert bookkeeping rather than deploy-time identity checks.
 
 - **Atomic redeploy**: When overwriting an existing managed `skill-dir` target, the engine renames the old target to a backup, creates the new deployment, and only removes the backup on success. If the new deployment fails, the backup is restored. `file-write` and `config-patch` deployments write directly to the target without this backup/rollback model.
 
