@@ -747,3 +747,295 @@ describe("executeRevert — config-patch", () => {
     }
   });
 });
+
+describe("planRevert — mcpServers and agentRules", () => {
+  const home = "/home/test";
+
+  it("produces a config-patch action for an mcpServer matched to a detected agent", () => {
+    const manifest: Manifest = {
+      skills: [],
+      mcpServers: [
+        {
+          name: "my-mcp",
+          agents: ["claude-code"],
+          config: { command: "npx", args: ["-y", "my-mcp"] },
+        },
+      ],
+      agentRules: [],
+    };
+    const actions = planRevert(manifest, ["claude-code"], home);
+    assert.equal(actions.length, 1);
+    assert.equal(actions[0]?.kind, "config-patch");
+    assert.equal(actions[0]?.skill, "my-mcp");
+    assert.equal(actions[0]?.agent, "claude-code");
+  });
+
+  it("skips mcpServer agents not in detectedAgents", () => {
+    const manifest: Manifest = {
+      skills: [],
+      mcpServers: [
+        {
+          name: "my-mcp",
+          agents: ["claude-code"],
+          config: { command: "npx" },
+        },
+      ],
+      agentRules: [],
+    };
+    const actions = planRevert(manifest, ["codex"], home);
+    assert.equal(actions.length, 0);
+  });
+
+  it("produces a file-write action for an agentRule matched to a detected agent", () => {
+    const manifest: Manifest = {
+      skills: [],
+      mcpServers: [],
+      agentRules: [
+        { name: "my-rules", path: "rules/CLAUDE.md", agents: ["claude-code"] },
+      ],
+    };
+    const actions = planRevert(manifest, ["claude-code"], home);
+    assert.equal(actions.length, 1);
+    assert.equal(actions[0]?.kind, "file-write");
+    assert.equal(actions[0]?.skill, "my-rules");
+    assert.equal(actions[0]?.agent, "claude-code");
+  });
+
+  it("skips agentRule agents not in detectedAgents", () => {
+    const manifest: Manifest = {
+      skills: [],
+      mcpServers: [],
+      agentRules: [
+        { name: "my-rules", path: "rules/CLAUDE.md", agents: ["claude-code"] },
+      ],
+    };
+    const actions = planRevert(manifest, ["codex"], home);
+    assert.equal(actions.length, 0);
+  });
+});
+
+describe("planRevertAll — mcpServers and agentRules", () => {
+  const home = "/home/test";
+
+  it("includes mcpServer actions for all listed agents regardless of detection", () => {
+    const manifest: Manifest = {
+      skills: [],
+      mcpServers: [
+        {
+          name: "my-mcp",
+          agents: ["claude-code", "gemini-cli"],
+          config: { command: "npx" },
+        },
+      ],
+      agentRules: [],
+    };
+    const actions = planRevertAll(manifest, home);
+    assert.equal(actions.length, 2);
+    const agents = actions.map((a) => a.agent);
+    assert.ok(agents.includes("claude-code"));
+    assert.ok(agents.includes("gemini-cli"));
+  });
+
+  it("includes agentRule actions for all listed agents regardless of detection", () => {
+    const manifest: Manifest = {
+      skills: [],
+      mcpServers: [],
+      agentRules: [
+        {
+          name: "my-rules",
+          path: "rules/CLAUDE.md",
+          agents: ["claude-code", "codex"],
+        },
+      ],
+    };
+    const actions = planRevertAll(manifest, home);
+    assert.equal(actions.length, 2);
+    const agents = actions.map((a) => a.agent);
+    assert.ok(agents.includes("claude-code"));
+    assert.ok(agents.includes("codex"));
+  });
+});
+
+describe("executeRevert — mcpServer and agentRule integration", {
+  skip: process.platform === "win32",
+}, () => {
+  it("reverts a deployed mcpServer config-patch and unregisters it", async () => {
+    const home = makeTmpDir();
+    try {
+      // Simulate a deployed mcpServer: config file with mcpServers key patched in
+      const configFile = path.join(home, ".claude.json");
+      const original = { other: "value" };
+      const patched = {
+        other: "value",
+        mcpServers: { "my-mcp": { command: "npx" } },
+      };
+      writeFileSync(configFile, JSON.stringify(patched));
+
+      await registerDeployment(home, configFile, {
+        kind: "config-patch",
+        patch: { mcpServers: { "my-mcp": { command: "npx" } } },
+        undoPatch: { mcpServers: null },
+        skill: "my-mcp",
+        agent: "claude-code",
+      });
+
+      const action: ConfigPatchRevertAction = {
+        kind: "config-patch",
+        skill: "my-mcp",
+        agent: "claude-code",
+        target: configFile,
+      };
+
+      const { succeeded, failed } = await executeRevert(
+        [action],
+        false,
+        false,
+        home,
+      );
+      assert.equal(succeeded, 1);
+      assert.equal(failed.length, 0);
+
+      const restored = JSON.parse(readFileSync(configFile, "utf-8"));
+      assert.deepEqual(restored, original);
+
+      const entry = await lookupDeployment(home, configFile);
+      assert.equal(
+        entry,
+        null,
+        "registry entry should be removed after revert",
+      );
+    } finally {
+      rmSync(home, { recursive: true, force: true });
+    }
+  });
+
+  it("reverts a deployed agentRule file-write and unregisters it", async () => {
+    const home = makeTmpDir();
+    try {
+      const rulesFile = path.join(home, ".claude", "CLAUDE.md");
+      mkdirSync(path.dirname(rulesFile), { recursive: true });
+      writeFileSync(rulesFile, "# My Rules\n");
+
+      await registerDeployment(home, rulesFile, {
+        kind: "file-write",
+        source: "/some/source/CLAUDE.md",
+        skill: "my-rules",
+        agent: "claude-code",
+      });
+
+      const action: FileWriteRevertAction = {
+        kind: "file-write",
+        skill: "my-rules",
+        agent: "claude-code",
+        target: rulesFile,
+      };
+
+      const { succeeded, failed } = await executeRevert(
+        [action],
+        false,
+        false,
+        home,
+      );
+      assert.equal(succeeded, 1);
+      assert.equal(failed.length, 0);
+
+      assert.ok(
+        !existsSync(rulesFile),
+        "rules file should be removed after revert",
+      );
+
+      const entry = await lookupDeployment(home, rulesFile);
+      assert.equal(
+        entry,
+        null,
+        "registry entry should be removed after revert",
+      );
+    } finally {
+      rmSync(home, { recursive: true, force: true });
+    }
+  });
+
+  it("dry-run for mcpServer revert returns planned change without modifying config", async () => {
+    const home = makeTmpDir();
+    try {
+      const configFile = path.join(home, ".claude.json");
+      const patched = { mcpServers: { "my-mcp": { command: "npx" } } };
+      writeFileSync(configFile, JSON.stringify(patched));
+
+      await registerDeployment(home, configFile, {
+        kind: "config-patch",
+        patch: { mcpServers: { "my-mcp": { command: "npx" } } },
+        undoPatch: { mcpServers: null },
+        skill: "my-mcp",
+        agent: "claude-code",
+      });
+
+      const action: ConfigPatchRevertAction = {
+        kind: "config-patch",
+        skill: "my-mcp",
+        agent: "claude-code",
+        target: configFile,
+      };
+
+      const { succeeded, planned } = await executeRevert(
+        [action],
+        true,
+        false,
+        home,
+      );
+      assert.equal(succeeded, 1);
+      assert.equal(planned.length, 1);
+      assert.equal(planned[0]?.verb, "unapply-patch");
+
+      const unchanged = JSON.parse(readFileSync(configFile, "utf-8"));
+      assert.deepEqual(
+        unchanged,
+        patched,
+        "config should be unchanged during dry-run",
+      );
+    } finally {
+      rmSync(home, { recursive: true, force: true });
+    }
+  });
+
+  it("dry-run for agentRule revert returns planned change without deleting file", async () => {
+    const home = makeTmpDir();
+    try {
+      const rulesFile = path.join(home, ".claude", "CLAUDE.md");
+      mkdirSync(path.dirname(rulesFile), { recursive: true });
+      writeFileSync(rulesFile, "# My Rules\n");
+
+      await registerDeployment(home, rulesFile, {
+        kind: "file-write",
+        source: "/some/source/CLAUDE.md",
+        skill: "my-rules",
+        agent: "claude-code",
+      });
+
+      const action: FileWriteRevertAction = {
+        kind: "file-write",
+        skill: "my-rules",
+        agent: "claude-code",
+        target: rulesFile,
+      };
+
+      const { succeeded, planned } = await executeRevert(
+        [action],
+        true,
+        false,
+        home,
+      );
+      assert.equal(succeeded, 1);
+      assert.equal(planned.length, 1);
+      assert.equal(planned[0]?.verb, "remove");
+      assert.equal(planned[0]?.kind, "file-write");
+
+      assert.ok(
+        existsSync(rulesFile),
+        "rules file should still exist after dry-run",
+      );
+    } finally {
+      rmSync(home, { recursive: true, force: true });
+    }
+  });
+});

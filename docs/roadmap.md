@@ -6,25 +6,25 @@ As of the current implementation:
 
 - Skill deployment, file writes, and top-level config patching are implemented and covered by tests.
 - `mcpServers` and `agentRules` are no longer validation-only. They compile into deploy actions and are exercised by tests.
-- The old crossed-out claim that these sections were "executable through planning and revert" is still false. Deploy exists; revert still does not.
+- ~~The old crossed-out claim that these sections were "executable through planning and revert" is still false. Deploy exists; revert still does not.~~ Revert is now implemented for both surfaces.
 
 ## What Is Actually Implemented
 
 ### Stable Enough To Treat As Present
 
 - Skill deploy planning and execution for detected agents (`src/core/deploy.ts`)
-- Registry-backed ownership checks and safe revert for `skills`, `files`, and `configs` (`src/core/ownership.ts`, `src/core/revert.ts`)
+- Registry-backed ownership checks and safe revert for `skills`, `files`, `configs`, `mcpServers`, and `agentRules` (`src/core/ownership.ts`, `src/core/revert.ts`)
 - Adapter compilation for `mcpServers` and `agentRules` into existing action kinds (`src/core/adapters/index.ts`)
 - Dry-run output and collision warnings for compiled actions (`src/core/deploy.ts`)
 - Agent detection, privilege-aware home resolution, and path placeholder handling (`src/core/detect.ts`, `src/core/resolve.ts`)
 
 ### Implemented But Not Complete Enough To Call Closed
 
-1. **Adapter-backed deploy without adapter-backed revert**
-   - `mcpServers` compiles into `config-patch` deploy actions.
-   - `agentRules` compiles into `file-write` deploy actions.
-   - `planRevert` and `planRevertAll` still explicitly omit both surfaces (`src/core/revert.ts:95`, `src/core/revert.ts:112`).
-   - This means README is currently accurate when it says revert is not implemented for those surfaces, and the old struck-through roadmap item was premature.
+~~1. **Adapter-backed deploy without adapter-backed revert**~~
+   - ~~`mcpServers` compiles into `config-patch` deploy actions.~~
+   - ~~`agentRules` compiles into `file-write` deploy actions.~~
+   - ~~`planRevert` and `planRevertAll` still explicitly omit both surfaces (`src/core/revert.ts:95`, `src/core/revert.ts:112`).~~
+   - ~~This means README is currently accurate when it says revert is not implemented for those surfaces, and the old struck-through roadmap item was premature.~~
 
 2. **Config patching is not RFC 7386 / RFC 7396 JSON Merge Patch**
    - README says config entries apply a JSON merge patch.
@@ -43,9 +43,9 @@ As of the current implementation:
 
 ## Priority Gaps
 
-1. **Finish revert support for adapter-driven capabilities**
-   - Add adapter mirror functions for `mcpServers` and `agentRules`.
-   - Make `planRevert` and `planRevertAll` generate matching revert actions.
+~~1. **Finish revert support for adapter-driven capabilities**~~
+   - ~~Add adapter mirror functions for `mcpServers` and `agentRules`.~~
+   - ~~Make `planRevert` and `planRevertAll` generate matching revert actions.~~
    - Add end-to-end tests that deploy and revert both surfaces through the manifest, not just adapter compilation tests.
 
 2. **Fix config patch semantics before expanding config-driven features**

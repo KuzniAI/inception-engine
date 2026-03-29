@@ -5,8 +5,10 @@ import type {
   FileWriteDeployAction,
   PlanWarning,
 } from "../../types.ts";
-import { compileMcpServerActions } from "./mcp.ts";
-import { compileAgentRuleActions } from "./rules.ts";
+import { compileMcpServerActions, compileMcpServerReverts } from "./mcp.ts";
+import { compileAgentRuleActions, compileAgentRuleReverts } from "./rules.ts";
+
+export { compileMcpServerReverts, compileAgentRuleReverts };
 
 export type AdapterAction = ConfigPatchDeployAction | FileWriteDeployAction;
 

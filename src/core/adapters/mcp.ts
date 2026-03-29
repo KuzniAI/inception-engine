@@ -4,6 +4,7 @@ import type { McpServerEntry } from "../../schemas/manifest.ts";
 import type {
   AgentId,
   ConfigPatchDeployAction,
+  ConfigPatchRevertAction,
   PlanWarning,
 } from "../../types.ts";
 import { getPlatformKey, resolvePlaceholders } from "../resolve.ts";
@@ -48,4 +49,29 @@ export function compileMcpServerActions(
   }
 
   return { actions, warnings };
+}
+
+export function compileMcpServerReverts(
+  entry: McpServerEntry,
+  agentFilter: AgentId[] | null,
+  home: string,
+): ConfigPatchRevertAction[] {
+  const actions: ConfigPatchRevertAction[] = [];
+  const platform = getPlatformKey();
+
+  for (const agentId of entry.agents) {
+    if (agentFilter && !agentFilter.includes(agentId)) continue;
+    const agent = AGENT_REGISTRY_BY_ID[agentId];
+    if (!agent?.mcpConfigPath) continue;
+    const target = path.resolve(
+      resolvePlaceholders(agent.mcpConfigPath[platform], "", home),
+    );
+    actions.push({
+      kind: "config-patch",
+      skill: entry.name,
+      agent: agentId,
+      target,
+    });
+  }
+  return actions;
 }

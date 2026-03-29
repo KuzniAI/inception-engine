@@ -12,6 +12,10 @@ import type {
   SkillDirRevertAction,
 } from "../types.ts";
 import type { ConfigPatchRegistryEntry } from "../schemas/registry.ts";
+import {
+  compileMcpServerReverts,
+  compileAgentRuleReverts,
+} from "./adapters/index.ts";
 import { lookupDeployment, unregisterDeployment } from "./ownership.ts";
 import { resolveAgentSkillPath } from "./resolve.ts";
 
@@ -97,15 +101,16 @@ export function planRevert(
   detectedAgents: AgentId[],
   home: string,
 ): RevertAction[] {
-  // TODO: planRevert needs to cover manifest.mcpServers and manifest.agentRules
-  // via adapter mirror functions (compileMcpServerReverts / compileAgentRuleReverts)
-  // that produce ConfigPatchRevertAction and FileWriteRevertAction respectively.
-  // Registry entries for adapter-deployed targets persist until then; they are
-  // safe because the engine never overwrites non-owned files.
   return [
     ...buildSkillDirReverts(manifest, home, detectedAgents),
     ...buildFileWriteReverts(manifest, home, detectedAgents),
     ...buildConfigPatchReverts(manifest, home, detectedAgents),
+    ...(manifest.mcpServers ?? []).flatMap((e) =>
+      compileMcpServerReverts(e, detectedAgents, home),
+    ),
+    ...(manifest.agentRules ?? []).flatMap((e) =>
+      compileAgentRuleReverts(e, detectedAgents, home),
+    ),
   ];
 }
 
@@ -113,11 +118,16 @@ export function planRevertAll(
   manifest: Manifest,
   home: string,
 ): RevertAction[] {
-  // TODO: same as planRevert — needs adapter mirror for mcpServers and agentRules.
   return [
     ...buildSkillDirReverts(manifest, home, null),
     ...buildFileWriteReverts(manifest, home, null),
     ...buildConfigPatchReverts(manifest, home, null),
+    ...(manifest.mcpServers ?? []).flatMap((e) =>
+      compileMcpServerReverts(e, null, home),
+    ),
+    ...(manifest.agentRules ?? []).flatMap((e) =>
+      compileAgentRuleReverts(e, null, home),
+    ),
   ];
 }
 

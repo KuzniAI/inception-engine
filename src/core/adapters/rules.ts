@@ -4,6 +4,7 @@ import type { AgentRuleEntry } from "../../schemas/manifest.ts";
 import type {
   AgentId,
   FileWriteDeployAction,
+  FileWriteRevertAction,
   PlanWarning,
 } from "../../types.ts";
 import { getPlatformKey, resolvePlaceholders } from "../resolve.ts";
@@ -59,4 +60,31 @@ export async function compileAgentRuleActions(
   }
 
   return { actions, warnings };
+}
+
+export function compileAgentRuleReverts(
+  entry: AgentRuleEntry,
+  agentFilter: AgentId[] | null,
+  home: string,
+): FileWriteRevertAction[] {
+  const actions: FileWriteRevertAction[] = [];
+  const platform = getPlatformKey();
+
+  for (const agentId of entry.agents) {
+    if (agentFilter && !agentFilter.includes(agentId)) continue;
+    const agent = AGENT_REGISTRY_BY_ID[agentId];
+    if (!agent?.agentRulesPath) continue;
+    const target = resolvePlaceholders(
+      agent.agentRulesPath[platform],
+      "",
+      home,
+    );
+    actions.push({
+      kind: "file-write",
+      skill: entry.name,
+      agent: agentId,
+      target,
+    });
+  }
+  return actions;
 }
