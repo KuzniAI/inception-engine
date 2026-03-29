@@ -1,27 +1,82 @@
 # Inception Engine: Roadmap
 
-This roadmap is now trimmed to the remaining architecture work that should land before feature expansion resumes.
+This roadmap is rebuilt from the current codebase and test suite, not from earlier planning assumptions.
 
-The completed action-model, dry-run reporting, validation, TOCTOU hardening, skill-contract validation, and enterprise-policy warning work has been removed from this document because it is already implemented in the codebase and covered by tests.
+As of the current implementation:
 
-## Architecture Close-Out
+- Skill deployment, file writes, and top-level config patching are implemented and covered by tests.
+- `mcpServers` and `agentRules` are no longer validation-only. They compile into deploy actions and are exercised by tests.
+- The old crossed-out claim that these sections were "executable through planning and revert" is still false. Deploy exists; revert still does not.
 
-1. **Raise cross-platform confidence to release quality**
-   - Add stronger Windows-realistic coverage for copy deploy and revert, ownership enforcement, backup and rollback behavior, and `%APPDATA%` path handling. The implementation exists, but several important cases are still covered mainly by platform-gated or mocked tests (`test/cross-platform.test.ts`, `test/deploy.test.ts`, `test/revert.test.ts`, `test/ownership.test.ts`).
-   - Make sure CI treats those paths as first-class, so architecture claims are not based mostly on POSIX behavior plus inference.
+## What Is Actually Implemented
 
-2. ~~**Add the adapter boundary for future capability surfaces**~~
-   - ~~Introduce a planner-facing adapter layer that can compile higher-level manifest intent into engine-owned actions for instruction files, MCP configuration, and agent/rule definitions, instead of wiring each future capability directly into ad hoc file writes or config patches.~~
-   - ~~Keep ownership tracking, revert behavior, conflict detection, and exact dry-run output at the compiled-action layer so new vectors inherit the current safety model rather than reimplementing it.~~
+### Stable Enough To Treat As Present
 
-3. ~~**Promote manifest sections from validation-only to executable architecture**~~
-   - ~~`mcpServers` and `agentRules` now validate structurally, but they are still not consumed by planning or execution. Define the public manifest contract for those sections and connect them to agent-specific adapters before treating the engine as ready for MCP or subagent feature work (`src/config/manifest.ts`, `src/schemas/manifest.ts`).~~
-   - ~~Keep support confidence explicit per target surface. A vector should only move from roadmap to supported capability when the target path/schema is documented strongly enough and the engine can manage it with reversible ownership semantics (`docs/north-star.md`).~~
+- Skill deploy planning and execution for detected agents (`src/core/deploy.ts`)
+- Registry-backed ownership checks and safe revert for `skills`, `files`, and `configs` (`src/core/ownership.ts`, `src/core/revert.ts`)
+- Adapter compilation for `mcpServers` and `agentRules` into existing action kinds (`src/core/adapters/index.ts`)
+- Dry-run output and collision warnings for compiled actions (`src/core/deploy.ts`)
+- Agent detection, privilege-aware home resolution, and path placeholder handling (`src/core/detect.ts`, `src/core/resolve.ts`)
 
-## Exit Criteria For Feature Work
+### Implemented But Not Complete Enough To Call Closed
 
-Feature expansion should start only after these are true:
+1. **Adapter-backed deploy without adapter-backed revert**
+   - `mcpServers` compiles into `config-patch` deploy actions.
+   - `agentRules` compiles into `file-write` deploy actions.
+   - `planRevert` and `planRevertAll` still explicitly omit both surfaces (`src/core/revert.ts:95`, `src/core/revert.ts:112`).
+   - This means README is currently accurate when it says revert is not implemented for those surfaces, and the old struck-through roadmap item was premature.
 
-- Windows behavior is exercised by realistic automated coverage, not mostly inferred from POSIX runs.
-- New capability vectors compile through a stable adapter layer into the existing action and ownership model.
-- Manifest sections intended for MCP, rules, or other agent-specific surfaces are executable through planning and revert, not just accepted by schema validation.
+2. **Config patching is not RFC 7386 / RFC 7396 JSON Merge Patch**
+   - README says config entries apply a JSON merge patch.
+   - The implementation only patches top-level keys by assignment or deletion (`src/core/deploy.ts:82`).
+   - Nested objects are replaced wholesale instead of recursively merged, and undo state is also captured only at the top level (`src/core/deploy.ts:71`).
+   - This is especially risky for MCP registration because the adapter writes `{ mcpServers: { [name]: config } }` (`src/core/adapters/mcp.ts:45`), which can replace the entire existing `mcpServers` object instead of adding one server.
+
+3. **Atomic overwrite guarantees are narrower than the docs suggest**
+   - Atomic backup-and-restore exists for `skill-dir` redeploys only (`src/core/deploy.ts:633`).
+   - `file-write` and `config-patch` deployments write directly to the target without the same backup/rollback model (`src/core/deploy.ts:376`, `src/core/deploy.ts:454`).
+   - The README statement about atomic redeploy for "existing managed targets" is therefore broader than the actual code.
+
+4. **"Skill contract validation" only checks presence/readability of `SKILL.md`**
+   - The planner validates that the source is a readable directory and that `SKILL.md` exists (`src/core/deploy.ts:539`).
+   - It does not validate YAML frontmatter, `name`, or `description`, even though README presents those fields as required for skills.
+
+## Priority Gaps
+
+1. **Finish revert support for adapter-driven capabilities**
+   - Add adapter mirror functions for `mcpServers` and `agentRules`.
+   - Make `planRevert` and `planRevertAll` generate matching revert actions.
+   - Add end-to-end tests that deploy and revert both surfaces through the manifest, not just adapter compilation tests.
+
+2. **Fix config patch semantics before expanding config-driven features**
+   - Replace the shallow patcher with real JSON Merge Patch behavior.
+   - Preserve nested sibling keys during MCP registration.
+   - Update undo-patch generation and revert logic to match the same semantics.
+   - Add tests for nested object merge, nested deletion, and MCP coexistence with pre-existing servers.
+
+3. **Bring docs back in line with the code**
+   - Narrow README claims around atomic redeploy so they describe `skill-dir` behavior specifically.
+   - Stop calling the current patcher RFC 7386 / RFC 7396 compliant until it actually is.
+   - Distinguish "deploy supported" from "revert supported" in the feature matrix.
+   - Either validate skill frontmatter or soften README language about required skill structure.
+
+4. **Raise Windows confidence from inferred to demonstrated**
+   - The codebase has useful path-resolution tests and some cross-platform copy/revert coverage.
+   - Important behavior is still more thoroughly exercised on POSIX than on real Windows execution paths (`test/cross-platform.test.ts`, `test/deploy.test.ts`, `test/revert.test.ts`).
+   - CI should prove Windows copy deploy, overwrite protection, registry handling, and revert behavior directly.
+
+## Obvious Code Problems To Fix Before More Surface Area
+
+- `mcpServers` registration can clobber existing sibling MCP entries because config patching is shallow.
+- Adapter-owned deploys leave registry-managed state behind that the manifest-level revert planner does not currently clean up.
+- The docs imply stronger safety guarantees for all managed target types than the code actually provides.
+- The docs imply stronger skill-file contract enforcement than the code currently performs.
+
+## Exit Criteria For New Capability Work
+
+Feature expansion should wait until these are true:
+
+- `mcpServers` and `agentRules` support deploy, dry-run, ownership checks, and revert end to end.
+- Config patch behavior matches the documented merge semantics and is covered by nested-object tests.
+- README capability claims match the actual guarantees in code.
+- Windows behavior is exercised in CI with real execution, not mostly path-resolution tests plus POSIX inference.
