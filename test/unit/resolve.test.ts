@@ -8,6 +8,7 @@ import {
   resolveAgentSkillPath,
   resolveHome,
 } from "../../src/core/resolve.ts";
+import { resolveTargetTemplate } from "../../src/core/runtime-paths.ts";
 import { UserError } from "../../src/errors.ts";
 
 function getAgent(id: string) {
@@ -114,5 +115,20 @@ describe("resolveHome", () => {
         process.env.SUDO_USER = saved;
       }
     }
+  });
+});
+
+describe("resolveTargetTemplate", () => {
+  it("resolves a descendant path under the placeholder root", () => {
+    const home = path.join(path.sep, "home", "user");
+    const result = resolveTargetTemplate("{home}/.claude/settings.json", home);
+    assert.equal(result, `${home}/.claude/settings.json`);
+  });
+
+  it("throws when the template escapes the placeholder root", () => {
+    assert.throws(
+      () => resolveTargetTemplate("{home}/../.ssh/config", "/home/user"),
+      /outside its placeholder root/,
+    );
   });
 });

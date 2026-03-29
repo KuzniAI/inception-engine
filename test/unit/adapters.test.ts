@@ -147,6 +147,28 @@ describe("compileAgentRuleActions", () => {
     }
   });
 
+  it("does not validate the rules source when no targeted agents overlap", async () => {
+    const dir = makeTmpDir();
+    try {
+      const { actions, warnings } = await compileAgentRuleActions(
+        {
+          name: "my-rule",
+          agents: ["claude-code"],
+          path: "missing.md",
+        },
+        dir,
+        dir,
+        dir,
+        ["codex"],
+        "/home/test",
+      );
+      assert.equal(actions.length, 0);
+      assert.equal(warnings.length, 0);
+    } finally {
+      rmSync(dir, { recursive: true });
+    }
+  });
+
   it("returns a file-write action for claude-code with correct source and target", async () => {
     const dir = makeTmpDir();
     try {

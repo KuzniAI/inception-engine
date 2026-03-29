@@ -26,14 +26,20 @@ export async function compileAgentRuleActions(
   const actions: FileWriteDeployAction[] = [];
   const warnings: PlanWarning[] = [];
   const platform = getPlatformKey();
+  const targetAgents = entry.agents.filter((agentId) =>
+    detectedAgents.includes(agentId),
+  );
+
+  if (targetAgents.length === 0) {
+    return { actions, warnings };
+  }
 
   // Validate the source file once (before iterating agents) since it is shared.
   const source = path.resolve(sourceDir, entry.path);
   await validateSourcePath(source, entry.path, resolvedSourceDir, realRoot);
   await validateSourceFile(source, entry.path);
 
-  for (const agentId of entry.agents) {
-    if (!detectedAgents.includes(agentId)) continue;
+  for (const agentId of targetAgents) {
     const agent = AGENT_REGISTRY_BY_ID[agentId];
     if (!agent?.agentRulesPath) {
       warnings.push({

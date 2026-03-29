@@ -14,9 +14,10 @@ export { AGENT_IDS };
 
 const SAFE_NAME_RE = /^[a-zA-Z0-9][a-zA-Z0-9._-]*$/;
 
-// Target templates must start with a known placeholder to prevent raw absolute
-// paths or directory traversal. e.g. "{home}/.claude/settings.json" is valid.
-const TARGET_TEMPLATE_RE = /^\{(home|appdata|xdg_config)\}/;
+// Target templates must be rooted at a known placeholder and may only add
+// descendant path segments beneath that root. e.g. "{home}/.claude/settings.json"
+// is valid, while "{home}/../.ssh/config" is rejected.
+const TARGET_TEMPLATE_RE = /^\{(home|appdata|xdg_config)\}(?:[\\/].*)?$/;
 
 // Standalone schema used for type derivation and single-ID validation (e.g. index.ts).
 export const AgentIdSchema = z.enum(AGENT_IDS);
@@ -66,6 +67,9 @@ const targetTemplateField = z
   .refine((t) => TARGET_TEMPLATE_RE.test(t), {
     message:
       "target must start with a known placeholder: {home}, {appdata}, or {xdg_config}",
+  })
+  .refine((t) => !t.split(/[\\/]+/).includes(".."), {
+    message: "target must not escape its placeholder root",
   });
 
 export const SkillEntrySchema = z.object({

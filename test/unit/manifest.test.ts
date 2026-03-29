@@ -513,6 +513,37 @@ describe("loadManifest", () => {
     }
   });
 
+  it("throws when file target escapes its placeholder root", async () => {
+    const dir = makeTmpDir();
+    try {
+      writeFileSync(
+        path.join(dir, "inception.json"),
+        JSON.stringify({
+          skills: [],
+          files: [
+            {
+              name: "bad-target",
+              path: "rules.md",
+              target: "{home}/../.ssh/config",
+              agents: ["claude-code"],
+            },
+          ],
+        }),
+      );
+      await assert.rejects(loadManifest(dir), (err: unknown) => {
+        assert.ok(err instanceof UserError);
+        assert.equal(err.code, "MANIFEST_INVALID");
+        assert.match(
+          err.message,
+          /target must not escape its placeholder root/,
+        );
+        return true;
+      });
+    } finally {
+      rmSync(dir, { recursive: true });
+    }
+  });
+
   it("accepts a valid agentRules entry", async () => {
     const dir = makeTmpDir();
     try {

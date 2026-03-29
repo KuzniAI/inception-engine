@@ -46,9 +46,9 @@ function isPlainObject(v: unknown): v is Record<string, unknown> {
   return typeof v === "object" && v !== null && !Array.isArray(v);
 }
 
-async function readJsonConfig(
+async function readJsonConfigFile(
   filePath: string,
-): Promise<Record<string, unknown>> {
+): Promise<{ rawContent: string; parsed: Record<string, unknown> }> {
   let rawContent: string;
   try {
     rawContent = await readFile(filePath, "utf-8");
@@ -58,16 +58,19 @@ async function readJsonConfig(
       throw new Error(`Config file not found: ${filePath}`);
     throw err;
   }
+
   let parsed: unknown;
   try {
     parsed = JSON.parse(rawContent);
   } catch {
     throw new Error(`Config file is not valid JSON: ${filePath}`);
   }
+
   if (!isPlainObject(parsed)) {
     throw new Error(`Config file is not a JSON object: ${filePath}`);
   }
-  return parsed;
+
+  return { rawContent, parsed };
 }
 
 function computeUndoPatch(
@@ -152,11 +155,15 @@ async function planSkillDirActions(
   const method = getDeployMethod();
   const actions: SkillDirDeployAction[] = [];
   for (const skill of manifest.skills) {
+    const targetAgents = skill.agents.filter((agentId) =>
+      detectedAgents.includes(agentId),
+    );
+    if (targetAgents.length === 0) continue;
+
     const source = path.resolve(sourceDir, skill.path);
     await validateSourcePath(source, skill.path, resolvedSourceDir, realRoot);
     await validateSkillContract(source, skill.path);
-    for (const agentId of skill.agents) {
-      if (!detectedAgents.includes(agentId)) continue;
+    for (const agentId of targetAgents) {
       const agent = AGENT_REGISTRY_BY_ID[agentId];
       if (!agent) continue;
       actions.push({
@@ -183,6 +190,11 @@ async function planFileWriteActions(
 ): Promise<FileWriteDeployAction[]> {
   const actions: FileWriteDeployAction[] = [];
   for (const fileEntry of manifest.files ?? []) {
+    const targetAgents = fileEntry.agents.filter((agentId) =>
+      detectedAgents.includes(agentId),
+    );
+    if (targetAgents.length === 0) continue;
+
     const source = path.resolve(sourceDir, fileEntry.path);
     await validateSourcePath(
       source,
@@ -191,8 +203,7 @@ async function planFileWriteActions(
       realRoot,
     );
     await validateSourceFile(source, fileEntry.path);
-    for (const agentId of fileEntry.agents) {
-      if (!detectedAgents.includes(agentId)) continue;
+    for (const agentId of targetAgents) {
       const agent = AGENT_REGISTRY_BY_ID[agentId];
       if (!agent) continue;
       actions.push({
@@ -388,6 +399,92 @@ const defaultSkillDirOps: SkillDirOps = {
   },
 };
 
+async function removeFileSystemTarget(targetPath: string): Promise<void> {
+  const stat = await lstat(targetPath);
+  if (stat.isDirectory() && !stat.isSymbolicLink()) {
+    await rm(targetPath, { recursive: true });
+  } else {
+    await unlink(targetPath);
+  }
+}
+
+async function backupManagedFileWriteTarget(
+  action: FileWriteDeployAction,
+  home: string,
+  registry?: RegistryPersistence,
+): Promise<string | null> {
+  try {
+    await lstat(action.target);
+  } catch {
+    return null;
+  }
+
+  const isOwned = await verifyDeployment(
+    home,
+    action.target,
+    {
+      kind: "file-write",
+      source: action.source,
+      skill: action.skill,
+      agent: action.agent,
+    },
+    registry,
+  );
+  if (!isOwned) {
+    throw new Error(
+      `Target "${action.target}" exists but is not managed by inception-engine — refusing to overwrite`,
+    );
+  }
+
+  const backupPath = `${action.target}.inception-backup`;
+  await rm(backupPath, { recursive: true, force: true });
+  await rename(action.target, backupPath);
+  return backupPath;
+}
+
+async function commitFileWriteDeploy(
+  action: FileWriteDeployAction,
+  home: string,
+  registry: RegistryPersistence | undefined,
+  backupPath: string | null,
+): Promise<void> {
+  try {
+    await mkdir(path.dirname(action.target), { recursive: true });
+    await copyFile(action.source, action.target);
+    await registerDeployment(
+      home,
+      action.target,
+      {
+        kind: "file-write",
+        source: action.source,
+        skill: action.skill,
+        agent: action.agent,
+      },
+      registry,
+    );
+  } catch (writeErr) {
+    try {
+      await removeFileSystemTarget(action.target);
+    } catch {
+      /* best-effort cleanup */
+    }
+
+    if (backupPath) {
+      try {
+        await rename(backupPath, action.target);
+      } catch {
+        /* best-effort rollback */
+      }
+    }
+
+    throw writeErr;
+  }
+
+  if (backupPath) {
+    await rm(backupPath, { recursive: true, force: true });
+  }
+}
+
 async function deploySkillDir(
   action: SkillDirDeployAction,
   dryRun: boolean,
@@ -461,44 +558,12 @@ async function deployFileWrite(
   }
 
   try {
-    // Check if target exists — only allow overwrite if we own it
-    try {
-      await lstat(action.target);
-      const isOwned = await verifyDeployment(
-        home,
-        action.target,
-        {
-          kind: "file-write",
-          source: action.source,
-          skill: action.skill,
-          agent: action.agent,
-        },
-        deps.registry,
-      );
-      if (!isOwned) {
-        throw new Error(
-          `Target "${action.target}" exists but is not managed by inception-engine — refusing to overwrite`,
-        );
-      }
-    } catch (err) {
-      if (err instanceof Error && err.message.includes("refusing to overwrite"))
-        throw err;
-      // ENOENT — target doesn't exist, fine to create
-    }
-
-    await mkdir(path.dirname(action.target), { recursive: true });
-    await copyFile(action.source, action.target);
-    await registerDeployment(
+    const backupPath = await backupManagedFileWriteTarget(
+      action,
       home,
-      action.target,
-      {
-        kind: "file-write",
-        source: action.source,
-        skill: action.skill,
-        agent: action.agent,
-      },
       deps.registry,
     );
+    await commitFileWriteDeploy(action, home, deps.registry, backupPath);
     logger.ok(label);
     if (verbose) {
       logger.detail(`write-file: ${action.source} -> ${action.target}`);
@@ -558,27 +623,38 @@ async function deployConfigPatch(
       );
     }
 
-    const original = await readJsonConfig(action.target);
+    const { rawContent: originalRaw, parsed: original } =
+      await readJsonConfigFile(action.target);
     const undoPatch = computeUndoPatch(original, patch);
     const patched = applyMergePatch(original, patch);
 
-    await writeFile(
-      action.target,
-      `${JSON.stringify(patched, null, 2)}\n`,
-      "utf-8",
-    );
-    await registerDeployment(
-      home,
-      action.target,
-      {
-        kind: "config-patch",
-        patch,
-        undoPatch,
-        skill: action.skill,
-        agent: action.agent,
-      },
-      deps.registry,
-    );
+    try {
+      await writeFile(
+        action.target,
+        `${JSON.stringify(patched, null, 2)}\n`,
+        "utf-8",
+      );
+      await registerDeployment(
+        home,
+        action.target,
+        {
+          kind: "config-patch",
+          patch,
+          undoPatch,
+          skill: action.skill,
+          agent: action.agent,
+        },
+        deps.registry,
+      );
+    } catch (writeErr) {
+      try {
+        await writeFile(action.target, originalRaw, "utf-8");
+      } catch {
+        /* best-effort rollback */
+      }
+      throw writeErr;
+    }
+
     logger.ok(label);
     if (verbose) {
       logger.detail(

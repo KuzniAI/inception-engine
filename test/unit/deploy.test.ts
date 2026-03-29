@@ -353,6 +353,110 @@ describe("planDeploy", () => {
       rmSync(sourceDir, { recursive: true });
     }
   });
+
+  it("ignores invalid skill sources for agents that are not being deployed", async () => {
+    const sourceDir = makeTmpDir();
+    const manifest: Manifest = {
+      skills: [
+        {
+          name: "codex-only",
+          path: "skills/missing",
+          agents: ["codex"],
+        },
+        {
+          name: "claude-only",
+          path: "skills/claude-only",
+          agents: ["claude-code"],
+        },
+      ],
+      mcpServers: [],
+      agentRules: [],
+    };
+    try {
+      createSkillSource(sourceDir, "skills/claude-only");
+      const { actions } = await planDeploy(
+        manifest,
+        sourceDir,
+        ["claude-code"],
+        "/home/test",
+      );
+      assert.equal(actions.length, 1);
+      assert.equal(actions[0]?.skill, "claude-only");
+    } finally {
+      rmSync(sourceDir, { recursive: true });
+    }
+  });
+
+  it("ignores invalid file sources for agents that are not being deployed", async () => {
+    const sourceDir = makeTmpDir();
+    const manifest: Manifest = {
+      skills: [],
+      files: [
+        {
+          name: "codex-file",
+          path: "missing.txt",
+          target: "{home}/missing.txt",
+          agents: ["codex"],
+        },
+        {
+          name: "claude-file",
+          path: "present.txt",
+          target: "{home}/present.txt",
+          agents: ["claude-code"],
+        },
+      ],
+      mcpServers: [],
+      agentRules: [],
+    };
+    try {
+      writeFileSync(path.join(sourceDir, "present.txt"), "present");
+      const { actions } = await planDeploy(
+        manifest,
+        sourceDir,
+        ["claude-code"],
+        "/home/test",
+      );
+      assert.equal(actions.length, 1);
+      assert.equal(actions[0]?.skill, "claude-file");
+    } finally {
+      rmSync(sourceDir, { recursive: true });
+    }
+  });
+
+  it("ignores invalid agentRule sources for agents that are not being deployed", async () => {
+    const sourceDir = makeTmpDir();
+    const manifest: Manifest = {
+      skills: [],
+      files: [],
+      configs: [],
+      mcpServers: [],
+      agentRules: [
+        {
+          name: "codex-rules",
+          path: "missing.md",
+          agents: ["codex"],
+        },
+        {
+          name: "claude-rules",
+          path: "CLAUDE.md",
+          agents: ["claude-code"],
+        },
+      ],
+    };
+    try {
+      writeFileSync(path.join(sourceDir, "CLAUDE.md"), "# Rules");
+      const { actions } = await planDeploy(
+        manifest,
+        sourceDir,
+        ["claude-code"],
+        "/home/test",
+      );
+      assert.equal(actions.length, 1);
+      assert.equal(actions[0]?.skill, "claude-rules");
+    } finally {
+      rmSync(sourceDir, { recursive: true });
+    }
+  });
 });
 
 describe("executeDeploy", { skip: process.platform === "win32" }, () => {
@@ -1721,6 +1825,105 @@ describe("executeDeploy — file-write", () => {
       rmSync(home, { recursive: true, force: true });
     }
   });
+
+  it("rolls back a newly written file when registry persistence fails", async () => {
+    const sourceDir = makeTmpDir();
+    const home = makeTmpDir();
+    try {
+      const sourceFile = path.join(sourceDir, "file.txt");
+      const targetFile = path.join(home, "out.txt");
+      writeFileSync(sourceFile, "content");
+
+      const action: FileWriteDeployAction = {
+        kind: "file-write",
+        skill: "test-skill",
+        agent: "claude-code",
+        source: sourceFile,
+        target: targetFile,
+      };
+
+      const failingRegistry = {
+        async load() {
+          return { version: 1 as const, deployments: {} };
+        },
+        async save() {
+          throw new Error("registry unavailable");
+        },
+      };
+
+      const { succeeded, failed } = await executeDeploy(
+        [action],
+        false,
+        false,
+        home,
+        { registry: failingRegistry },
+      );
+      assert.equal(succeeded, 0);
+      assert.equal(failed.length, 1);
+      assert.ok(!existsSync(targetFile), "target file should be rolled back");
+    } finally {
+      rmSync(sourceDir, { recursive: true });
+      rmSync(home, { recursive: true, force: true });
+    }
+  });
+
+  it("restores the previous managed file when registry persistence fails during overwrite", async () => {
+    const sourceDir = makeTmpDir();
+    const home = makeTmpDir();
+    try {
+      const sourceFile = path.join(sourceDir, "file.txt");
+      const targetFile = path.join(home, "managed.txt");
+      writeFileSync(sourceFile, "new content");
+      writeFileSync(targetFile, "old content");
+
+      let loadCount = 0;
+      const failingRegistry = {
+        async load() {
+          loadCount += 1;
+          return {
+            version: 1 as const,
+            deployments:
+              loadCount === 1
+                ? {
+                    [targetFile]: {
+                      kind: "file-write" as const,
+                      source: sourceFile,
+                      skill: "test-skill",
+                      agent: "claude-code" as const,
+                      deployed: new Date().toISOString(),
+                    },
+                  }
+                : {},
+          };
+        },
+        async save() {
+          throw new Error("registry unavailable");
+        },
+      };
+
+      const action: FileWriteDeployAction = {
+        kind: "file-write",
+        skill: "test-skill",
+        agent: "claude-code",
+        source: sourceFile,
+        target: targetFile,
+      };
+
+      const { succeeded, failed } = await executeDeploy(
+        [action],
+        false,
+        false,
+        home,
+        { registry: failingRegistry },
+      );
+      assert.equal(succeeded, 0);
+      assert.equal(failed.length, 1);
+      assert.equal(readFileSync(targetFile, "utf-8"), "old content");
+    } finally {
+      rmSync(sourceDir, { recursive: true });
+      rmSync(home, { recursive: true, force: true });
+    }
+  });
 });
 
 describe("executeDeploy — config-patch", () => {
@@ -2060,6 +2263,47 @@ describe("executeDeploy — config-patch", () => {
       const result = JSON.parse(readFileSync(configFile, "utf-8"));
       assert.equal("server-a" in result.mcpServers, false);
       assert.deepEqual(result.mcpServers["server-b"], { command: "b" });
+    } finally {
+      rmSync(home, { recursive: true, force: true });
+    }
+  });
+
+  it("restores the original config when registry persistence fails after patching", async () => {
+    const home = makeTmpDir();
+    try {
+      const configFile = path.join(home, "config.json");
+      writeFileSync(configFile, JSON.stringify({ a: 1, b: 2 }));
+
+      const action: ConfigPatchDeployAction = {
+        kind: "config-patch",
+        skill: "test-skill",
+        agent: "claude-code",
+        target: configFile,
+        patch: { b: 99 },
+      };
+
+      const failingRegistry = {
+        async load() {
+          return { version: 1 as const, deployments: {} };
+        },
+        async save() {
+          throw new Error("registry unavailable");
+        },
+      };
+
+      const { succeeded, failed } = await executeDeploy(
+        [action],
+        false,
+        false,
+        home,
+        { registry: failingRegistry },
+      );
+      assert.equal(succeeded, 0);
+      assert.equal(failed.length, 1);
+      assert.deepEqual(JSON.parse(readFileSync(configFile, "utf-8")), {
+        a: 1,
+        b: 2,
+      });
     } finally {
       rmSync(home, { recursive: true, force: true });
     }
