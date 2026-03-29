@@ -1,0 +1,38 @@
+{
+  "cli_version": "0.5.1",
+  "checkpoint_id": "d1bbf2702dd8",
+  "session_id": "8ba3dcf0-37a1-4b1a-99eb-39d33c95ae98",
+  "strategy": "manual-commit",
+  "created_at": "2026-03-29T11:51:42.565951Z",
+  "branch": "main",
+  "checkpoints_count": 1,
+  "files_touched": [
+    "README.md",
+    "docs/roadmap.md",
+    "src/core/deploy.ts",
+    "src/core/revert.ts",
+    "test/deploy.test.ts",
+    "test/revert.test.ts"
+  ],
+  "agent": "Claude Code",
+  "turn_id": "ba8b050e755d",
+  "token_usage": {
+    "input_tokens": 51,
+    "cache_creation_tokens": 56570,
+    "cache_read_tokens": 2021552,
+    "output_tokens": 17348,
+    "api_call_count": 43
+  },
+  "session_metrics": {
+    "turn_count": 1
+  },
+  "initial_attribution": {
+    "calculated_at": "2026-03-29T11:51:42.423603Z",
+    "agent_lines": 195,
+    "human_added": 0,
+    "human_modified": 0,
+    "human_removed": 0,
+    "total_committed": 195,
+    "agent_percentage": 100
+  }
+}

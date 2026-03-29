@@ -1,0 +1,5 @@
+Plan work on roadmap item 2: **Config patching is not RFC 7386 / RFC 7396 JSON Merge Patch**
+   - README says config entries apply a JSON merge patch.
+   - The implementation only patches top-level keys by assignment or deletion (`src/core/deploy.ts:82`).
+   - Nested objects are replaced wholesale instead of recursively merged, and undo state is also captured only at the top level (`src/core/deploy.ts:71`).
+   - This is especially risky for MCP registration because the adapter writes `{ mcpServers: { [name]: config } }` (`src/core/adapters/mcp.ts:45`), which can replace the entire existing `mcpServers` object instead of adding one server.
