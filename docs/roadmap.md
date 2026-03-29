@@ -1,30 +1,23 @@
 # Inception Engine: Roadmap
 
-This roadmap is rebuilt from the current codebase and test suite, not from earlier planning assumptions.
+This roadmap is forward-looking. It lists work we may choose to prioritize next based on the gap between the broad north star and the narrower set of capabilities described in the README.
 
-As of the current implementation:
+## Functional Features
 
-- Skill deployment, file writes, and top-level config patching are implemented and covered by tests.
-- `mcpServers` and `agentRules` are no longer validation-only. They compile into deploy actions and are exercised by tests.
-- Revert is now implemented for `mcpServers` and `agentRules` as well as `skills`, `files`, and `configs`.
+- Add a CLI command that scans a directory containing agent instruction files and generates an `inception.json` manifest for it.
+- Expand instruction-file support beyond today's global rules-file deployment to cover repo-local and workspace-local instruction surfaces where the target agent behavior is documented strongly enough.
+- Add support for GitHub Copilot instruction deployment, including repo-scoped `.github/copilot-instructions.md` and `.github/instructions/*.instructions.md` surfaces.
+- Add support for Antigravity instruction deployment, including `GEMINI.md` and `.agents/rules/*.md`, with clear handling for Gemini CLI / Antigravity path collisions.
+- Expand MCP deployment beyond the current JSON-backed targets to additional agents whose MCP surfaces use different schemas or file formats, especially Codex, OpenCode, Antigravity, and GitHub Copilot.
+- Add support for agent and subagent definition deployment for agents that expose dedicated agent directories or frontmatter-based agent files.
+- Add execution and safety-oriented config support for agent-specific permission and approval surfaces where safe patching and revert semantics can be implemented cleanly.
+- Add preflight analysis for instruction-surface collisions, precedence, and instruction-budget risk before deployment.
+- Add manifest-generation or adapter-assisted workflows for non-JSON targets where a direct JSON merge patch is not the right model.
 
-## Implemented But Not Complete Enough To Call Closed
+## Hardening And Quality
 
-1. **Atomic overwrite guarantees are narrower across deployment kinds**
-   - `skill-dir` redeploys have the strongest overwrite protection: the existing managed target is renamed to a backup before replacement and restored if the new deploy fails (`src/core/deploy.ts:769`, `src/core/deploy.ts:819`).
-   - `file-write` redeploys also back up an existing managed target first, but the replacement is still written directly to the final path rather than being atomically swapped into place (`src/core/deploy.ts:411`, `src/core/deploy.ts:445`).
-   - `config-patch` deployments patch the target in place and only attempt to rewrite the original content on failure, so they do not provide the same backup-and-restore semantics as `skill-dir` (`src/core/deploy.ts:579`).
-
-## Exit Criteria For New Capability Work
-
-Feature expansion should wait until these are true:
-
-- `mcpServers` and `agentRules` support deploy, dry-run, ownership checks, and revert end to end.
-
-## Things to do later
-
-1. **Expand Windows coverage** for additional edge cases
-2. **Skill contract validation is intentionally minimal**
-   - The planner validates that the source is a readable directory and that `SKILL.md` exists and is readable (`src/core/deploy.ts:672`).
-   - It does not parse or validate YAML frontmatter fields such as `name` and `description`.
-   - README already documents this limitation, so any follow-up here is hardening work rather than a docs-correction issue.
+- Expand Windows test coverage for additional edge cases.
+- Add validation for agent instruction files beyond existence/readability checks, including structure required by supported targets.
+- Strengthen MCP and instruction adapters with per-agent schema validation where current support relies on pass-through config shapes.
+- Improve dry-run visibility so planned changes for file writes, rules files, and config patches are easier to inspect before deployment.
+- Add stronger detection and warnings for enterprise or policy-managed environments where local configuration may be ignored or overridden.

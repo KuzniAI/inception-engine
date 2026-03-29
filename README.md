@@ -2,7 +2,9 @@
 
 Plant skills directly into the minds of your installed AI coding agents — Claude Code, Codex, Gemini CLI, Antigravity, OpenCode, and GitHub Copilot. One command. They'll think they thought of it themselves.
 
-Today, inception-engine deploys skills, single files, JSON config patches, MCP server registrations, and agent instruction files to AI coding agents.
+Today, inception-engine works as a cross-agent deployer for skills on all listed agents, plus single-file writes and JSON config patches. It also supports MCP server registration and global rules-file deployment for the subset of agents whose config surfaces are implemented and validated today.
+
+The broader portability layer is the roadmap direction, but this README focuses on what is working now.
 
 ## Quick Start
 
@@ -43,8 +45,10 @@ Managed skills overwrite their previous version. If a target exists but was not 
 | Skills (SKILL.md) | All agents via manifest and CLI | All agents |
 | File write | All agents via manifest and CLI | All agents |
 | Config patch (JSON merge) | All agents via manifest and CLI | All agents |
-| MCP Servers | claude-code, gemini-cli; stub warning for other agents | claude-code, gemini-cli |
-| Agent Rules | claude-code, codex, gemini-cli, opencode; stub warning for other agents | claude-code, codex, gemini-cli, opencode |
+| MCP Servers | claude-code, gemini-cli; other agents are warned and skipped | claude-code, gemini-cli |
+| Global Rules Files | claude-code, codex, gemini-cli, opencode; other agents are warned and skipped | claude-code, codex, gemini-cli, opencode |
+
+Features that depend on agent-specific config surfaces are intentionally conservative: if a target path or schema is not implemented with enough confidence, inception-engine warns and skips it rather than guessing.
 
 ## Manifest Format
 
@@ -122,13 +126,13 @@ Each **mcpServer** entry registers an MCP server into the agent's config file by
 
 MCP server registration is currently supported for `claude-code` (`~/.claude.json`) and `gemini-cli` (`~/.gemini/settings.json`). Other agents emit a warning and are skipped. Revert removes the registered server entry from the config file.
 
-Each **agentRules** entry deploys a Markdown instruction file to the agent's global rules location:
+Each **agentRules** entry deploys a Markdown instruction file to an agent's supported global rules file location:
 
 - **name** - Unique identifier (same format as skill names)
 - **path** - Relative path to the source Markdown file within the repo
 - **agents** - Array of agent IDs to deploy this file to
 
-Agent rules deployment is currently supported for `claude-code` (`~/.claude/CLAUDE.md`), `codex` (`~/.codex/AGENTS.md`), `gemini-cli` (`~/.gemini/GEMINI.md`), and `opencode` (`~/.config/opencode/AGENTS.md`). Other agents emit a warning and are skipped. Revert removes the deployed rules file.
+Global rules-file deployment is currently supported for `claude-code` (`~/.claude/CLAUDE.md`), `codex` (`~/.codex/AGENTS.md`), `gemini-cli` (`~/.gemini/GEMINI.md`), and `opencode` (`~/.config/opencode/AGENTS.md`). Other agents emit a warning and are skipped because their instruction surfaces are different, repo-scoped, or not implemented here yet. Revert removes the deployed rules file.
 
 ## Creating Skills
 
