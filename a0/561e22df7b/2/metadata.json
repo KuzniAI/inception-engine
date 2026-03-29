@@ -1,0 +1,28 @@
+{
+  "cli_version": "0.5.1",
+  "checkpoint_id": "a0561e22df7b",
+  "session_id": "ses_2cc0cdcb1ffeNk0T2yS7rrDUW4",
+  "strategy": "manual-commit",
+  "created_at": "2026-03-29T07:17:59.78151Z",
+  "branch": "main",
+  "checkpoints_count": 0,
+  "files_touched": [
+    "test/deploy.test.ts",
+    "test/manifest.test.ts",
+    "docs/roadmap.md",
+    "src/core/deploy.ts",
+    "src/core/revert.ts",
+    "src/schemas/manifest.ts"
+  ],
+  "agent": "OpenCode",
+  "turn_id": "0e23d008ce0e",
+  "initial_attribution": {
+    "calculated_at": "2026-03-29T07:17:59.780595Z",
+    "agent_lines": 291,
+    "human_added": 0,
+    "human_modified": 0,
+    "human_removed": 0,
+    "total_committed": 291,
+    "agent_percentage": 100
+  }
+}
