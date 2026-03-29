@@ -31,10 +31,10 @@ As of the current implementation:
 
 ## Priority Gaps
 
-1. **Bring docs back in line with the code**
-   - Narrow README claims around atomic redeploy so they describe `skill-dir` behavior specifically.
-   - Distinguish "deploy supported" from "revert supported" in the feature matrix.
-   - Either validate skill frontmatter or soften README language about required skill structure.
+1. ~~**Bring docs back in line with the code**~~
+   - ~~Narrow README claims around atomic redeploy so they describe `skill-dir` behavior specifically.~~
+   - ~~Distinguish "deploy supported" from "revert supported" in the feature matrix.~~
+   - ~~Either validate skill frontmatter or soften README language about required skill structure.~~ (softened; validation deferred)
 
 2. **Raise Windows confidence from inferred to demonstrated**
    - The codebase has useful path-resolution tests and some cross-platform copy/revert coverage.

@@ -38,13 +38,13 @@ Managed skills overwrite their previous version. If a target exists but was not 
 
 ### Feature Support
 
-| Feature | Status |
-|---|---|
-| Skills (SKILL.md) | Supported via manifest and CLI |
-| File write | Supported via manifest and CLI |
-| Config patch (JSON merge) | Supported via manifest and CLI |
-| MCP Servers | Deploy and revert supported for claude-code and gemini-cli; stub warning for other agents |
-| Agent Rules | Deploy and revert supported for claude-code, codex, gemini-cli, opencode; stub warning for others |
+| Feature | Deploy | Revert |
+|---|---|---|
+| Skills (SKILL.md) | All agents via manifest and CLI | All agents |
+| File write | All agents via manifest and CLI | All agents |
+| Config patch (JSON merge) | All agents via manifest and CLI | All agents |
+| MCP Servers | claude-code, gemini-cli; stub warning for other agents | claude-code, gemini-cli |
+| Agent Rules | claude-code, codex, gemini-cli, opencode; stub warning for other agents | claude-code, codex, gemini-cli, opencode |
 
 ## Manifest Format
 
@@ -145,7 +145,7 @@ description: What this skill does and when to use it
 Instructions for the AI agent...
 ```
 
-The `name` and `description` fields in the frontmatter are required by most agents. The description determines when the agent activates the skill.
+The `name` and `description` fields in the frontmatter are used by most agents. The description determines when the agent activates the skill. inception-engine does not currently validate the frontmatter — missing or malformed fields may cause the skill to be ignored or misbehave at the agent level.
 
 ## CLI Reference
 
