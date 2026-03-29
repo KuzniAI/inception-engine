@@ -108,6 +108,8 @@ export const AGENT_REGISTRY: readonly AgentConfig[] = [
       detectPaths: "documented",
       detectBinary: "documented",
     },
+    policyNote:
+      "Organization policies may override locally deployed skills. Verify with your GitHub org admin if deployed skills are not active.",
   },
 ] as const;
 

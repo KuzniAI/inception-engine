@@ -28,6 +28,12 @@ export async function runPreflight(
         message: `Agent "${agentId}" skill support is provisional: behavior has not been independently verified.`,
       });
     }
+    if (agent.policyNote) {
+      warnings.push({
+        kind: "policy",
+        message: `Agent "${agentId}": ${agent.policyNote}`,
+      });
+    }
   }
 
   return warnings;

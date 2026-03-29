@@ -117,6 +117,8 @@ Instruction overload is a real practical concern across agents, but hard numbers
 
 Some agent environments, especially GitHub Copilot, may ignore or constrain local configuration because of organization policy. The engine should detect and warn where possible instead of pretending all local config is authoritative.
 
+Detection and warning for GitHub Copilot is now implemented via preflight `"policy"` warnings surfaced before deployment begins.
+
 ## Current Product Boundary
 
 Today the codebase is still a cross-platform skill deployer. The north star is intentionally broader than the implementation, but future work should only promote a vector from "vision" to "supported capability" when both of these are true:

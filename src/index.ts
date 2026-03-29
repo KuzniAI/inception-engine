@@ -163,7 +163,8 @@ async function runDeploy(
     detectedAgents,
   );
   for (const w of preflightWarnings) {
-    logger.warn("preflight", w.message);
+    const label = w.kind === "policy" ? "policy" : "preflight";
+    logger.warn(label, w.message);
   }
 
   const { actions, warnings: planWarnings } = await planDeploy(

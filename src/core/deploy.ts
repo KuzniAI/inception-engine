@@ -96,6 +96,35 @@ function sourceAccessError(err: unknown, sourcePath: string): string {
   return `Failed to access source ${sourcePath}: ${detail}`;
 }
 
+function resolveTargetTemplate(template: string, home: string): string {
+  const appdata = process.env.APPDATA ?? path.join(home, "AppData", "Roaming");
+  const xdgRaw = process.env.XDG_CONFIG_HOME;
+  const xdgConfig =
+    xdgRaw && path.isAbsolute(xdgRaw) ? xdgRaw : path.join(home, ".config");
+  return template
+    .replace("{home}", home)
+    .replace("{appdata}", appdata)
+    .replace("{xdg_config}", xdgConfig);
+}
+
+async function validateSourceFile(
+  sourcePath: string,
+  manifestPath: string,
+): Promise<void> {
+  let stat: Awaited<ReturnType<typeof lstat>>;
+  try {
+    stat = await lstat(sourcePath);
+  } catch (err) {
+    throw new UserError("DEPLOY_FAILED", sourceAccessError(err, manifestPath));
+  }
+  if (!stat.isFile()) {
+    throw new UserError(
+      "DEPLOY_FAILED",
+      `Source is not a file: ${manifestPath}`,
+    );
+  }
+}
+
 function detectCollisions(actions: DeployAction[]): PlanWarning[] {
   const seen = new Map<string, { skill: string; agent: AgentId }>();
   const warnings: PlanWarning[] = [];
@@ -128,16 +157,104 @@ function detectAmbiguities(detectedAgents: AgentId[]): PlanWarning[] {
   return warnings;
 }
 
+async function planSkillDirActions(
+  manifest: Manifest,
+  sourceDir: string,
+  resolvedSourceDir: string,
+  realRoot: string,
+  detectedAgents: AgentId[],
+  home: string,
+): Promise<SkillDirDeployAction[]> {
+  const method = getDeployMethod();
+  const actions: SkillDirDeployAction[] = [];
+  for (const skill of manifest.skills) {
+    const source = path.resolve(sourceDir, skill.path);
+    await validateSourcePath(source, skill.path, resolvedSourceDir, realRoot);
+    await validateSkillContract(source, skill.path);
+    for (const agentId of skill.agents) {
+      if (!detectedAgents.includes(agentId)) continue;
+      const agent = AGENT_REGISTRY_BY_ID[agentId];
+      if (!agent) continue;
+      actions.push({
+        kind: "skill-dir",
+        skill: skill.name,
+        agent: agentId,
+        source,
+        target: resolveAgentSkillPath(agent, skill.name, home),
+        method,
+        confidence: agent.provenance.skills,
+      });
+    }
+  }
+  return actions;
+}
+
+async function planFileWriteActions(
+  manifest: Manifest,
+  sourceDir: string,
+  resolvedSourceDir: string,
+  realRoot: string,
+  detectedAgents: AgentId[],
+  home: string,
+): Promise<FileWriteDeployAction[]> {
+  const actions: FileWriteDeployAction[] = [];
+  for (const fileEntry of manifest.files ?? []) {
+    const source = path.resolve(sourceDir, fileEntry.path);
+    await validateSourcePath(
+      source,
+      fileEntry.path,
+      resolvedSourceDir,
+      realRoot,
+    );
+    await validateSourceFile(source, fileEntry.path);
+    for (const agentId of fileEntry.agents) {
+      if (!detectedAgents.includes(agentId)) continue;
+      const agent = AGENT_REGISTRY_BY_ID[agentId];
+      if (!agent) continue;
+      actions.push({
+        kind: "file-write",
+        skill: fileEntry.name,
+        agent: agentId,
+        source,
+        target: resolveTargetTemplate(fileEntry.target, home),
+        confidence: agent.provenance.skills,
+      });
+    }
+  }
+  return actions;
+}
+
+function planConfigPatchActions(
+  manifest: Manifest,
+  detectedAgents: AgentId[],
+  home: string,
+): ConfigPatchDeployAction[] {
+  const actions: ConfigPatchDeployAction[] = [];
+  for (const configEntry of manifest.configs ?? []) {
+    for (const agentId of configEntry.agents) {
+      if (!detectedAgents.includes(agentId)) continue;
+      const agent = AGENT_REGISTRY_BY_ID[agentId];
+      if (!agent) continue;
+      actions.push({
+        kind: "config-patch",
+        skill: configEntry.name,
+        agent: agentId,
+        target: resolveTargetTemplate(configEntry.target, home),
+        patch: configEntry.patch,
+        confidence: agent.provenance.skills,
+      });
+    }
+  }
+  return actions;
+}
+
 export async function planDeploy(
   manifest: Manifest,
   sourceDir: string,
   detectedAgents: AgentId[],
   home: string,
 ): Promise<{ actions: DeployAction[]; warnings: PlanWarning[] }> {
-  const method = getDeployMethod();
-  const actions: DeployAction[] = [];
   const resolvedSourceDir = path.resolve(sourceDir);
-
   let realRoot: string;
   try {
     realRoot = await realpath(resolvedSourceDir);
@@ -145,31 +262,25 @@ export async function planDeploy(
     realRoot = resolvedSourceDir;
   }
 
-  for (const skill of manifest.skills) {
-    const source = path.resolve(sourceDir, skill.path);
-    await validateSourcePath(source, skill.path, resolvedSourceDir, realRoot);
-
-    await validateSkillContract(source, skill.path);
-
-    for (const agentId of skill.agents) {
-      if (!detectedAgents.includes(agentId)) continue;
-
-      const agent = AGENT_REGISTRY_BY_ID[agentId];
-      if (!agent) continue;
-
-      const target = resolveAgentSkillPath(agent, skill.name, home);
-
-      actions.push({
-        kind: "skill-dir",
-        skill: skill.name,
-        agent: agentId,
-        source,
-        target,
-        method,
-        confidence: agent.provenance.skills,
-      });
-    }
-  }
+  const actions: DeployAction[] = [
+    ...(await planSkillDirActions(
+      manifest,
+      sourceDir,
+      resolvedSourceDir,
+      realRoot,
+      detectedAgents,
+      home,
+    )),
+    ...(await planFileWriteActions(
+      manifest,
+      sourceDir,
+      resolvedSourceDir,
+      realRoot,
+      detectedAgents,
+      home,
+    )),
+    ...planConfigPatchActions(manifest, detectedAgents, home),
+  ];
 
   const warnings: PlanWarning[] = [
     ...detectAmbiguities(detectedAgents),

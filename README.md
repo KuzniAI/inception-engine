@@ -2,7 +2,7 @@
 
 Plant skills directly into the minds of your installed AI coding agents — Claude Code, Codex, Gemini CLI, Antigravity, OpenCode, and GitHub Copilot. One command. They'll think they thought of it themselves.
 
-Today, inception-engine is a skills deployer. The public manifest and CLI planner currently deploy and revert skill directories only. The core executor also has internal support for single-file write and JSON config patch actions, but the manifest format does not expose them yet. MCP configuration and agent-specific config patching remain unimplemented at the manifest level.
+Today, inception-engine deploys skills, single files, and JSON config patches to AI coding agents. MCP configuration and agent rules remain unimplemented at the manifest level.
 
 ## Quick Start
 
@@ -41,8 +41,8 @@ Managed skills overwrite their previous version. If a target exists but was not 
 | Feature | Status |
 |---|---|
 | Skills (SKILL.md) | Supported via manifest and CLI |
-| File write | Internal executor support only; not exposed in manifest or CLI planning |
-| Config patch (JSON merge) | Internal executor support only; not exposed in manifest or CLI planning |
+| File write | Supported via manifest and CLI |
+| Config patch (JSON merge) | Supported via manifest and CLI |
 | MCP Servers | Accepted in manifest for forward compatibility, not implemented |
 | Agent Rules | Accepted in manifest for forward compatibility, not implemented |
 
@@ -59,18 +59,50 @@ Create an `inception.json` file at the root of your skills directory:
       "agents": ["claude-code", "codex", "gemini-cli", "antigravity", "opencode", "github-copilot"]
     }
   ],
+  "files": [
+    {
+      "name": "my-settings",
+      "path": "files/settings.json",
+      "target": "{home}/.claude/settings.json",
+      "agents": ["claude-code"]
+    }
+  ],
+  "configs": [
+    {
+      "name": "enable-feature",
+      "target": "{home}/.claude/settings.json",
+      "patch": { "someFeature": true },
+      "agents": ["claude-code"]
+    }
+  ],
   "mcpServers": [],
   "agentRules": []
 }
 ```
 
-Each skill entry has:
+Each **skill** entry has:
 
-- **name** - Unique skill identifier using letters, digits, dots, underscores, or hyphens; it must not start with a dot
+- **name** - Unique identifier using letters, digits, dots, underscores, or hyphens; must not start with a dot
 - **path** - Relative path to the skill directory within the repo
 - **agents** - Array of agent IDs to deploy this skill to. If an agent isn't installed, it's skipped.
 
-`mcpServers` and `agentRules` are currently parsed for forward compatibility, but the deployment engine ignores them today. The manifest-driven planner and revert flow currently derive actions from `skills` entries only.
+Each **file** entry deploys a single file to an agent's configuration location:
+
+- **name** - Unique identifier (same format as skill names)
+- **path** - Relative path to the source file within the repo
+- **target** - Destination path using a placeholder prefix: `{home}`, `{appdata}` (Windows), or `{xdg_config}` (Linux). For example: `{home}/.claude/settings.json`
+- **agents** - Array of agent IDs to deploy this file to
+
+Each **config** entry applies a [JSON merge patch (RFC 7386)](https://datatracker.ietf.org/doc/html/rfc7386) to an existing agent config file:
+
+- **name** - Unique identifier (same format as skill names)
+- **target** - Config file to patch, using the same placeholder prefix as file entries
+- **patch** - JSON object of keys to set. A `null` value removes the key from the target file. Non-null values are set directly (deep merge is not applied).
+- **agents** - Array of agent IDs to apply this patch to
+
+The engine records an undo-patch for each config-patch deployment so that `revert` can restore the original values.
+
+`mcpServers` and `agentRules` are currently parsed for forward compatibility, but the deployment engine ignores them today.
 
 ## Creating Skills
 

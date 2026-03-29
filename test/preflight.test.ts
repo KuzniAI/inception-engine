@@ -32,14 +32,27 @@ describe("runPreflight", () => {
     assert.equal(warnings.length, 0);
   });
 
-  it("returns empty for all-documented agents", async () => {
+  it("returns empty for documented agents without policy notes", async () => {
     const warnings = await runPreflight(
       baseOptions,
       emptyManifest,
       "/home/test",
-      ["claude-code", "codex", "gemini-cli", "opencode", "github-copilot"],
+      ["claude-code", "codex", "gemini-cli", "opencode"],
     );
     assert.equal(warnings.length, 0);
+  });
+
+  it("emits policy warning for github-copilot", async () => {
+    const warnings = await runPreflight(
+      baseOptions,
+      emptyManifest,
+      "/home/test",
+      ["github-copilot"],
+    );
+    assert.equal(warnings.length, 1);
+    assert.equal(warnings[0]?.kind, "policy");
+    assert.match(warnings[0]?.message ?? "", /github-copilot/);
+    assert.match(warnings[0]?.message ?? "", /[Oo]rganization/);
   });
 
   it("emits config-authority warning for antigravity (implementation-only skills)", async () => {

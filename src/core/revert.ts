@@ -1,65 +1,118 @@
 import { lstat, readFile, rm, unlink, writeFile } from "node:fs/promises";
+import path from "node:path";
 import { AGENT_REGISTRY_BY_ID } from "../config/agents.ts";
 import { logger } from "../logger.ts";
 import type {
   AgentId,
+  ConfigPatchRevertAction,
+  FileWriteRevertAction,
   Manifest,
   PlannedChange,
   RevertAction,
+  SkillDirRevertAction,
 } from "../types.ts";
 import type { ConfigPatchRegistryEntry } from "../schemas/registry.ts";
 import { lookupDeployment, unregisterDeployment } from "./ownership.ts";
 import { resolveAgentSkillPath } from "./resolve.ts";
+
+function resolveTargetTemplate(template: string, home: string): string {
+  const appdata = process.env.APPDATA ?? path.join(home, "AppData", "Roaming");
+  const xdgRaw = process.env.XDG_CONFIG_HOME;
+  const xdgConfig =
+    xdgRaw && path.isAbsolute(xdgRaw) ? xdgRaw : path.join(home, ".config");
+  return template
+    .replace("{home}", home)
+    .replace("{appdata}", appdata)
+    .replace("{xdg_config}", xdgConfig);
+}
+
+function buildSkillDirReverts(
+  manifest: Manifest,
+  home: string,
+  agentFilter: AgentId[] | null,
+): SkillDirRevertAction[] {
+  const actions: SkillDirRevertAction[] = [];
+  for (const skill of manifest.skills) {
+    for (const agentId of skill.agents) {
+      if (agentFilter && !agentFilter.includes(agentId)) continue;
+      const agent = AGENT_REGISTRY_BY_ID[agentId];
+      if (!agent) continue;
+      actions.push({
+        kind: "skill-dir",
+        skill: skill.name,
+        agent: agentId,
+        target: resolveAgentSkillPath(agent, skill.name, home),
+      });
+    }
+  }
+  return actions;
+}
+
+function buildFileWriteReverts(
+  manifest: Manifest,
+  home: string,
+  agentFilter: AgentId[] | null,
+): FileWriteRevertAction[] {
+  const actions: FileWriteRevertAction[] = [];
+  for (const fileEntry of manifest.files ?? []) {
+    for (const agentId of fileEntry.agents) {
+      if (agentFilter && !agentFilter.includes(agentId)) continue;
+      const agent = AGENT_REGISTRY_BY_ID[agentId];
+      if (!agent) continue;
+      actions.push({
+        kind: "file-write",
+        skill: fileEntry.name,
+        agent: agentId,
+        target: resolveTargetTemplate(fileEntry.target, home),
+      });
+    }
+  }
+  return actions;
+}
+
+function buildConfigPatchReverts(
+  manifest: Manifest,
+  home: string,
+  agentFilter: AgentId[] | null,
+): ConfigPatchRevertAction[] {
+  const actions: ConfigPatchRevertAction[] = [];
+  for (const configEntry of manifest.configs ?? []) {
+    for (const agentId of configEntry.agents) {
+      if (agentFilter && !agentFilter.includes(agentId)) continue;
+      const agent = AGENT_REGISTRY_BY_ID[agentId];
+      if (!agent) continue;
+      actions.push({
+        kind: "config-patch",
+        skill: configEntry.name,
+        agent: agentId,
+        target: resolveTargetTemplate(configEntry.target, home),
+      });
+    }
+  }
+  return actions;
+}
 
 export function planRevert(
   manifest: Manifest,
   detectedAgents: AgentId[],
   home: string,
 ): RevertAction[] {
-  const actions: RevertAction[] = [];
-
-  for (const skill of manifest.skills) {
-    for (const agentId of skill.agents) {
-      if (!detectedAgents.includes(agentId)) continue;
-
-      const agent = AGENT_REGISTRY_BY_ID[agentId];
-      if (!agent) continue;
-
-      const target = resolveAgentSkillPath(agent, skill.name, home);
-      actions.push({
-        kind: "skill-dir",
-        skill: skill.name,
-        agent: agentId,
-        target,
-      });
-    }
-  }
-
-  return actions;
+  return [
+    ...buildSkillDirReverts(manifest, home, detectedAgents),
+    ...buildFileWriteReverts(manifest, home, detectedAgents),
+    ...buildConfigPatchReverts(manifest, home, detectedAgents),
+  ];
 }
 
 export function planRevertAll(
   manifest: Manifest,
   home: string,
 ): RevertAction[] {
-  const actions: RevertAction[] = [];
-
-  for (const skill of manifest.skills) {
-    for (const agentId of skill.agents) {
-      const agent = AGENT_REGISTRY_BY_ID[agentId];
-      if (!agent) continue;
-
-      const target = resolveAgentSkillPath(agent, skill.name, home);
-      actions.push({
-        kind: "skill-dir",
-        skill: skill.name,
-        agent: agentId,
-        target,
-      });
-    }
-  }
-
-  return actions;
+  return [
+    ...buildSkillDirReverts(manifest, home, null),
+    ...buildFileWriteReverts(manifest, home, null),
+    ...buildConfigPatchReverts(manifest, home, null),
+  ];
 }
 
 type RevertOutcome =

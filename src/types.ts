@@ -1,6 +1,12 @@
 import type { AgentId } from "./schemas/manifest.ts";
 
-export type { AgentId, Manifest, SkillEntry } from "./schemas/manifest.ts";
+export type {
+  AgentId,
+  ConfigEntry,
+  FileEntry,
+  Manifest,
+  SkillEntry,
+} from "./schemas/manifest.ts";
 
 export interface AgentPaths {
   posix: string[];
@@ -22,6 +28,7 @@ export interface AgentConfig {
   detectPaths: AgentPaths;
   detectBinary: string | null;
   provenance: AgentProvenance;
+  policyNote?: string;
 }
 
 export interface PlanWarning {
