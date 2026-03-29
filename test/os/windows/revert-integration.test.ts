@@ -1,8 +1,17 @@
 import assert from "node:assert/strict";
-import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import {
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
 import path from "node:path";
 import { describe, it } from "node:test";
-import { lookupDeployment, registerDeployment } from "../../../src/core/ownership.ts";
+import {
+  lookupDeployment,
+  registerDeployment,
+} from "../../../src/core/ownership.ts";
 import { executeRevert } from "../../../src/core/revert.ts";
 import type {
   ConfigPatchRevertAction,

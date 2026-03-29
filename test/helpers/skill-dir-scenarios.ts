@@ -1,5 +1,11 @@
 import assert from "node:assert/strict";
-import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import {
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
 import path from "node:path";
 import { it } from "node:test";
 import { executeDeploy, planDeploy } from "../../src/core/deploy.ts";
@@ -18,7 +24,11 @@ import {
 
 interface SkillDirScenarioOptions {
   method: "symlink" | "copy";
-  assertManagedTarget(target: string, source: string, expectedSkillMd: string): void;
+  assertManagedTarget(
+    target: string,
+    source: string,
+    expectedSkillMd: string,
+  ): void;
 }
 
 const FIRST_SKILL_MD = "---\nname: test\n---\n# First";
@@ -119,7 +129,10 @@ export function registerSharedSkillDirDeployScenarios(
       assert.equal(succeeded, 0);
       assert.equal(failed.length, 1);
       assert.match(failed[0]!.error, /not managed by inception-engine/);
-      assert.equal(readFileSync(path.join(target, "user.txt"), "utf-8"), "user content");
+      assert.equal(
+        readFileSync(path.join(target, "user.txt"), "utf-8"),
+        "user content",
+      );
     } finally {
       rmSync(sourceDir, { recursive: true, force: true });
       rmSync(home, { recursive: true, force: true });
@@ -157,7 +170,10 @@ export function registerSharedSkillDirDeployScenarios(
       assert.equal(succeeded, 0);
       assert.equal(failed.length, 1);
       assert.match(failed[0]!.error, /not managed by inception-engine/);
-      assert.equal(readFileSync(path.join(target, "SKILL.md"), "utf-8"), "other");
+      assert.equal(
+        readFileSync(path.join(target, "SKILL.md"), "utf-8"),
+        "other",
+      );
     } finally {
       rmSync(sourceDir, { recursive: true, force: true });
       rmSync(home, { recursive: true, force: true });
@@ -232,7 +248,11 @@ export function registerSharedSkillDirDeployScenarios(
       assert.equal(failed.length, 1);
       assert.match(failed[0]!.error, /simulated registry persistence failure/);
 
-      options.assertManagedTarget(firstAction.target, firstSource, FIRST_SKILL_MD);
+      options.assertManagedTarget(
+        firstAction.target,
+        firstSource,
+        FIRST_SKILL_MD,
+      );
       assert.ok(!existsSync(`${firstAction.target}.inception-backup`));
     } finally {
       rmSync(sourceDir, { recursive: true, force: true });
@@ -257,7 +277,11 @@ export function registerSharedSkillDirRevertScenarios(
       );
       await executeDeploy(actions, false, false, home);
 
-      const revertActions = planRevert(testSkillManifest, ["claude-code"], home);
+      const revertActions = planRevert(
+        testSkillManifest,
+        ["claude-code"],
+        home,
+      );
       const { succeeded, skipped, failed } = await executeRevert(
         revertActions,
         false,
@@ -277,7 +301,11 @@ export function registerSharedSkillDirRevertScenarios(
   it("skips an unmanaged skill-dir target", async () => {
     const home = makeTmpDir("ie-skill-dir-home");
     try {
-      const revertActions = planRevert(testSkillManifest, ["claude-code"], home);
+      const revertActions = planRevert(
+        testSkillManifest,
+        ["claude-code"],
+        home,
+      );
       const target = revertActions[0]!.target;
       mkdirSync(target, { recursive: true });
       writeFileSync(path.join(target, "SKILL.md"), FIRST_SKILL_MD);
@@ -306,7 +334,11 @@ export function registerSharedSkillDirRevertScenarios(
         "skills/test-skill",
         FIRST_SKILL_MD,
       );
-      const revertActions = planRevert(testSkillManifest, ["claude-code"], home);
+      const revertActions = planRevert(
+        testSkillManifest,
+        ["claude-code"],
+        home,
+      );
       const target = revertActions[0]!.target;
 
       mkdirSync(target, { recursive: true });

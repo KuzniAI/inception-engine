@@ -464,12 +464,17 @@ async function deployFileWrite(
     // Check if target exists — only allow overwrite if we own it
     try {
       await lstat(action.target);
-      const isOwned = await verifyDeployment(home, action.target, {
-        kind: "file-write",
-        source: action.source,
-        skill: action.skill,
-        agent: action.agent,
-      }, deps.registry);
+      const isOwned = await verifyDeployment(
+        home,
+        action.target,
+        {
+          kind: "file-write",
+          source: action.source,
+          skill: action.skill,
+          agent: action.agent,
+        },
+        deps.registry,
+      );
       if (!isOwned) {
         throw new Error(
           `Target "${action.target}" exists but is not managed by inception-engine — refusing to overwrite`,
@@ -483,12 +488,17 @@ async function deployFileWrite(
 
     await mkdir(path.dirname(action.target), { recursive: true });
     await copyFile(action.source, action.target);
-    await registerDeployment(home, action.target, {
-      kind: "file-write",
-      source: action.source,
-      skill: action.skill,
-      agent: action.agent,
-    }, deps.registry);
+    await registerDeployment(
+      home,
+      action.target,
+      {
+        kind: "file-write",
+        source: action.source,
+        skill: action.skill,
+        agent: action.agent,
+      },
+      deps.registry,
+    );
     logger.ok(label);
     if (verbose) {
       logger.detail(`write-file: ${action.source} -> ${action.target}`);
@@ -557,13 +567,18 @@ async function deployConfigPatch(
       `${JSON.stringify(patched, null, 2)}\n`,
       "utf-8",
     );
-    await registerDeployment(home, action.target, {
-      kind: "config-patch",
-      patch,
-      undoPatch,
-      skill: action.skill,
-      agent: action.agent,
-    }, deps.registry);
+    await registerDeployment(
+      home,
+      action.target,
+      {
+        kind: "config-patch",
+        patch,
+        undoPatch,
+        skill: action.skill,
+        agent: action.agent,
+      },
+      deps.registry,
+    );
     logger.ok(label);
     if (verbose) {
       logger.detail(
@@ -661,13 +676,18 @@ async function createDeployTarget(
   deps: DeployDependencies,
 ): Promise<void> {
   await (deps.skillDirOps ?? defaultSkillDirOps).createTarget(action);
-  await registerDeployment(home, action.target, {
-    kind: action.kind,
-    source: action.source,
-    skill: action.skill,
-    agent: action.agent,
-    method: action.method,
-  }, deps.registry);
+  await registerDeployment(
+    home,
+    action.target,
+    {
+      kind: action.kind,
+      source: action.source,
+      skill: action.skill,
+      agent: action.agent,
+      method: action.method,
+    },
+    deps.registry,
+  );
 }
 
 async function executeDeployAction(
@@ -677,12 +697,18 @@ async function executeDeployAction(
   deps: DeployDependencies,
 ): Promise<void> {
   const label = `${action.skill} -> ${action.agent}`;
-  const backupPath = await backupExisting(action.target, verbose, home, {
-    kind: action.kind,
-    source: action.source,
-    skill: action.skill,
-    agent: action.agent,
-  }, deps);
+  const backupPath = await backupExisting(
+    action.target,
+    verbose,
+    home,
+    {
+      kind: action.kind,
+      source: action.source,
+      skill: action.skill,
+      agent: action.agent,
+    },
+    deps,
+  );
   await mkdir(path.dirname(action.target), { recursive: true });
 
   try {
@@ -694,8 +720,8 @@ async function executeDeployAction(
         await (deps.skillDirOps ?? defaultSkillDirOps)
           .removeTarget(action.target)
           .catch(() => {
-          /* best-effort cleanup */
-        });
+            /* best-effort cleanup */
+          });
         await rename(backupPath, action.target);
       } catch {
         // Best-effort rollback
@@ -728,12 +754,17 @@ async function backupExisting(
   }
 
   if (
-    !(await verifyDeployment(home, targetPath, {
-      kind: "skill-dir",
-      source: expected.source,
-      skill: expected.skill,
-      agent: expected.agent,
-    }, deps.registry))
+    !(await verifyDeployment(
+      home,
+      targetPath,
+      {
+        kind: "skill-dir",
+        source: expected.source,
+        skill: expected.skill,
+        agent: expected.agent,
+      },
+      deps.registry,
+    ))
   ) {
     throw new Error(
       `Target "${targetPath}" exists but is not managed by inception-engine — refusing to overwrite`,

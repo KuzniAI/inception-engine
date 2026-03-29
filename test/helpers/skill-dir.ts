@@ -9,7 +9,10 @@ import {
 import os from "node:os";
 import path from "node:path";
 import assert from "node:assert/strict";
-import type { Registry, RegistryPersistence } from "../../src/core/ownership.ts";
+import type {
+  Registry,
+  RegistryPersistence,
+} from "../../src/core/ownership.ts";
 import { defaultRegistryPersistence } from "../../src/core/ownership.ts";
 import type { Manifest } from "../../src/types.ts";
 
@@ -64,8 +67,14 @@ export function assertSymlinkTarget(target: string, source: string): void {
   assert.equal(readlinkSync(target), source);
 }
 
-export function assertCopyTarget(target: string, expectedSkillMd: string): void {
+export function assertCopyTarget(
+  target: string,
+  expectedSkillMd: string,
+): void {
   assert.ok(existsSync(target), "expected target to exist");
   assert.ok(!lstatSync(target).isSymbolicLink(), "expected a copied directory");
-  assert.equal(readFileSync(path.join(target, "SKILL.md"), "utf-8"), expectedSkillMd);
+  assert.equal(
+    readFileSync(path.join(target, "SKILL.md"), "utf-8"),
+    expectedSkillMd,
+  );
 }
