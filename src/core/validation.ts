@@ -25,7 +25,10 @@ function isSameOrDescendantPath(candidate: string, root: string): boolean {
   );
 }
 
-async function isSameFileSystemLocation(a: string, b: string): Promise<boolean> {
+async function isSameFileSystemLocation(
+  a: string,
+  b: string,
+): Promise<boolean> {
   const [aStat, bStat] = await Promise.all([stat(a), stat(b)]);
   return aStat.dev === bStat.dev && aStat.ino === bStat.ino;
 }
@@ -59,8 +62,10 @@ export async function validateSourcePath(
   try {
     const realSource = await realpath(source);
     if (
-      !isSameOrDescendantPath(realSource, realRoot) &&
-      !(await isWithinRootByIdentity(realSource, realRoot))
+      !(
+        isSameOrDescendantPath(realSource, realRoot) ||
+        (await isWithinRootByIdentity(realSource, realRoot))
+      )
     ) {
       throw new UserError(
         "DEPLOY_FAILED",
