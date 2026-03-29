@@ -1,4 +1,4 @@
-import { lstat, realpath } from "node:fs/promises";
+import { lstat, realpath, stat } from "node:fs/promises";
 import path from "node:path";
 import { UserError } from "../errors.ts";
 
@@ -9,6 +9,38 @@ export function sourceAccessError(err: unknown, sourcePath: string): string {
     return `Permission denied accessing source: ${sourcePath}`;
   const detail = err instanceof Error ? err.message : String(err);
   return `Failed to access source ${sourcePath}: ${detail}`;
+}
+
+function normalizePathForComparison(candidate: string): string {
+  const normalized = path.normalize(candidate);
+  return process.platform === "win32" ? normalized.toLowerCase() : normalized;
+}
+
+function isSameOrDescendantPath(candidate: string, root: string): boolean {
+  const normalizedCandidate = normalizePathForComparison(candidate);
+  const normalizedRoot = normalizePathForComparison(root);
+  return (
+    normalizedCandidate === normalizedRoot ||
+    normalizedCandidate.startsWith(normalizedRoot + path.sep)
+  );
+}
+
+async function isSameFileSystemLocation(a: string, b: string): Promise<boolean> {
+  const [aStat, bStat] = await Promise.all([stat(a), stat(b)]);
+  return aStat.dev === bStat.dev && aStat.ino === bStat.ino;
+}
+
+async function isWithinRootByIdentity(
+  candidate: string,
+  root: string,
+): Promise<boolean> {
+  let current = candidate;
+  while (true) {
+    if (await isSameFileSystemLocation(current, root)) return true;
+    const parent = path.dirname(current);
+    if (parent === current) return false;
+    current = parent;
+  }
 }
 
 export async function validateSourcePath(
@@ -27,8 +59,8 @@ export async function validateSourcePath(
   try {
     const realSource = await realpath(source);
     if (
-      realSource !== realRoot &&
-      !realSource.startsWith(realRoot + path.sep)
+      !isSameOrDescendantPath(realSource, realRoot) &&
+      !(await isWithinRootByIdentity(realSource, realRoot))
     ) {
       throw new UserError(
         "DEPLOY_FAILED",
