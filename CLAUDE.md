@@ -6,4 +6,4 @@
 4. Run `npm run fmt` after modifying any TypeScript files.
 5. Run `npm run lint` after implementing changes and fix any issues it reports.
 6. Run `npm run typecheck` before handing your work off
-6. When working on @docs/roadmap.md items you can cross out items but you cannot remove them.
+7. When working on @docs/roadmap.md items you can cross out items but you cannot remove them.

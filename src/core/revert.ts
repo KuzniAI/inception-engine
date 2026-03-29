@@ -1,7 +1,7 @@
 import { lstat, readFile, rm, unlink, writeFile } from "node:fs/promises";
-import path from "node:path";
 import { AGENT_REGISTRY_BY_ID } from "../config/agents.ts";
 import { logger } from "../logger.ts";
+import type { ConfigPatchRegistryEntry } from "../schemas/registry.ts";
 import type {
   AgentId,
   ConfigPatchRevertAction,
@@ -11,14 +11,13 @@ import type {
   RevertAction,
   SkillDirRevertAction,
 } from "../types.ts";
-import type { ConfigPatchRegistryEntry } from "../schemas/registry.ts";
 import {
-  compileMcpServerReverts,
   compileAgentRuleReverts,
+  compileMcpServerReverts,
 } from "./adapters/index.ts";
 import {
-  type RegistryPersistence,
   lookupDeployment,
+  type RegistryPersistence,
   unregisterDeployment,
 } from "./ownership.ts";
 import { resolveAgentSkillPath } from "./resolve.ts";

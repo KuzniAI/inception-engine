@@ -27,13 +27,13 @@ import type {
   PlanWarning,
   SkillDirDeployAction,
 } from "../types.ts";
+import { compileAdapterActions } from "./adapters/index.ts";
 import {
-  type RegistryPersistence,
   lookupDeployment,
+  type RegistryPersistence,
   registerDeployment,
   verifyDeployment,
 } from "./ownership.ts";
-import { compileAdapterActions } from "./adapters/index.ts";
 import { getDeployMethod, resolveAgentSkillPath } from "./resolve.ts";
 import { resolveTargetTemplate } from "./runtime-paths.ts";
 import {

@@ -459,7 +459,7 @@ describe("resolveTargetTemplate", () => {
       delete process.env.APPDATA;
       assert.equal(
         resolveTargetTemplate("{appdata}/opencode/AGENTS.md", "/home/u"),
-        path.join("/home/u", "AppData", "Roaming") + "/opencode/AGENTS.md",
+        `${path.join("/home/u", "AppData", "Roaming")}/opencode/AGENTS.md`,
       );
     } finally {
       if (saved === undefined) delete process.env.APPDATA;
@@ -479,7 +479,7 @@ describe("resolveTargetTemplate", () => {
       process.env.XDG_CONFIG_HOME = "relative/path";
       assert.equal(
         resolveTargetTemplate("{xdg_config}/opencode/AGENTS.md", "/home/u"),
-        path.join("/home/u", ".config") + "/opencode/AGENTS.md",
+        `${path.join("/home/u", ".config")}/opencode/AGENTS.md`,
       );
     } finally {
       if (saved === undefined) delete process.env.XDG_CONFIG_HOME;

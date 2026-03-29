@@ -1,4 +1,4 @@
-import type { McpServerEntry, AgentRuleEntry } from "../../schemas/manifest.ts";
+import type { AgentRuleEntry, McpServerEntry } from "../../schemas/manifest.ts";
 import type {
   AgentId,
   ConfigPatchDeployAction,
@@ -8,7 +8,7 @@ import type {
 import { compileMcpServerActions, compileMcpServerReverts } from "./mcp.ts";
 import { compileAgentRuleActions, compileAgentRuleReverts } from "./rules.ts";
 
-export { compileMcpServerReverts, compileAgentRuleReverts };
+export { compileAgentRuleReverts, compileMcpServerReverts };
 
 export type AdapterAction = ConfigPatchDeployAction | FileWriteDeployAction;
 

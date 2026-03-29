@@ -38,6 +38,7 @@
     "typecheck": "tsc --noEmit",
     "fmt": "biome format --write .",
     "lint": "biome lint . --max-diagnostics none",
+    "lint:fix": "biome lint . --max-diagnostics none --write --unsafe",
     "predev": "node scripts/assert-direct-ts-node.mjs",
     "dev": "node src/index.ts",
     "pretest": "node scripts/assert-direct-ts-node.mjs",
