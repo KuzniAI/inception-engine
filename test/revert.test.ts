@@ -909,6 +909,62 @@ describe("executeRevert — mcpServer and agentRule integration", {
     }
   });
 
+  it("reverts nested config-patch, preserving sibling MCP server", async () => {
+    const home = makeTmpDir();
+    try {
+      // Original config already has one MCP server; we deployed a second one
+      const configFile = path.join(home, ".claude.json");
+      const patched = {
+        mcpServers: {
+          "existing-server": { command: "existing" },
+          "new-server": { command: "new" },
+        },
+      };
+      writeFileSync(configFile, JSON.stringify(patched));
+
+      // Deep undo patch: only remove "new-server" under mcpServers
+      await registerDeployment(home, configFile, {
+        kind: "config-patch",
+        patch: { mcpServers: { "new-server": { command: "new" } } },
+        undoPatch: { mcpServers: { "new-server": null } },
+        skill: "new-server",
+        agent: "claude-code",
+      });
+
+      const action: ConfigPatchRevertAction = {
+        kind: "config-patch",
+        skill: "new-server",
+        agent: "claude-code",
+        target: configFile,
+      };
+
+      const { succeeded, failed } = await executeRevert(
+        [action],
+        false,
+        false,
+        home,
+      );
+      assert.equal(succeeded, 1);
+      assert.equal(failed.length, 0);
+
+      const restored = JSON.parse(readFileSync(configFile, "utf-8"));
+      // "new-server" should be gone, "existing-server" should be preserved
+      assert.equal("new-server" in restored.mcpServers, false);
+      assert.deepEqual(restored.mcpServers["existing-server"], {
+        command: "existing",
+      });
+
+      const entry = await lookupDeployment(home, configFile);
+      assert.equal(
+        entry,
+        null,
+        "registry entry should be removed after revert",
+      );
+    } finally {
+      rmSync(home, { recursive: true, force: true });
+    }
+  });
+
   it("reverts a deployed agentRule file-write and unregisters it", async () => {
     const home = makeTmpDir();
     try {

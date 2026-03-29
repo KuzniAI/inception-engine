@@ -74,7 +74,15 @@ function computeUndoPatch(
 ): Record<string, unknown> {
   const undoPatch: Record<string, unknown> = {};
   for (const key of Object.keys(patch)) {
-    undoPatch[key] = key in original ? original[key] : null;
+    const patchVal = patch[key];
+    if (isPlainObject(patchVal) && isPlainObject(original[key])) {
+      undoPatch[key] = computeUndoPatch(
+        original[key] as Record<string, unknown>,
+        patchVal as Record<string, unknown>,
+      );
+    } else {
+      undoPatch[key] = key in original ? original[key] : null;
+    }
   }
   return undoPatch;
 }
@@ -87,6 +95,11 @@ function applyMergePatch(
   for (const [key, value] of Object.entries(patch)) {
     if (value === null) {
       delete patched[key];
+    } else if (isPlainObject(value) && isPlainObject(patched[key])) {
+      patched[key] = applyMergePatch(
+        patched[key] as Record<string, unknown>,
+        value as Record<string, unknown>,
+      );
     } else {
       patched[key] = value;
     }

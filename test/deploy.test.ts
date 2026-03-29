@@ -1953,4 +1953,112 @@ describe("executeDeploy — config-patch", () => {
       rmSync(home, { recursive: true, force: true });
     }
   });
+
+  it("applies nested JSON merge patch, preserving sibling keys", async () => {
+    const home = makeTmpDir();
+    try {
+      const configFile = path.join(home, "config.json");
+      writeFileSync(
+        configFile,
+        JSON.stringify({
+          mcpServers: { "existing-server": { command: "old" } },
+        }),
+      );
+
+      const action: ConfigPatchDeployAction = {
+        kind: "config-patch",
+        skill: "new-server",
+        agent: "claude-code",
+        target: configFile,
+        patch: { mcpServers: { "new-server": { command: "new" } } },
+      };
+
+      const { succeeded, failed } = await executeDeploy(
+        [action],
+        false,
+        false,
+        home,
+      );
+      assert.equal(succeeded, 1);
+      assert.equal(failed.length, 0);
+
+      const result = JSON.parse(readFileSync(configFile, "utf-8"));
+      assert.deepEqual(result.mcpServers["existing-server"], {
+        command: "old",
+      });
+      assert.deepEqual(result.mcpServers["new-server"], { command: "new" });
+    } finally {
+      rmSync(home, { recursive: true, force: true });
+    }
+  });
+
+  it("stores correct deep undoPatch for nested patch", async () => {
+    const home = makeTmpDir();
+    try {
+      const configFile = path.join(home, "config.json");
+      writeFileSync(
+        configFile,
+        JSON.stringify({
+          mcpServers: { "existing-server": { command: "old" } },
+        }),
+      );
+
+      const action: ConfigPatchDeployAction = {
+        kind: "config-patch",
+        skill: "new-server",
+        agent: "claude-code",
+        target: configFile,
+        patch: { mcpServers: { "new-server": { command: "new" } } },
+      };
+
+      await executeDeploy([action], false, false, home);
+      const entry = await lookupDeployment(home, configFile);
+      assert.ok(entry);
+      assert.equal(entry.kind, "config-patch");
+      if (entry.kind === "config-patch") {
+        // The undo patch should be nested, not shallow
+        const mcpUndo = entry.undoPatch.mcpServers as Record<string, unknown>;
+        assert.ok(
+          typeof mcpUndo === "object" && mcpUndo !== null,
+          "undoPatch.mcpServers should be a nested object",
+        );
+        // Only the new server key should be in the undo patch
+        assert.equal(mcpUndo["new-server"], null); // was absent, so null = delete on undo
+        assert.equal("existing-server" in mcpUndo, false); // sibling not touched
+      }
+    } finally {
+      rmSync(home, { recursive: true, force: true });
+    }
+  });
+
+  it("null patch value inside nested object deletes only that leaf key", async () => {
+    const home = makeTmpDir();
+    try {
+      const configFile = path.join(home, "config.json");
+      writeFileSync(
+        configFile,
+        JSON.stringify({
+          mcpServers: {
+            "server-a": { command: "a" },
+            "server-b": { command: "b" },
+          },
+        }),
+      );
+
+      const action: ConfigPatchDeployAction = {
+        kind: "config-patch",
+        skill: "remove-server-a",
+        agent: "claude-code",
+        target: configFile,
+        patch: { mcpServers: { "server-a": null } },
+      };
+
+      await executeDeploy([action], false, false, home);
+      const result = JSON.parse(readFileSync(configFile, "utf-8"));
+      assert.equal("server-a" in result.mcpServers, false);
+      assert.deepEqual(result.mcpServers["server-b"], { command: "b" });
+    } finally {
+      rmSync(home, { recursive: true, force: true });
+    }
+  });
 });

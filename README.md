@@ -227,7 +227,7 @@ inception-engine maintains a centralized deployment registry at `~/.inception-en
 
 - **Strong binding**: Each registry entry binds a specific target path to its skill, agent, and action kind, with action-specific provenance fields (`source` and `method` for skill-dir and file-write; `patch` and `undoPatch` for config-patch). A target is only considered managed if all relevant fields match — a stray entry or a different deployment cannot satisfy the check.
 
-- **Atomic redeploy**: When overwriting an existing managed target, the engine renames the old target to a backup, creates the new deployment, and only removes the backup on success. If the new deployment fails, the backup is restored.
+- **Atomic redeploy**: When overwriting an existing managed `skill-dir` target, the engine renames the old target to a backup, creates the new deployment, and only removes the backup on success. If the new deployment fails, the backup is restored. `file-write` and `config-patch` deployments write directly to the target without this backup/rollback model.
 
 - **Cross-platform**: The registry uses the same resolved home directory as the rest of the tool, including sudo scenarios on POSIX and elevated PowerShell on Windows.
 

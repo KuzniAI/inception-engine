@@ -48,11 +48,11 @@ As of the current implementation:
    - ~~Make `planRevert` and `planRevertAll` generate matching revert actions.~~
    - Add end-to-end tests that deploy and revert both surfaces through the manifest, not just adapter compilation tests.
 
-2. **Fix config patch semantics before expanding config-driven features**
-   - Replace the shallow patcher with real JSON Merge Patch behavior.
-   - Preserve nested sibling keys during MCP registration.
-   - Update undo-patch generation and revert logic to match the same semantics.
-   - Add tests for nested object merge, nested deletion, and MCP coexistence with pre-existing servers.
+~~2. **Fix config patch semantics before expanding config-driven features**~~
+   - ~~Replace the shallow patcher with real JSON Merge Patch behavior.~~
+   - ~~Preserve nested sibling keys during MCP registration.~~
+   - ~~Update undo-patch generation and revert logic to match the same semantics.~~
+   - ~~Add tests for nested object merge, nested deletion, and MCP coexistence with pre-existing servers.~~
 
 3. **Bring docs back in line with the code**
    - Narrow README claims around atomic redeploy so they describe `skill-dir` behavior specifically.
@@ -67,7 +67,7 @@ As of the current implementation:
 
 ## Obvious Code Problems To Fix Before More Surface Area
 
-- `mcpServers` registration can clobber existing sibling MCP entries because config patching is shallow.
+- ~~`mcpServers` registration can clobber existing sibling MCP entries because config patching is shallow.~~
 - Adapter-owned deploys leave registry-managed state behind that the manifest-level revert planner does not currently clean up.
 - The docs imply stronger safety guarantees for all managed target types than the code actually provides.
 - The docs imply stronger skill-file contract enforcement than the code currently performs.
@@ -77,6 +77,6 @@ As of the current implementation:
 Feature expansion should wait until these are true:
 
 - `mcpServers` and `agentRules` support deploy, dry-run, ownership checks, and revert end to end.
-- Config patch behavior matches the documented merge semantics and is covered by nested-object tests.
+- ~~Config patch behavior matches the documented merge semantics and is covered by nested-object tests.~~
 - README capability claims match the actual guarantees in code.
 - Windows behavior is exercised in CI with real execution, not mostly path-resolution tests plus POSIX inference.

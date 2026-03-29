@@ -167,6 +167,10 @@ async function readJsonConfig(
   return parsed as Record<string, unknown>;
 }
 
+function isPlainObject(v: unknown): v is Record<string, unknown> {
+  return typeof v === "object" && v !== null && !Array.isArray(v);
+}
+
 function applyUndoPatch(
   current: Record<string, unknown>,
   undoPatch: Record<string, unknown>,
@@ -175,6 +179,11 @@ function applyUndoPatch(
   for (const [key, originalValue] of Object.entries(undoPatch)) {
     if (originalValue === null) {
       delete restored[key];
+    } else if (isPlainObject(originalValue) && isPlainObject(restored[key])) {
+      restored[key] = applyUndoPatch(
+        restored[key] as Record<string, unknown>,
+        originalValue as Record<string, unknown>,
+      );
     } else {
       restored[key] = originalValue;
     }
