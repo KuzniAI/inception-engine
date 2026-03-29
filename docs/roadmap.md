@@ -29,14 +29,7 @@ As of the current implementation:
    - The planner validates that the source is a readable directory and that `SKILL.md` exists (`src/core/deploy.ts:539`).
    - It does not validate YAML frontmatter, `name`, or `description`, even though README presents those fields as required for skills.
 
-## Priority Gaps
-
-1. ~~**Bring docs back in line with the code**~~
-   - ~~Narrow README claims around atomic redeploy so they describe `skill-dir` behavior specifically.~~
-   - ~~Distinguish "deploy supported" from "revert supported" in the feature matrix.~~
-   - ~~Either validate skill frontmatter or soften README language about required skill structure.~~ (softened; validation deferred)
-
-2. **Raise Windows confidence from inferred to demonstrated**
+3. **Raise Windows confidence from inferred to demonstrated**
    - The codebase has useful path-resolution tests and some cross-platform copy/revert coverage.
    - Important behavior is still more thoroughly exercised on POSIX than on real Windows execution paths (`test/cross-platform.test.ts`, `test/deploy.test.ts`, `test/revert.test.ts`).
    - CI should prove Windows copy deploy, overwrite protection, registry handling, and revert behavior directly.
