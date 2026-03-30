@@ -1,8 +1,10 @@
 # inception-engine
 
-Plant skills directly into the minds of your installed AI coding agents — Claude Code, Codex, Gemini CLI, Antigravity, OpenCode, and GitHub Copilot. One command. They'll think they thought of it themselves.
+Plant skills directly into the minds of your installed AI coding agents — Claude Code, Codex, Gemini CLI, Antigravity, and OpenCode. One command. They'll think they thought of it themselves.
 
 Today, inception-engine works as a cross-agent deployer for skills on all listed agents, plus single-file writes and JSON config patches. It also supports MCP server registration and global rules-file deployment for the subset of agents whose config surfaces are implemented and validated today.
+
+GitHub Copilot is no longer treated as a separate instruction or skill target in the product direction when it can consume Claude-native artifacts directly. If Copilot uses `CLAUDE.md` or Claude-style skill layouts without translation, inception-engine should rely on the Claude deployment path instead of maintaining duplicate Copilot-specific surfaces. Dedicated Copilot customization remains justified only where Copilot exposes a materially different interface, such as MCP-related configuration.
 
 The broader portability layer is the roadmap direction, but this README focuses on what is working now.
 
@@ -32,7 +34,6 @@ Managed skills overwrite their previous version. If a target exists but was not 
 | Gemini CLI | `gemini-cli` | `~/.gemini/skills/` | Yes | Yes | Yes |
 | Antigravity | `antigravity` | `~/.gemini/antigravity/skills/` | Yes* | Yes* | Yes* |
 | OpenCode | `opencode` | `~/.config/opencode/skills/` | Yes | Yes | Yes* |
-| GitHub Copilot | `github-copilot` | `~/.copilot/skills/` | Yes | Yes | Yes |
 
 \* Antigravity support is currently based on the implementation's registry path assumptions and local validation, not a strong official doc set equivalent to the other agents.
 
@@ -50,6 +51,8 @@ Managed skills overwrite their previous version. If a target exists but was not 
 
 Features that depend on agent-specific config surfaces are intentionally conservative: if a target path or schema is not implemented with enough confidence, inception-engine warns and skips it rather than guessing.
 
+For GitHub Copilot specifically, the portability rule is Claude-first: if Copilot accepts the same Claude-native instruction or skill artifact, inception-engine should not add a separate Copilot deployment feature for it.
+
 ## Manifest Format
 
 Create an `inception.json` file at the root of your skills directory:
@@ -60,7 +63,7 @@ Create an `inception.json` file at the root of your skills directory:
     {
       "name": "my-skill",
       "path": "skills/my-skill",
-      "agents": ["claude-code", "codex", "gemini-cli", "antigravity", "opencode", "github-copilot"]
+      "agents": ["claude-code", "codex", "gemini-cli", "antigravity", "opencode"]
     }
   ],
   "files": [

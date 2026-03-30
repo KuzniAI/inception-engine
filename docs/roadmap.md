@@ -33,14 +33,15 @@ Ordered from highest to lowest after the fixed first step and architecture enabl
 
 1. Add execution and safety-oriented config support for agent-specific permission and approval surfaces where safe patching and revert semantics can be implemented cleanly. Score: `6/8` (`Architecture 2`, `Agents 2`, `OS 0`, `Confidence 2`)
 2. Add support for agent definition deployment for agents that expose dedicated agent directories or frontmatter-based agent files. Score: `6/8` (`Architecture 2`, `Agents 2`, `OS 1`, `Confidence 1`)
-3. Add GitHub Copilot instruction deployment for `.github/copilot-instructions.md` and `.github/instructions/*.instructions.md`. Score: `5/8` (`Architecture 1`, `Agents 2`, `OS 0`, `Confidence 2`)
-4. Add Codex MCP deployment via `config.toml`. Score: `5/8` (`Architecture 1`, `Agents 2`, `OS 0`, `Confidence 2`)
-5. Add OpenCode MCP deployment via `opencode.json` under `mcp`. Score: `5/8` (`Architecture 1`, `Agents 2`, `OS 0`, `Confidence 2`)
-6. Add Antigravity instruction deployment for `GEMINI.md` and `.agents/rules/*.md`. Score: `5/8` (`Architecture 1`, `Agents 2`, `OS 0`, `Confidence 2`)
-7. Add Antigravity MCP deployment via `.agents/rules/` frontmatter or `mcp-servers` properties. Score: `5/8` (`Architecture 1`, `Agents 2`, `OS 0`, `Confidence 2`)
-8. Add GitHub Copilot MCP deployment through agent frontmatter. Score: `5/8` (`Architecture 1`, `Agents 2`, `OS 0`, `Confidence 2`)
-9. Expand instruction-file support beyond today's global rules-file deployment to cover repo-local and workspace-local instruction surfaces for agents with documented behavior. Score: `4/8` (`Architecture 1`, `Agents 1`, `OS 0`, `Confidence 2`)
-10. Add preflight analysis for instruction precedence, collisions, and instruction-budget risk before deployment. Score: `3/8` (`Architecture 1`, `Agents 0`, `OS 0`, `Confidence 2`)
+3. Remove GitHub Copilot-specific instruction deployment work where Copilot already consumes Claude-native artifacts such as `CLAUDE.md`. Score: `6/8` (`Architecture 2`, `Agents 2`, `OS 0`, `Confidence 2`)
+4. Remove legacy GitHub Copilot skill-target assumptions and related docs/tests/manifests where Copilot can execute Claude-style skills directly. Score: `6/8` (`Architecture 2`, `Agents 2`, `OS 0`, `Confidence 2`)
+5. Add Codex MCP deployment via `config.toml`. Score: `5/8` (`Architecture 1`, `Agents 2`, `OS 0`, `Confidence 2`)
+6. Add OpenCode MCP deployment via `opencode.json` under `mcp`. Score: `5/8` (`Architecture 1`, `Agents 2`, `OS 0`, `Confidence 2`)
+7. Add Antigravity instruction deployment for `GEMINI.md` and `.agents/rules/*.md`. Score: `5/8` (`Architecture 1`, `Agents 2`, `OS 0`, `Confidence 2`)
+8. Add Antigravity MCP deployment via `.agents/rules/` frontmatter or `mcp-servers` properties. Score: `5/8` (`Architecture 1`, `Agents 2`, `OS 0`, `Confidence 2`)
+9. Retain dedicated GitHub Copilot MCP deployment only for the surfaces that are genuinely Copilot-specific, such as devcontainer or agent-frontmatter mappings. Score: `5/8` (`Architecture 1`, `Agents 2`, `OS 0`, `Confidence 2`)
+10. Expand instruction-file support beyond today's global rules-file deployment to cover repo-local and workspace-local instruction surfaces for agents with documented behavior. Score: `4/8` (`Architecture 1`, `Agents 1`, `OS 0`, `Confidence 2`)
+11. Add preflight analysis for instruction precedence, collisions, and instruction-budget risk before deployment. Score: `3/8` (`Architecture 1`, `Agents 0`, `OS 0`, `Confidence 2`)
 
 ## Quality And Maintenance
 
