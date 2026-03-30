@@ -17,6 +17,7 @@ These items should stay near the top because they unlock multiple follow-on feat
 
 1. Add manifest-generation or adapter-assisted workflows for non-JSON targets such as TOML, frontmatter-driven files, and mixed repo-local instruction surfaces. Score: `6/8` (`Architecture 2`, `Agents 2`, `OS 0`, `Confidence 2`)
 2. Add explicit Gemini CLI / Antigravity collision handling for shared `GEMINI.md`-adjacent workflows. Score: `5/8` (`Architecture 2`, `Agents 1`, `OS 0`, `Confidence 2`)
+3. Expand `init` from skill-folder discovery into a real bootstrap flow that can scaffold the broader manifest surfaces the north star depends on, including `files`, `configs`, `mcpServers`, and `agentRules`, or emit agent-aware placeholders instead of a skills-only manifest. Score: `6/8` (`Architecture 2`, `Agents 2`, `OS 0`, `Confidence 2`)
 
 ### Quality Enablers
 
@@ -38,6 +39,7 @@ Ordered from highest to lowest after the fixed first step and architecture enabl
 9. Retain dedicated GitHub Copilot MCP deployment only for the surfaces that are genuinely Copilot-specific, such as devcontainer or agent-frontmatter mappings. Score: `5/8` (`Architecture 1`, `Agents 2`, `OS 0`, `Confidence 2`)
 10. Expand instruction-file support beyond today's global rules-file deployment to cover repo-local and workspace-local instruction surfaces for agents with documented behavior. Score: `4/8` (`Architecture 1`, `Agents 1`, `OS 0`, `Confidence 2`)
 11. Add preflight analysis for instruction precedence, collisions, and instruction-budget risk before deployment. Score: `3/8` (`Architecture 1`, `Agents 0`, `OS 0`, `Confidence 2`)
+12. Update `init` so generated manifests stop baking in legacy `github-copilot` skill targets by default when the product direction is Claude-first portability for shared artifacts. Score: `5/8` (`Architecture 1`, `Agents 2`, `OS 0`, `Confidence 2`)
 
 ## Quality And Maintenance
 
@@ -48,6 +50,7 @@ Ordered from highest to lowest.
 3. Improve dry-run visibility so planned changes for file writes, rules files, and config patches are easier to inspect before deployment. Score: `4/8` (`Architecture 1`, `Agents 0`, `OS 1`, `Confidence 2`)
 4. Add targeted tests for Gemini CLI / Antigravity instruction collisions and precedence behavior. Score: `4/8` (`Architecture 1`, `Agents 1`, `OS 0`, `Confidence 2`)
 5. Add stronger detection and warnings for enterprise or policy-managed environments where local configuration may be ignored or overridden. Score: `3/8` (`Architecture 0`, `Agents 1`, `OS 0`, `Confidence 2`)
+6. Add fixture-based `init` coverage against `limbo/` so the sample bundle, generated manifest, and README examples do not drift. Score: `4/8` (`Architecture 1`, `Agents 1`, `OS 0`, `Confidence 2`)
 
 ## Additional Dimensions To Consider
 

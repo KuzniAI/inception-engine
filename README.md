@@ -8,6 +8,8 @@ GitHub Copilot is no longer treated as a separate instruction or skill target in
 
 The broader portability layer is the roadmap direction, but this README focuses on what is working now.
 
+`init` is available as a bootstrap command, but what works today is intentionally narrow: it scans for directories containing `SKILL.md` and generates starter `skills` entries plus empty `mcpServers` and `agentRules` arrays. It does not infer `files`, `configs`, MCP server definitions, or rules files from the repository yet.
+
 ## Quick Start
 
 ```bash
@@ -48,6 +50,7 @@ Managed skills overwrite their previous version. If a target exists but was not 
 | Config patch (JSON merge) | All agents via manifest and CLI | All agents |
 | MCP Servers | claude-code, gemini-cli; other agents are warned and skipped | claude-code, gemini-cli |
 | Global Rules Files | claude-code, codex, gemini-cli, opencode; other agents are warned and skipped | claude-code, codex, gemini-cli, opencode |
+| `init` manifest generation | Scans `SKILL.md` directories and writes starter `skills` entries | N/A |
 
 Features that depend on agent-specific config surfaces are intentionally conservative: if a target path or schema is not implemented with enough confidence, inception-engine warns and skips it rather than guessing.
 
@@ -154,11 +157,30 @@ Instructions for the AI agent...
 
 The `name` and `description` fields in the frontmatter are used by most agents. The description determines when the agent activates the skill. inception-engine does not currently validate the frontmatter — missing or malformed fields may cause the skill to be ignored or misbehave at the agent level.
 
+## `init` Command
+
+`init` is meant to bootstrap a repository that already has skill folders. It recursively scans the target directory, treats any directory containing `SKILL.md` as a skill, and writes a starter `inception.json`.
+
+Current `init` behavior:
+
+- Generates `skills` entries using the discovered relative paths
+- Uses the directory name as the manifest skill name
+- Applies either the `--agents` list or all currently known agent IDs
+- Refuses to overwrite an existing `inception.json` unless `--force` is provided
+- Supports `--dry-run` so you can inspect the generated manifest before writing it
+
+Current `init` limitations:
+
+- It does not read or validate YAML frontmatter inside `SKILL.md`
+- It does not infer `files`, `configs`, `mcpServers`, or `agentRules`
+- It does not reconcile generated output with the longer-term Claude-first portability direction
+
 ## CLI Reference
 
 ```
 inception-engine <directory> [options]
 inception-engine revert <directory> [options]
+inception-engine init <directory> [options]
 ```
 
 ### Commands
@@ -167,6 +189,7 @@ inception-engine revert <directory> [options]
 |---|---|
 | `<directory>` | Deploy skills from the manifest in the given directory |
 | `revert <directory>` | Remove previously deployed skills declared in the manifest |
+| `init <directory>` | Scan a directory for skill folders and generate `inception.json` |
 
 ### Options
 
@@ -174,6 +197,7 @@ inception-engine revert <directory> [options]
 |---|---|
 | `--dry-run` | Show what would be done without making changes |
 | `--agents <list>` | Comma-separated list of agent IDs to target (overrides deploy detection; restricts revert) |
+| `--force` | `init` only; overwrite an existing `inception.json` |
 | `--verbose` | Show detailed output including file paths |
 | `--debug` | Show full error stack traces |
 | `--help` | Show help message |
@@ -195,6 +219,12 @@ npx @kuznai/inception-engine revert ./my-skills-repo
 
 # Preview what would be removed
 npx @kuznai/inception-engine revert ./my-skills-repo --dry-run
+
+# Generate a starter manifest from discovered skill folders
+npx @kuznai/inception-engine init ./my-skills-repo
+
+# Preview the generated manifest without writing it
+npx @kuznai/inception-engine init ./my-skills-repo --dry-run
 ```
 
 ## Sample Skills
@@ -204,6 +234,7 @@ The `limbo/` directory contains exceptional sample skills for testing purposes o
 Try them out:
 
 ```bash
+npx @kuznai/inception-engine init limbo --dry-run
 npx @kuznai/inception-engine limbo --dry-run
 ```
 
