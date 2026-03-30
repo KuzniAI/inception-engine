@@ -1,0 +1,1 @@
+Add a CLI command that scans a directory containing agent instruction files and generates an `inception.json` manifest for `it. Use existing limbo directory as a starting point
