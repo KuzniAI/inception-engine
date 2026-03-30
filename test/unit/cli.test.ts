@@ -197,3 +197,147 @@ describe("CLI exit codes and output", () => {
     );
   });
 });
+
+describe("init command", () => {
+  it("generates inception.json from a directory with skill folders", async () => {
+    const dir = makeTmpDir();
+    try {
+      // Create two skill directories
+      for (const name of ["alpha", "beta"]) {
+        mkdirSync(path.join(dir, "skills", name), { recursive: true });
+        writeFileSync(
+          path.join(dir, "skills", name, "SKILL.md"),
+          `---\nname: ${name}\ndescription: A skill\n---\n`,
+        );
+      }
+      const { stdout, code } = await run(["init", dir]);
+      assert.equal(code, 0, `stdout: ${stdout}`);
+
+      const manifest = JSON.parse(
+        (
+          await import("node:fs/promises").then((m) =>
+            m.readFile(path.join(dir, "inception.json"), "utf-8"),
+          )
+        ).toString(),
+      ) as { skills: Array<{ name: string; path: string }> };
+      assert.equal(manifest.skills.length, 2);
+      const names = manifest.skills.map((s) => s.name).sort();
+      assert.deepEqual(names, ["alpha", "beta"]);
+    } finally {
+      rmSync(dir, { recursive: true });
+    }
+  });
+
+  it("--dry-run does not write inception.json", async () => {
+    const dir = makeTmpDir();
+    try {
+      mkdirSync(path.join(dir, "my-skill"), { recursive: true });
+      writeFileSync(
+        path.join(dir, "my-skill", "SKILL.md"),
+        "---\nname: my-skill\ndescription: test\n---\n",
+      );
+      const { stdout, code } = await run(["init", dir, "--dry-run"]);
+      assert.equal(code, 0, `stdout: ${stdout}`);
+      assert.ok(
+        stdout.includes("[dry-run]"),
+        `stdout should include [dry-run]: ${stdout}`,
+      );
+      // File should NOT have been written
+      const { existsSync } = await import("node:fs");
+      assert.ok(
+        !existsSync(path.join(dir, "inception.json")),
+        "inception.json should not exist after dry-run",
+      );
+    } finally {
+      rmSync(dir, { recursive: true });
+    }
+  });
+
+  it("refuses to overwrite existing inception.json without --force", async () => {
+    const dir = makeTmpDir();
+    try {
+      mkdirSync(path.join(dir, "my-skill"), { recursive: true });
+      writeFileSync(
+        path.join(dir, "my-skill", "SKILL.md"),
+        "---\nname: my-skill\ndescription: test\n---\n",
+      );
+      writeFileSync(path.join(dir, "inception.json"), "{}");
+      const { code } = await run(["init", dir]);
+      assert.equal(code, 2);
+    } finally {
+      rmSync(dir, { recursive: true });
+    }
+  });
+
+  it("--force overwrites existing inception.json", async () => {
+    const dir = makeTmpDir();
+    try {
+      mkdirSync(path.join(dir, "my-skill"), { recursive: true });
+      writeFileSync(
+        path.join(dir, "my-skill", "SKILL.md"),
+        "---\nname: my-skill\ndescription: test\n---\n",
+      );
+      writeFileSync(path.join(dir, "inception.json"), "{}");
+      const { code } = await run(["init", dir, "--force"]);
+      assert.equal(code, 0);
+
+      const manifest = JSON.parse(
+        (
+          await import("node:fs/promises").then((m) =>
+            m.readFile(path.join(dir, "inception.json"), "utf-8"),
+          )
+        ).toString(),
+      ) as { skills: Array<{ name: string }> };
+      assert.equal(manifest.skills.length, 1);
+      assert.equal(manifest.skills[0].name, "my-skill");
+    } finally {
+      rmSync(dir, { recursive: true });
+    }
+  });
+
+  it("--agents restricts agent list in generated manifest", async () => {
+    const dir = makeTmpDir();
+    try {
+      mkdirSync(path.join(dir, "my-skill"), { recursive: true });
+      writeFileSync(
+        path.join(dir, "my-skill", "SKILL.md"),
+        "---\nname: my-skill\ndescription: test\n---\n",
+      );
+      const { code } = await run([
+        "init",
+        dir,
+        "--agents",
+        "claude-code,codex",
+      ]);
+      assert.equal(code, 0);
+
+      const manifest = JSON.parse(
+        (
+          await import("node:fs/promises").then((m) =>
+            m.readFile(path.join(dir, "inception.json"), "utf-8"),
+          )
+        ).toString(),
+      ) as { skills: Array<{ agents: string[] }> };
+      assert.deepEqual(manifest.skills[0].agents.sort(), [
+        "claude-code",
+        "codex",
+      ]);
+    } finally {
+      rmSync(dir, { recursive: true });
+    }
+  });
+
+  it("empty directory with no skills exits 0 with info message", async () => {
+    const dir = makeTmpDir();
+    try {
+      const { stdout, code } = await run(["init", dir]);
+      assert.equal(code, 0);
+      assert.ok(
+        stdout.includes("No skill"),
+        `stdout should mention no skills: ${stdout}`,
+      );
+    } finally {
+      rmSync(dir, { recursive: true });
+    }
+  });
+});

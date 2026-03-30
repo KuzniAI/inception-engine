@@ -124,10 +124,11 @@ export interface PlannedChange {
 }
 
 export interface CliOptions {
-  command: "deploy" | "revert" | "help";
+  command: "deploy" | "revert" | "init" | "help";
   directory: string;
   dryRun: boolean;
   agents: AgentId[] | null;
   verbose: boolean;
   debug: boolean;
+  force: boolean;
 }

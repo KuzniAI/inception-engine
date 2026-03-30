@@ -6,6 +6,7 @@ import { AGENT_REGISTRY } from "./config/agents.ts";
 import { loadManifest } from "./config/manifest.ts";
 import { executeDeploy, planDeploy } from "./core/deploy.ts";
 import { detectInstalledAgents } from "./core/detect.ts";
+import { runInit } from "./core/init.ts";
 import { runPreflight } from "./core/preflight.ts";
 import { resolveHome } from "./core/resolve.ts";
 import { executeRevert, planRevert, planRevertAll } from "./core/revert.ts";
@@ -21,10 +22,17 @@ inception-engine - Deploy AI agent skills
 Usage:
   inception-engine <directory> [options]
   inception-engine revert <directory> [options]
+  inception-engine init <directory> [options]
+
+Commands:
+  <directory>         Deploy skills from the manifest in the given directory
+  revert <directory>  Remove previously deployed skills
+  init <directory>    Scan a directory for skill folders and generate inception.json
 
 Options:
   --dry-run        Show what would be done without doing it
   --agents <list>  Comma-separated list of agent IDs to target
+  --force          (init only) Overwrite an existing inception.json
   --verbose        Show detailed output
   --debug          Show full error stack traces
   --help           Show this help message
@@ -44,6 +52,7 @@ function parseCLI(argv: string[]): CliOptions {
       agents: null,
       verbose: false,
       debug: false,
+      force: false,
     };
   }
 
@@ -57,6 +66,7 @@ function parseCLI(argv: string[]): CliOptions {
         verbose: { type: "boolean", default: false },
         debug: { type: "boolean", default: false },
         help: { type: "boolean", default: false },
+        force: { type: "boolean", default: false },
         agents: { type: "string" },
       },
     });
@@ -74,13 +84,17 @@ function parseCLI(argv: string[]): CliOptions {
       agents: null,
       verbose: false,
       debug: false,
+      force: false,
     };
   }
 
-  let command: "deploy" | "revert" = "deploy";
+  let command: "deploy" | "revert" | "init" = "deploy";
   let pos = positionals;
   if (pos[0] === "revert") {
     command = "revert";
+    pos = pos.slice(1);
+  } else if (pos[0] === "init") {
+    command = "init";
     pos = pos.slice(1);
   }
 
@@ -111,6 +125,7 @@ function parseCLI(argv: string[]): CliOptions {
     agents,
     verbose: values.verbose as boolean,
     debug: values.debug as boolean,
+    force: values.force as boolean,
   };
 }
 
@@ -120,6 +135,16 @@ async function main(): Promise<number> {
   if (options.command === "help") {
     console.log(USAGE);
     return 0;
+  }
+
+  if (options.command === "init") {
+    return runInit({
+      directory: options.directory,
+      agents: options.agents,
+      dryRun: options.dryRun,
+      force: options.force,
+      verbose: options.verbose,
+    });
   }
 
   const manifest = await loadManifest(options.directory);
