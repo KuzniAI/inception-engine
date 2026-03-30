@@ -36,6 +36,10 @@ export interface AgentConfig {
   // Path for deploying a rules/instruction file for this agent.
   // Absent if rules files are not yet documented for this agent.
   agentRulesPath?: AgentPaths;
+  // When true, this agent reads Claude-native instruction artifacts (e.g. CLAUDE.md)
+  // directly, so no separate agentRules deployment target is needed.
+  // Deploy via the "claude-code" agentRules entry to reach this agent automatically.
+  claudeNativeInstruction?: true;
   policyNote?: string;
 }
 

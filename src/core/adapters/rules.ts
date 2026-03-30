@@ -41,6 +41,15 @@ export async function compileAgentRuleActions(
 
   for (const agentId of targetAgents) {
     const agent = AGENT_REGISTRY_BY_ID[agentId];
+
+    if (agent?.claudeNativeInstruction) {
+      warnings.push({
+        kind: "confidence",
+        message: `agentRules: agent "${agentId}" reads CLAUDE.md natively — deploy via "claude-code" target to reach Copilot automatically; no separate deployment needed`,
+      });
+      continue;
+    }
+
     if (!agent?.agentRulesPath) {
       warnings.push({
         kind: "confidence",
