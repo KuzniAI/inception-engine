@@ -1,9 +1,8 @@
 import { access, readdir, writeFile } from "node:fs/promises";
 import path from "node:path";
-
 import { dryRunPrefix, logger } from "../logger.ts";
-import { AGENT_IDS } from "../schemas/manifest.ts";
 import type { AgentId, SkillEntry } from "../schemas/manifest.ts";
+import { AGENT_IDS } from "../schemas/manifest.ts";
 
 const SAFE_NAME_RE = /^[a-zA-Z0-9][a-zA-Z0-9._-]*$/;
 

@@ -9,10 +9,6 @@ This roadmap is forward-looking and prioritized against four values:
 
 Each scored item uses a simple `0-2` scale per value for a maximum score of `8`.
 
-## Fixed First Step
-
-- ~~Add a CLI command that scans a directory containing agent instruction files and generates an `inception.json` manifest for it. This stays first by product direction and is not scored against the rest.~~
-
 ## Architecture Enablers
 
 These items should stay near the top because they unlock multiple follow-on features.
