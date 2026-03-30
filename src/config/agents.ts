@@ -141,7 +141,10 @@ export const AGENT_REGISTRY: readonly AgentConfig[] = [
       detectPaths: "documented",
       detectBinary: "documented",
     },
-    // mcpConfigPath and agentRulesPath omitted: rules live in repo, not home dir; MCP config unclear
+    // agentRulesPath omitted: Copilot reads CLAUDE.md natively (Claude-first portability rule).
+    // Deploy via the "claude-code" agentRules entry — it reaches Copilot automatically.
+    // mcpConfigPath omitted: Copilot MCP config surface is not implemented here yet.
+    claudeNativeInstruction: true,
     policyNote:
       "Organization policies may override locally deployed skills. Verify with your GitHub org admin if deployed skills are not active.",
   },

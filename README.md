@@ -49,7 +49,7 @@ Managed skills overwrite their previous version. If a target exists but was not 
 | File write | All agents via manifest and CLI | All agents |
 | Config patch (JSON merge) | All agents via manifest and CLI | All agents |
 | MCP Servers | claude-code, gemini-cli; other agents are warned and skipped | claude-code, gemini-cli |
-| Global Rules Files | claude-code, codex, gemini-cli, opencode; other agents are warned and skipped | claude-code, codex, gemini-cli, opencode |
+| Global Rules Files | claude-code, codex, gemini-cli, opencode; github-copilot reads CLAUDE.md natively (deploy via claude-code); other agents are warned and skipped | claude-code, codex, gemini-cli, opencode |
 | `init` manifest generation | Scans `SKILL.md` directories and writes starter `skills` entries | N/A |
 
 Features that depend on agent-specific config surfaces are intentionally conservative: if a target path or schema is not implemented with enough confidence, inception-engine warns and skips it rather than guessing.
@@ -138,7 +138,7 @@ Each **agentRules** entry deploys a Markdown instruction file to an agent's supp
 - **path** - Relative path to the source Markdown file within the repo
 - **agents** - Array of agent IDs to deploy this file to
 
-Global rules-file deployment is currently supported for `claude-code` (`~/.claude/CLAUDE.md`), `codex` (`~/.codex/AGENTS.md`), `gemini-cli` (`~/.gemini/GEMINI.md`), and `opencode` (`~/.config/opencode/AGENTS.md`). Other agents emit a warning and are skipped because their instruction surfaces are different, repo-scoped, or not implemented here yet. Revert removes the deployed rules file.
+Global rules-file deployment is currently supported for `claude-code` (`~/.claude/CLAUDE.md`), `codex` (`~/.codex/AGENTS.md`), `gemini-cli` (`~/.gemini/GEMINI.md`), and `opencode` (`~/.config/opencode/AGENTS.md`). For `github-copilot`, no separate deployment is needed because Copilot reads `CLAUDE.md` natively — target it via the `claude-code` agentRules entry and it reaches Copilot automatically. Other agents emit a warning and are skipped because their instruction surfaces are different, repo-scoped, or not yet implemented. Revert removes the deployed rules file.
 
 ## Creating Skills
 

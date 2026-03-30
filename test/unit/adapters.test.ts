@@ -203,7 +203,7 @@ describe("compileAgentRuleActions", () => {
     }
   });
 
-  it("returns a warning and no action when agent is detected but has no agentRulesPath (github-copilot)", async () => {
+  it("returns a warning and no action for github-copilot (reads CLAUDE.md natively — no separate deployment needed)", async () => {
     const dir = makeTmpDir();
     try {
       writeFileSync(path.join(dir, "rules.md"), "# Rules");
@@ -223,9 +223,10 @@ describe("compileAgentRuleActions", () => {
       assert.equal(actions.length, 0);
       assert.equal(warnings.length, 1);
       assert.equal(warnings[0]?.kind, "confidence");
+      assert.match(warnings[0]?.message ?? "", /reads CLAUDE\.md natively/);
       assert.match(
         warnings[0]?.message ?? "",
-        /does not have a documented rules file path/,
+        /deploy via "claude-code" target/,
       );
     } finally {
       rmSync(dir, { recursive: true });

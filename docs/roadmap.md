@@ -30,7 +30,7 @@ Ordered from highest to lowest after the fixed first step and architecture enabl
 
 1. Add execution and safety-oriented config support for agent-specific permission and approval surfaces where safe patching and revert semantics can be implemented cleanly. Score: `6/8` (`Architecture 2`, `Agents 2`, `OS 0`, `Confidence 2`)
 2. Add support for agent definition deployment for agents that expose dedicated agent directories or frontmatter-based agent files. Score: `6/8` (`Architecture 2`, `Agents 2`, `OS 1`, `Confidence 1`)
-3. Remove GitHub Copilot-specific instruction deployment work where Copilot already consumes Claude-native artifacts such as `CLAUDE.md`. Score: `6/8` (`Architecture 2`, `Agents 2`, `OS 0`, `Confidence 2`)
+3. ~~Remove GitHub Copilot-specific instruction deployment work where Copilot already consumes Claude-native artifacts such as `CLAUDE.md`.~~ Score: `6/8` (`Architecture 2`, `Agents 2`, `OS 0`, `Confidence 2`)
 4. Remove legacy GitHub Copilot skill-target assumptions and related docs/tests/manifests where Copilot can execute Claude-style skills directly. Score: `6/8` (`Architecture 2`, `Agents 2`, `OS 0`, `Confidence 2`)
 5. Add Codex MCP deployment via `config.toml`. Score: `5/8` (`Architecture 1`, `Agents 2`, `OS 0`, `Confidence 2`)
 6. Add OpenCode MCP deployment via `opencode.json` under `mcp`. Score: `5/8` (`Architecture 1`, `Agents 2`, `OS 0`, `Confidence 2`)
