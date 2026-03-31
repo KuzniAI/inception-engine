@@ -1,4 +1,4 @@
-import { lstat, realpath, stat } from "node:fs/promises";
+import { lstat, readFile, realpath, stat } from "node:fs/promises";
 import path from "node:path";
 import { UserError } from "../errors.ts";
 
@@ -92,6 +92,106 @@ export async function validateSourceFile(
     throw new UserError(
       "DEPLOY_FAILED",
       `Source is not a file: ${manifestPath}`,
+    );
+  }
+}
+
+function trimMatchingQuotes(value: string): string {
+  if (
+    (value.startsWith('"') && value.endsWith('"')) ||
+    (value.startsWith("'") && value.endsWith("'"))
+  ) {
+    return value.slice(1, -1).trim();
+  }
+  return value;
+}
+
+function parseSimpleFrontmatterValue(
+  field: string,
+  rawValue: string,
+  manifestPath: string,
+): string {
+  const value = trimMatchingQuotes(rawValue.trim());
+  if (value.length === 0) {
+    throw new UserError(
+      "DEPLOY_FAILED",
+      `Skill "${manifestPath}" SKILL.md frontmatter field "${field}" must be a non-empty string`,
+    );
+  }
+  if (rawValue.trim() === "|" || rawValue.trim() === ">") {
+    throw new UserError(
+      "DEPLOY_FAILED",
+      `Skill "${manifestPath}" SKILL.md frontmatter field "${field}" must be a single-line string`,
+    );
+  }
+  return value;
+}
+
+export async function validateSkillDefinitionFile(
+  sourcePath: string,
+  manifestPath: string,
+): Promise<void> {
+  await validateSourceFile(sourcePath, `${manifestPath}/SKILL.md`);
+
+  let raw: string;
+  try {
+    raw = await readFile(sourcePath, "utf-8");
+  } catch (err) {
+    throw new UserError(
+      "DEPLOY_FAILED",
+      sourceAccessError(err, `${manifestPath}/SKILL.md`),
+    );
+  }
+
+  const lines = raw.split(/\r?\n/);
+  if (lines[0]?.trim() !== "---") {
+    throw new UserError(
+      "DEPLOY_FAILED",
+      `Skill "${manifestPath}" SKILL.md must start with YAML frontmatter delimited by ---`,
+    );
+  }
+
+  const closingIndex = lines.findIndex(
+    (line, index) => index > 0 && line.trim() === "---",
+  );
+  if (closingIndex === -1) {
+    throw new UserError(
+      "DEPLOY_FAILED",
+      `Skill "${manifestPath}" SKILL.md is missing the closing --- frontmatter delimiter`,
+    );
+  }
+
+  let name: string | null = null;
+  let description: string | null = null;
+  for (const line of lines.slice(1, closingIndex)) {
+    const trimmed = line.trim();
+    if (trimmed.length === 0 || trimmed.startsWith("#")) continue;
+
+    const match = /^([A-Za-z0-9_-]+)\s*:\s*(.*)$/.exec(line);
+    if (!match) continue;
+
+    const [, key, rawValue] = match;
+    if (key === "name") {
+      name = parseSimpleFrontmatterValue("name", rawValue, manifestPath);
+    } else if (key === "description") {
+      description = parseSimpleFrontmatterValue(
+        "description",
+        rawValue,
+        manifestPath,
+      );
+    }
+  }
+
+  if (name === null) {
+    throw new UserError(
+      "DEPLOY_FAILED",
+      `Skill "${manifestPath}" SKILL.md frontmatter must include a non-empty "name" field`,
+    );
+  }
+  if (description === null) {
+    throw new UserError(
+      "DEPLOY_FAILED",
+      `Skill "${manifestPath}" SKILL.md frontmatter must include a non-empty "description" field`,
     );
   }
 }

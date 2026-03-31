@@ -28,7 +28,7 @@ export function makeTmpDir(prefix: string): string {
 export function createSkillSource(
   baseDir: string,
   skillPath = "skills/test-skill",
-  skillBody = "---\nname: test\n---\n# Test",
+  skillBody = "---\nname: test\ndescription: Test skill\n---\n# Test",
 ): string {
   const fullPath = path.join(baseDir, skillPath);
   mkdirSync(fullPath, { recursive: true });

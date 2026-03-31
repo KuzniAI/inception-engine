@@ -80,6 +80,51 @@ describe("planRevertAll", () => {
     assert.ok(agentIds.includes("codex"));
     assert.ok(agentIds.includes("gemini-cli"));
   });
+
+  it("keeps skill-dir revert coverage for current agent-definition surfaces", () => {
+    const manifest: Manifest = {
+      skills: [
+        {
+          name: "test-skill",
+          path: "skills/test-skill",
+          agents: [
+            "claude-code",
+            "codex",
+            "gemini-cli",
+            "antigravity",
+            "opencode",
+          ],
+        },
+      ],
+      mcpServers: [],
+      agentRules: [],
+    };
+    const actions = planRevertAll(manifest, "/home/test");
+    assert.equal(actions.length, 5);
+    const targets = new Map(
+      actions.map((action) => [action.agent, action.target]),
+    );
+    assert.match(
+      targets.get("claude-code") ?? "",
+      /\.claude[\\/]skills[\\/]test-skill$/,
+    );
+    assert.match(
+      targets.get("codex") ?? "",
+      /\.codex[\\/]skills[\\/]test-skill$/,
+    );
+    assert.match(
+      targets.get("gemini-cli") ?? "",
+      /\.gemini[\\/]skills[\\/]test-skill$/,
+    );
+    assert.match(
+      targets.get("antigravity") ?? "",
+      /\.gemini[\\/]antigravity[\\/]skills[\\/]test-skill$/,
+    );
+    assert.match(
+      targets.get("opencode") ?? "",
+      /opencode[\\/]skills[\\/]test-skill$/,
+    );
+  });
 });
 
 describe("executeRevert", { skip: process.platform === "win32" }, () => {

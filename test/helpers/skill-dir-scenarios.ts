@@ -31,8 +31,10 @@ interface SkillDirScenarioOptions {
   ): void;
 }
 
-const FIRST_SKILL_MD = "---\nname: test\n---\n# First";
-const SECOND_SKILL_MD = "---\nname: test\n---\n# Second";
+const FIRST_SKILL_MD =
+  "---\nname: test\ndescription: First skill\n---\n# First";
+const SECOND_SKILL_MD =
+  "---\nname: test\ndescription: Second skill\n---\n# Second";
 
 export function registerSharedSkillDirDeployScenarios(
   options: SkillDirScenarioOptions,

@@ -38,6 +38,7 @@ import { getDeployMethod, resolveAgentSkillPath } from "./resolve.ts";
 import { resolveTargetTemplate } from "./runtime-paths.ts";
 import {
   sourceAccessError,
+  validateSkillDefinitionFile,
   validateSourceFile,
   validateSourcePath,
 } from "./validation.ts";
@@ -792,6 +793,7 @@ async function validateSkillContract(
       `Skill "${skillPath}" source is missing SKILL.md: ${source}`,
     );
   }
+  await validateSkillDefinitionFile(path.join(source, "SKILL.md"), skillPath);
 }
 
 async function assertTargetAbsent(targetPath: string): Promise<void> {

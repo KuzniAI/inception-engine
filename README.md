@@ -155,7 +155,7 @@ description: What this skill does and when to use it
 Instructions for the AI agent...
 ```
 
-The `name` and `description` fields in the frontmatter are used by most agents. The description determines when the agent activates the skill. inception-engine does not currently validate the frontmatter — missing or malformed fields may cause the skill to be ignored or misbehave at the agent level.
+The `name` and `description` fields in the frontmatter are used by most agents. The description determines when the agent activates the skill. inception-engine now validates this minimum contract during deploy: `SKILL.md` must start with YAML frontmatter and include non-empty single-line `name` and `description` fields. It still does not attempt full YAML/schema validation beyond that targeted check.
 
 ## `init` Command
 
@@ -171,7 +171,7 @@ Current `init` behavior:
 
 Current `init` limitations:
 
-- It does not read or validate YAML frontmatter inside `SKILL.md`
+- It does not reconcile generated manifest entries against `SKILL.md` frontmatter values
 - It does not infer `files`, `configs`, `mcpServers`, or `agentRules`
 - It does not reconcile generated output with the longer-term Claude-first portability direction
 

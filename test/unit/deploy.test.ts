@@ -52,7 +52,7 @@ function createSkillSource(baseDir: string, skillPath: string): string {
   mkdirSync(fullPath, { recursive: true });
   writeFileSync(
     path.join(fullPath, "SKILL.md"),
-    "---\nname: test\n---\n# Test",
+    "---\nname: test\ndescription: Test skill\n---\n# Test",
   );
   return fullPath;
 }
@@ -168,6 +168,75 @@ describe("planDeploy", () => {
           assert.ok(err instanceof UserError);
           assert.equal(err.code, "DEPLOY_FAILED");
           assert.match(err.message, /missing SKILL\.md/);
+          return true;
+        },
+      );
+    } finally {
+      rmSync(sourceDir, { recursive: true });
+    }
+  });
+
+  it("throws when SKILL.md is missing YAML frontmatter", async () => {
+    const sourceDir = makeTmpDir();
+    try {
+      const skillDir = path.join(sourceDir, "skills", "test-skill");
+      mkdirSync(skillDir, { recursive: true });
+      writeFileSync(path.join(skillDir, "SKILL.md"), "# Test");
+      await assert.rejects(
+        planDeploy(testManifest, sourceDir, ["claude-code"], "/home/test"),
+        (err: unknown) => {
+          assert.ok(err instanceof UserError);
+          assert.equal(err.code, "DEPLOY_FAILED");
+          assert.match(err.message, /must start with YAML frontmatter/);
+          return true;
+        },
+      );
+    } finally {
+      rmSync(sourceDir, { recursive: true });
+    }
+  });
+
+  it("throws when SKILL.md frontmatter is missing name", async () => {
+    const sourceDir = makeTmpDir();
+    try {
+      const skillDir = path.join(sourceDir, "skills", "test-skill");
+      mkdirSync(skillDir, { recursive: true });
+      writeFileSync(
+        path.join(skillDir, "SKILL.md"),
+        "---\ndescription: Missing name\n---\n# Test",
+      );
+      await assert.rejects(
+        planDeploy(testManifest, sourceDir, ["claude-code"], "/home/test"),
+        (err: unknown) => {
+          assert.ok(err instanceof UserError);
+          assert.equal(err.code, "DEPLOY_FAILED");
+          assert.match(err.message, /must include a non-empty "name" field/);
+          return true;
+        },
+      );
+    } finally {
+      rmSync(sourceDir, { recursive: true });
+    }
+  });
+
+  it("throws when SKILL.md frontmatter is missing description", async () => {
+    const sourceDir = makeTmpDir();
+    try {
+      const skillDir = path.join(sourceDir, "skills", "test-skill");
+      mkdirSync(skillDir, { recursive: true });
+      writeFileSync(
+        path.join(skillDir, "SKILL.md"),
+        "---\nname: test\n---\n# Test",
+      );
+      await assert.rejects(
+        planDeploy(testManifest, sourceDir, ["claude-code"], "/home/test"),
+        (err: unknown) => {
+          assert.ok(err instanceof UserError);
+          assert.equal(err.code, "DEPLOY_FAILED");
+          assert.match(
+            err.message,
+            /must include a non-empty "description" field/,
+          );
           return true;
         },
       );
