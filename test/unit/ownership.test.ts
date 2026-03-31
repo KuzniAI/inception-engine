@@ -1,12 +1,5 @@
 import assert from "node:assert/strict";
-import {
-  existsSync,
-  mkdirSync,
-  readFileSync,
-  rmSync,
-  writeFileSync,
-} from "node:fs";
-import os from "node:os";
+import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { describe, it } from "node:test";
 import {
@@ -17,19 +10,11 @@ import {
   unregisterDeployment,
   verifyDeployment,
 } from "../../src/core/ownership.ts";
-
-function makeTmpDir(): string {
-  const dir = path.join(
-    os.tmpdir(),
-    `ie-test-ownership-${Date.now()}-${Math.random().toString(36).slice(2)}`,
-  );
-  mkdirSync(dir, { recursive: true });
-  return dir;
-}
+import { exists, makeTmpDir } from "../helpers/fs.ts";
 
 describe("registerDeployment", () => {
   it("creates registry file and adds entry", async () => {
-    const home = makeTmpDir();
+    const home = await makeTmpDir();
     try {
       const target = "/fake/target/skill";
       await registerDeployment(home, target, {
@@ -40,9 +25,9 @@ describe("registerDeployment", () => {
         method: "symlink",
       });
 
-      assert.ok(existsSync(registryPath(home)));
+      assert.ok(await exists(registryPath(home)));
 
-      const registry = JSON.parse(readFileSync(registryPath(home), "utf-8"));
+      const registry = JSON.parse(await readFile(registryPath(home), "utf-8"));
       assert.equal(registry.version, 1);
       assert.ok(registry.deployments[target]);
       assert.equal(registry.deployments[target].kind, "skill-dir");
@@ -52,12 +37,12 @@ describe("registerDeployment", () => {
       assert.equal(registry.deployments[target].method, "symlink");
       assert.ok(registry.deployments[target].deployed);
     } finally {
-      rmSync(home, { recursive: true });
+      await rm(home, { recursive: true });
     }
   });
 
   it("overwrites existing entry for same target", async () => {
-    const home = makeTmpDir();
+    const home = await makeTmpDir();
     try {
       const target = "/fake/target/skill";
       await registerDeployment(home, target, {
@@ -75,17 +60,17 @@ describe("registerDeployment", () => {
         method: "symlink",
       });
 
-      const registry = JSON.parse(readFileSync(registryPath(home), "utf-8"));
+      const registry = JSON.parse(await readFile(registryPath(home), "utf-8"));
       assert.equal(registry.deployments[target].source, "/new/source");
     } finally {
-      rmSync(home, { recursive: true });
+      await rm(home, { recursive: true });
     }
   });
 
   it("sets registry file permissions to 0o644 on POSIX", {
     skip: process.platform === "win32",
   }, async () => {
-    const home = makeTmpDir();
+    const home = await makeTmpDir();
     try {
       await registerDeployment(home, "/fake/target", {
         kind: "skill-dir",
@@ -94,16 +79,16 @@ describe("registerDeployment", () => {
         agent: "claude-code",
         method: "symlink",
       });
-      const { statSync } = await import("node:fs");
-      const stat = statSync(registryPath(home));
-      assert.equal(stat.mode & 0o777, 0o644);
+      const { stat } = await import("node:fs/promises");
+      const statResult = await stat(registryPath(home));
+      assert.equal(statResult.mode & 0o777, 0o644);
     } finally {
-      rmSync(home, { recursive: true });
+      await rm(home, { recursive: true });
     }
   });
 
   it("preserves other entries when adding a new one", async () => {
-    const home = makeTmpDir();
+    const home = await makeTmpDir();
     try {
       await registerDeployment(home, "/target/a", {
         kind: "skill-dir",
@@ -120,16 +105,16 @@ describe("registerDeployment", () => {
         method: "copy",
       });
 
-      const registry = JSON.parse(readFileSync(registryPath(home), "utf-8"));
+      const registry = JSON.parse(await readFile(registryPath(home), "utf-8"));
       assert.ok(registry.deployments["/target/a"]);
       assert.ok(registry.deployments["/target/b"]);
     } finally {
-      rmSync(home, { recursive: true });
+      await rm(home, { recursive: true });
     }
   });
 
   it("surfaces persistence failures from the registry writer", async () => {
-    const home = makeTmpDir();
+    const home = await makeTmpDir();
     try {
       await assert.rejects(
         registerDeployment(
@@ -152,14 +137,14 @@ describe("registerDeployment", () => {
         /simulated registry persistence failure/,
       );
     } finally {
-      rmSync(home, { recursive: true, force: true });
+      await rm(home, { recursive: true, force: true });
     }
   });
 });
 
 describe("unregisterDeployment", () => {
   it("removes the entry for the given target", async () => {
-    const home = makeTmpDir();
+    const home = await makeTmpDir();
     try {
       await registerDeployment(home, "/target/a", {
         kind: "skill-dir",
@@ -173,12 +158,12 @@ describe("unregisterDeployment", () => {
       const entry = await lookupDeployment(home, "/target/a");
       assert.equal(entry, null);
     } finally {
-      rmSync(home, { recursive: true });
+      await rm(home, { recursive: true });
     }
   });
 
   it("is a no-op if target is not in registry", async () => {
-    const home = makeTmpDir();
+    const home = await makeTmpDir();
     try {
       await registerDeployment(home, "/target/a", {
         kind: "skill-dir",
@@ -193,14 +178,14 @@ describe("unregisterDeployment", () => {
       const entry = await lookupDeployment(home, "/target/a");
       assert.ok(entry);
     } finally {
-      rmSync(home, { recursive: true });
+      await rm(home, { recursive: true });
     }
   });
 });
 
 describe("lookupDeployment", () => {
   it("returns the entry when target is registered", async () => {
-    const home = makeTmpDir();
+    const home = await makeTmpDir();
     try {
       await registerDeployment(home, "/target/skill", {
         kind: "skill-dir",
@@ -219,49 +204,49 @@ describe("lookupDeployment", () => {
       assert.equal(entry.method, "copy");
       assert.ok(entry.deployed);
     } finally {
-      rmSync(home, { recursive: true });
+      await rm(home, { recursive: true });
     }
   });
 
   it("returns null when target is not registered", async () => {
-    const home = makeTmpDir();
+    const home = await makeTmpDir();
     try {
       const entry = await lookupDeployment(home, "/nonexistent");
       assert.equal(entry, null);
     } finally {
-      rmSync(home, { recursive: true });
+      await rm(home, { recursive: true });
     }
   });
 
   it("returns null when registry file does not exist", async () => {
-    const home = makeTmpDir();
+    const home = await makeTmpDir();
     try {
       const entry = await lookupDeployment(home, "/anything");
       assert.equal(entry, null);
     } finally {
-      rmSync(home, { recursive: true });
+      await rm(home, { recursive: true });
     }
   });
 
   it("returns null when registry file is corrupted", async () => {
-    const home = makeTmpDir();
+    const home = await makeTmpDir();
     try {
       const dir = path.dirname(registryPath(home));
-      mkdirSync(dir, { recursive: true });
-      const { writeFileSync } = await import("node:fs");
-      writeFileSync(registryPath(home), "not valid json!!!");
+      await mkdir(dir, { recursive: true });
+      const { writeFile } = await import("node:fs/promises");
+      await writeFile(registryPath(home), "not valid json!!!");
 
       const entry = await lookupDeployment(home, "/anything");
       assert.equal(entry, null);
     } finally {
-      rmSync(home, { recursive: true });
+      await rm(home, { recursive: true });
     }
   });
 });
 
 describe("verifyDeployment", () => {
   it("returns entry when all fields match", async () => {
-    const home = makeTmpDir();
+    const home = await makeTmpDir();
     try {
       const target = "/target/skill";
       await registerDeployment(home, target, {
@@ -279,16 +264,17 @@ describe("verifyDeployment", () => {
         agent: "claude-code",
       });
       assert.ok(entry);
+      if (entry.kind !== "skill-dir") assert.fail("Expected skill-dir");
       assert.equal(entry.source, "/src/skill");
       assert.equal(entry.skill, "my-skill");
       assert.equal(entry.agent, "claude-code");
     } finally {
-      rmSync(home, { recursive: true });
+      await rm(home, { recursive: true });
     }
   });
 
   it("returns null when kind does not match", async () => {
-    const home = makeTmpDir();
+    const home = await makeTmpDir();
     try {
       const target = "/target/skill";
       await registerDeployment(home, target, {
@@ -307,12 +293,12 @@ describe("verifyDeployment", () => {
       });
       assert.equal(entry, null);
     } finally {
-      rmSync(home, { recursive: true });
+      await rm(home, { recursive: true });
     }
   });
 
   it("returns null when source does not match", async () => {
-    const home = makeTmpDir();
+    const home = await makeTmpDir();
     try {
       const target = "/target/skill";
       await registerDeployment(home, target, {
@@ -331,12 +317,12 @@ describe("verifyDeployment", () => {
       });
       assert.equal(entry, null);
     } finally {
-      rmSync(home, { recursive: true });
+      await rm(home, { recursive: true });
     }
   });
 
   it("returns null when skill does not match", async () => {
-    const home = makeTmpDir();
+    const home = await makeTmpDir();
     try {
       const target = "/target/skill";
       await registerDeployment(home, target, {
@@ -355,12 +341,12 @@ describe("verifyDeployment", () => {
       });
       assert.equal(entry, null);
     } finally {
-      rmSync(home, { recursive: true });
+      await rm(home, { recursive: true });
     }
   });
 
   it("returns null when agent does not match", async () => {
-    const home = makeTmpDir();
+    const home = await makeTmpDir();
     try {
       const target = "/target/skill";
       await registerDeployment(home, target, {
@@ -379,12 +365,12 @@ describe("verifyDeployment", () => {
       });
       assert.equal(entry, null);
     } finally {
-      rmSync(home, { recursive: true });
+      await rm(home, { recursive: true });
     }
   });
 
   it("returns null when no entry exists", async () => {
-    const home = makeTmpDir();
+    const home = await makeTmpDir();
     try {
       const entry = await verifyDeployment(home, "/nonexistent", {
         kind: "skill-dir",
@@ -394,12 +380,12 @@ describe("verifyDeployment", () => {
       });
       assert.equal(entry, null);
     } finally {
-      rmSync(home, { recursive: true });
+      await rm(home, { recursive: true });
     }
   });
 
   it("returns entry for config-patch when kind, skill, agent match (no source check)", async () => {
-    const home = makeTmpDir();
+    const home = await makeTmpDir();
     try {
       const target = "/target/config.json";
       await registerDeployment(home, target, {
@@ -420,12 +406,12 @@ describe("verifyDeployment", () => {
       assert.equal(entry.skill, "my-skill");
       assert.equal(entry.agent, "claude-code");
     } finally {
-      rmSync(home, { recursive: true });
+      await rm(home, { recursive: true });
     }
   });
 
   it("returns null when verifying config-patch but agent mismatches", async () => {
-    const home = makeTmpDir();
+    const home = await makeTmpDir();
     try {
       const target = "/target/config.json";
       await registerDeployment(home, target, {
@@ -443,12 +429,12 @@ describe("verifyDeployment", () => {
       });
       assert.equal(entry, null);
     } finally {
-      rmSync(home, { recursive: true });
+      await rm(home, { recursive: true });
     }
   });
 
   it("returns null when kind in expected does not match registry entry kind", async () => {
-    const home = makeTmpDir();
+    const home = await makeTmpDir();
     try {
       const target = "/target/config.json";
       await registerDeployment(home, target, {
@@ -467,14 +453,14 @@ describe("verifyDeployment", () => {
       });
       assert.equal(entry, null);
     } finally {
-      rmSync(home, { recursive: true });
+      await rm(home, { recursive: true });
     }
   });
 });
 
 describe("registerDeployment — config-patch", () => {
   it("stores patch and undoPatch in registry", async () => {
-    const home = makeTmpDir();
+    const home = await makeTmpDir();
     try {
       const target = "/target/config.json";
       await registerDeployment(home, target, {
@@ -485,7 +471,7 @@ describe("registerDeployment — config-patch", () => {
         agent: "claude-code",
       });
 
-      const raw = JSON.parse(readFileSync(registryPath(home), "utf-8"));
+      const raw = JSON.parse(await readFile(registryPath(home), "utf-8"));
       const entry = raw.deployments[target];
       assert.ok(entry);
       assert.equal(entry.kind, "config-patch");
@@ -497,18 +483,18 @@ describe("registerDeployment — config-patch", () => {
       assert.equal(entry.agent, "claude-code");
       assert.ok(entry.deployed);
     } finally {
-      rmSync(home, { recursive: true });
+      await rm(home, { recursive: true });
     }
   });
 });
 
 describe("loadRegistry — backward compatibility", () => {
   it("reads old-style skill-dir entries without discriminated union", async () => {
-    const home = makeTmpDir();
+    const home = await makeTmpDir();
     try {
       // Write a registry.json as it would have been written by the old flat schema
       const dir = path.join(home, ".inception-engine");
-      mkdirSync(dir, { recursive: true });
+      await mkdir(dir, { recursive: true });
       const oldEntry = {
         kind: "skill-dir",
         source: "/old/source",
@@ -521,7 +507,7 @@ describe("loadRegistry — backward compatibility", () => {
         version: 1,
         deployments: { "/old/target": oldEntry },
       };
-      writeFileSync(
+      await writeFile(
         registryPath(home),
         `${JSON.stringify(oldRegistry, null, 2)}\n`,
         "utf-8",
@@ -537,7 +523,7 @@ describe("loadRegistry — backward compatibility", () => {
         assert.equal(entry.method, "symlink");
       }
     } finally {
-      rmSync(home, { recursive: true });
+      await rm(home, { recursive: true });
     }
   });
 });

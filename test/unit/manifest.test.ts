@@ -1,25 +1,16 @@
 import assert from "node:assert/strict";
-import { chmodSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
-import os from "node:os";
+import { chmod, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { describe, it } from "node:test";
 import { loadManifest } from "../../src/config/manifest.ts";
 import { UserError } from "../../src/errors.ts";
-
-function makeTmpDir(): string {
-  const dir = path.join(
-    os.tmpdir(),
-    `ie-test-manifest-${Date.now()}-${Math.random().toString(36).slice(2)}`,
-  );
-  mkdirSync(dir, { recursive: true });
-  return dir;
-}
+import { makeTmpDir } from "../helpers/fs.ts";
 
 describe("loadManifest", () => {
   it("parses a valid manifest", async () => {
-    const dir = makeTmpDir();
+    const dir = await makeTmpDir();
     try {
-      writeFileSync(
+      await writeFile(
         path.join(dir, "inception.json"),
         JSON.stringify({
           skills: [
@@ -39,7 +30,7 @@ describe("loadManifest", () => {
       assert.deepEqual(manifest.mcpServers, []);
       assert.deepEqual(manifest.agentRules, []);
     } finally {
-      rmSync(dir, { recursive: true });
+      await rm(dir, { recursive: true });
     }
   });
 
@@ -55,11 +46,11 @@ describe("loadManifest", () => {
   it("throws permission error when manifest is unreadable", {
     skip: process.platform === "win32",
   }, async () => {
-    const dir = makeTmpDir();
+    const dir = await makeTmpDir();
     const manifestPath = path.join(dir, "inception.json");
     try {
-      writeFileSync(manifestPath, JSON.stringify({ skills: [] }));
-      chmodSync(manifestPath, 0o000);
+      await writeFile(manifestPath, JSON.stringify({ skills: [] }));
+      await chmod(manifestPath, 0o000);
       await assert.rejects(loadManifest(dir), (err: unknown) => {
         assert.ok(err instanceof UserError);
         assert.equal(err.code, "MANIFEST_INVALID");
@@ -67,15 +58,15 @@ describe("loadManifest", () => {
         return true;
       });
     } finally {
-      chmodSync(manifestPath, 0o644);
-      rmSync(dir, { recursive: true });
+      await chmod(manifestPath, 0o644);
+      await rm(dir, { recursive: true });
     }
   });
 
   it("throws on invalid JSON", async () => {
-    const dir = makeTmpDir();
+    const dir = await makeTmpDir();
     try {
-      writeFileSync(path.join(dir, "inception.json"), "not json{");
+      await writeFile(path.join(dir, "inception.json"), "not json{");
       await assert.rejects(loadManifest(dir), (err: unknown) => {
         assert.ok(err instanceof UserError);
         assert.equal(err.code, "MANIFEST_INVALID");
@@ -83,14 +74,14 @@ describe("loadManifest", () => {
         return true;
       });
     } finally {
-      rmSync(dir, { recursive: true });
+      await rm(dir, { recursive: true });
     }
   });
 
   it("throws on missing skills array", async () => {
-    const dir = makeTmpDir();
+    const dir = await makeTmpDir();
     try {
-      writeFileSync(path.join(dir, "inception.json"), JSON.stringify({}));
+      await writeFile(path.join(dir, "inception.json"), JSON.stringify({}));
       await assert.rejects(loadManifest(dir), (err: unknown) => {
         assert.ok(err instanceof UserError);
         assert.equal(err.code, "MANIFEST_INVALID");
@@ -98,14 +89,14 @@ describe("loadManifest", () => {
         return true;
       });
     } finally {
-      rmSync(dir, { recursive: true });
+      await rm(dir, { recursive: true });
     }
   });
 
   it("throws on unknown agent ID", async () => {
-    const dir = makeTmpDir();
+    const dir = await makeTmpDir();
     try {
-      writeFileSync(
+      await writeFile(
         path.join(dir, "inception.json"),
         JSON.stringify({
           skills: [{ name: "s", path: "p", agents: ["unknown-agent"] }],
@@ -118,14 +109,14 @@ describe("loadManifest", () => {
         return true;
       });
     } finally {
-      rmSync(dir, { recursive: true });
+      await rm(dir, { recursive: true });
     }
   });
 
   it("throws on missing skill name", async () => {
-    const dir = makeTmpDir();
+    const dir = await makeTmpDir();
     try {
-      writeFileSync(
+      await writeFile(
         path.join(dir, "inception.json"),
         JSON.stringify({
           skills: [{ path: "p", agents: ["claude-code"] }],
@@ -138,14 +129,14 @@ describe("loadManifest", () => {
         return true;
       });
     } finally {
-      rmSync(dir, { recursive: true });
+      await rm(dir, { recursive: true });
     }
   });
 
   it("throws on skill.name with path traversal (../../.ssh)", async () => {
-    const dir = makeTmpDir();
+    const dir = await makeTmpDir();
     try {
-      writeFileSync(
+      await writeFile(
         path.join(dir, "inception.json"),
         JSON.stringify({
           skills: [
@@ -160,14 +151,14 @@ describe("loadManifest", () => {
         return true;
       });
     } finally {
-      rmSync(dir, { recursive: true });
+      await rm(dir, { recursive: true });
     }
   });
 
   it("throws on skill.name with path separator (../escape)", async () => {
-    const dir = makeTmpDir();
+    const dir = await makeTmpDir();
     try {
-      writeFileSync(
+      await writeFile(
         path.join(dir, "inception.json"),
         JSON.stringify({
           skills: [
@@ -182,14 +173,14 @@ describe("loadManifest", () => {
         return true;
       });
     } finally {
-      rmSync(dir, { recursive: true });
+      await rm(dir, { recursive: true });
     }
   });
 
   it("accepts a skill.name with dots, hyphens, and digits (valid-name_1.0)", async () => {
-    const dir = makeTmpDir();
+    const dir = await makeTmpDir();
     try {
-      writeFileSync(
+      await writeFile(
         path.join(dir, "inception.json"),
         JSON.stringify({
           skills: [
@@ -204,14 +195,14 @@ describe("loadManifest", () => {
       const manifest = await loadManifest(dir);
       assert.equal(manifest.skills[0]?.name, "valid-name_1.0");
     } finally {
-      rmSync(dir, { recursive: true });
+      await rm(dir, { recursive: true });
     }
   });
 
   it("throws on skill.path with path traversal (../../secret)", async () => {
-    const dir = makeTmpDir();
+    const dir = await makeTmpDir();
     try {
-      writeFileSync(
+      await writeFile(
         path.join(dir, "inception.json"),
         JSON.stringify({
           skills: [
@@ -226,14 +217,14 @@ describe("loadManifest", () => {
         return true;
       });
     } finally {
-      rmSync(dir, { recursive: true });
+      await rm(dir, { recursive: true });
     }
   });
 
   it("throws on skill.path that is absolute (/etc/passwd)", async () => {
-    const dir = makeTmpDir();
+    const dir = await makeTmpDir();
     try {
-      writeFileSync(
+      await writeFile(
         path.join(dir, "inception.json"),
         JSON.stringify({
           skills: [{ name: "s", path: "/etc/passwd", agents: ["claude-code"] }],
@@ -246,14 +237,14 @@ describe("loadManifest", () => {
         return true;
       });
     } finally {
-      rmSync(dir, { recursive: true });
+      await rm(dir, { recursive: true });
     }
   });
 
   it("throws when mcpServers is not an array", async () => {
-    const dir = makeTmpDir();
+    const dir = await makeTmpDir();
     try {
-      writeFileSync(
+      await writeFile(
         path.join(dir, "inception.json"),
         JSON.stringify({ skills: [], mcpServers: "not-an-array" }),
       );
@@ -264,14 +255,14 @@ describe("loadManifest", () => {
         return true;
       });
     } finally {
-      rmSync(dir, { recursive: true });
+      await rm(dir, { recursive: true });
     }
   });
 
   it("throws when agentRules is not an array", async () => {
-    const dir = makeTmpDir();
+    const dir = await makeTmpDir();
     try {
-      writeFileSync(
+      await writeFile(
         path.join(dir, "inception.json"),
         JSON.stringify({ skills: [], agentRules: 42 }),
       );
@@ -282,14 +273,14 @@ describe("loadManifest", () => {
         return true;
       });
     } finally {
-      rmSync(dir, { recursive: true });
+      await rm(dir, { recursive: true });
     }
   });
 
   it("throws when mcpServers entry is missing 'name'", async () => {
-    const dir = makeTmpDir();
+    const dir = await makeTmpDir();
     try {
-      writeFileSync(
+      await writeFile(
         path.join(dir, "inception.json"),
         JSON.stringify({
           skills: [],
@@ -305,14 +296,14 @@ describe("loadManifest", () => {
         return true;
       });
     } finally {
-      rmSync(dir, { recursive: true });
+      await rm(dir, { recursive: true });
     }
   });
 
   it("throws when mcpServers entry has an empty 'name'", async () => {
-    const dir = makeTmpDir();
+    const dir = await makeTmpDir();
     try {
-      writeFileSync(
+      await writeFile(
         path.join(dir, "inception.json"),
         JSON.stringify({
           skills: [],
@@ -328,14 +319,14 @@ describe("loadManifest", () => {
         return true;
       });
     } finally {
-      rmSync(dir, { recursive: true });
+      await rm(dir, { recursive: true });
     }
   });
 
   it("throws when mcpServers entry is missing 'agents'", async () => {
-    const dir = makeTmpDir();
+    const dir = await makeTmpDir();
     try {
-      writeFileSync(
+      await writeFile(
         path.join(dir, "inception.json"),
         JSON.stringify({
           skills: [],
@@ -349,14 +340,14 @@ describe("loadManifest", () => {
         return true;
       });
     } finally {
-      rmSync(dir, { recursive: true });
+      await rm(dir, { recursive: true });
     }
   });
 
   it("throws when mcpServers entry is missing 'config'", async () => {
-    const dir = makeTmpDir();
+    const dir = await makeTmpDir();
     try {
-      writeFileSync(
+      await writeFile(
         path.join(dir, "inception.json"),
         JSON.stringify({
           skills: [],
@@ -370,14 +361,14 @@ describe("loadManifest", () => {
         return true;
       });
     } finally {
-      rmSync(dir, { recursive: true });
+      await rm(dir, { recursive: true });
     }
   });
 
   it("accepts a valid mcpServers entry", async () => {
-    const dir = makeTmpDir();
+    const dir = await makeTmpDir();
     try {
-      writeFileSync(
+      await writeFile(
         path.join(dir, "inception.json"),
         JSON.stringify({
           skills: [],
@@ -399,14 +390,14 @@ describe("loadManifest", () => {
         args: ["--flag"],
       });
     } finally {
-      rmSync(dir, { recursive: true });
+      await rm(dir, { recursive: true });
     }
   });
 
   it("throws when agentRules entry is not an object", async () => {
-    const dir = makeTmpDir();
+    const dir = await makeTmpDir();
     try {
-      writeFileSync(
+      await writeFile(
         path.join(dir, "inception.json"),
         JSON.stringify({ skills: [], agentRules: ["not-an-object"] }),
       );
@@ -417,14 +408,14 @@ describe("loadManifest", () => {
         return true;
       });
     } finally {
-      rmSync(dir, { recursive: true });
+      await rm(dir, { recursive: true });
     }
   });
 
   it("throws when agentRules entry has an empty 'name'", async () => {
-    const dir = makeTmpDir();
+    const dir = await makeTmpDir();
     try {
-      writeFileSync(
+      await writeFile(
         path.join(dir, "inception.json"),
         JSON.stringify({
           skills: [],
@@ -440,14 +431,14 @@ describe("loadManifest", () => {
         return true;
       });
     } finally {
-      rmSync(dir, { recursive: true });
+      await rm(dir, { recursive: true });
     }
   });
 
   it("throws when agentRules entry is missing 'agents'", async () => {
-    const dir = makeTmpDir();
+    const dir = await makeTmpDir();
     try {
-      writeFileSync(
+      await writeFile(
         path.join(dir, "inception.json"),
         JSON.stringify({
           skills: [],
@@ -461,14 +452,14 @@ describe("loadManifest", () => {
         return true;
       });
     } finally {
-      rmSync(dir, { recursive: true });
+      await rm(dir, { recursive: true });
     }
   });
 
   it("throws when agentRules entry is missing 'path'", async () => {
-    const dir = makeTmpDir();
+    const dir = await makeTmpDir();
     try {
-      writeFileSync(
+      await writeFile(
         path.join(dir, "inception.json"),
         JSON.stringify({
           skills: [],
@@ -482,14 +473,14 @@ describe("loadManifest", () => {
         return true;
       });
     } finally {
-      rmSync(dir, { recursive: true });
+      await rm(dir, { recursive: true });
     }
   });
 
   it("throws when agentRules entry has an escaping 'path'", async () => {
-    const dir = makeTmpDir();
+    const dir = await makeTmpDir();
     try {
-      writeFileSync(
+      await writeFile(
         path.join(dir, "inception.json"),
         JSON.stringify({
           skills: [],
@@ -509,14 +500,14 @@ describe("loadManifest", () => {
         return true;
       });
     } finally {
-      rmSync(dir, { recursive: true });
+      await rm(dir, { recursive: true });
     }
   });
 
   it("throws when file target escapes its placeholder root", async () => {
-    const dir = makeTmpDir();
+    const dir = await makeTmpDir();
     try {
-      writeFileSync(
+      await writeFile(
         path.join(dir, "inception.json"),
         JSON.stringify({
           skills: [],
@@ -540,14 +531,14 @@ describe("loadManifest", () => {
         return true;
       });
     } finally {
-      rmSync(dir, { recursive: true });
+      await rm(dir, { recursive: true });
     }
   });
 
   it("accepts a valid agentRules entry", async () => {
-    const dir = makeTmpDir();
+    const dir = await makeTmpDir();
     try {
-      writeFileSync(
+      await writeFile(
         path.join(dir, "inception.json"),
         JSON.stringify({
           skills: [],
@@ -566,14 +557,14 @@ describe("loadManifest", () => {
       assert.deepEqual(manifest.agentRules[0]?.agents, ["claude-code"]);
       assert.equal(manifest.agentRules[0]?.path, "rules/CLAUDE.md");
     } finally {
-      rmSync(dir, { recursive: true });
+      await rm(dir, { recursive: true });
     }
   });
 
   it("defaults mcpServers and agentRules to [] when omitted", async () => {
-    const dir = makeTmpDir();
+    const dir = await makeTmpDir();
     try {
-      writeFileSync(
+      await writeFile(
         path.join(dir, "inception.json"),
         JSON.stringify({ skills: [] }),
       );
@@ -581,14 +572,14 @@ describe("loadManifest", () => {
       assert.deepEqual(manifest.mcpServers, []);
       assert.deepEqual(manifest.agentRules, []);
     } finally {
-      rmSync(dir, { recursive: true });
+      await rm(dir, { recursive: true });
     }
   });
 
   it("throws on duplicate skill names", async () => {
-    const dir = makeTmpDir();
+    const dir = await makeTmpDir();
     try {
-      writeFileSync(
+      await writeFile(
         path.join(dir, "inception.json"),
         JSON.stringify({
           skills: [
@@ -604,14 +595,14 @@ describe("loadManifest", () => {
         return true;
       });
     } finally {
-      rmSync(dir, { recursive: true });
+      await rm(dir, { recursive: true });
     }
   });
 
   it("deduplicates agent IDs within a skill", async () => {
-    const dir = makeTmpDir();
+    const dir = await makeTmpDir();
     try {
-      writeFileSync(
+      await writeFile(
         path.join(dir, "inception.json"),
         JSON.stringify({
           skills: [
@@ -626,7 +617,7 @@ describe("loadManifest", () => {
       const manifest = await loadManifest(dir);
       assert.deepEqual(manifest.skills[0]?.agents, ["claude-code", "codex"]);
     } finally {
-      rmSync(dir, { recursive: true });
+      await rm(dir, { recursive: true });
     }
   });
 });

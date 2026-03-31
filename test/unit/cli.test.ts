@@ -1,9 +1,9 @@
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
-import { mkdirSync, rmSync, writeFileSync } from "node:fs";
-import os from "node:os";
+import { mkdir, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { describe, it } from "node:test";
+import { makeTmpDir } from "../helpers/fs.ts";
 
 const PROJECT_ROOT = path.resolve(import.meta.dirname, "..", "..");
 
@@ -38,32 +38,25 @@ function run(args: string[], env?: Record<string, string>): Promise<RunResult> {
   });
 }
 
-function makeTmpDir(): string {
-  const dir = path.join(
-    os.tmpdir(),
-    `ie-test-cli-${Date.now()}-${Math.random().toString(36).slice(2)}`,
-  );
-  mkdirSync(dir, { recursive: true });
-  return dir;
-}
-
-function makeValidRepo(
+async function makeValidRepo(
   dir: string,
   skillName = "test-skill",
   agents: string[] = ["claude-code"],
-): void {
+): Promise<void> {
   const manifest = {
     skills: [{ name: skillName, path: `skills/${skillName}`, agents }],
+    files: [],
+    configs: [],
     mcpServers: [],
     agentRules: [],
   };
-  writeFileSync(
+  await writeFile(
     path.join(dir, "inception.json"),
     JSON.stringify(manifest, null, 2),
   );
   const skillDir = path.join(dir, "skills", skillName);
-  mkdirSync(skillDir, { recursive: true });
-  writeFileSync(
+  await mkdir(skillDir, { recursive: true });
+  await writeFile(
     path.join(skillDir, "SKILL.md"),
     "---\nname: test-skill\ndescription: A test skill\n---\n# Test\n",
   );
@@ -90,9 +83,9 @@ describe("CLI exit codes and output", () => {
   });
 
   it("unknown --agents value exits 2", async () => {
-    const dir = makeTmpDir();
+    const dir = await makeTmpDir();
     try {
-      makeValidRepo(dir);
+      await makeValidRepo(dir);
       const { stderr, code } = await run([
         dir,
         "--agents",
@@ -104,7 +97,7 @@ describe("CLI exit codes and output", () => {
         `stderr should mention error: ${stderr}`,
       );
     } finally {
-      rmSync(dir, { recursive: true });
+      await rm(dir, { recursive: true });
     }
   });
 
@@ -118,9 +111,9 @@ describe("CLI exit codes and output", () => {
   });
 
   it("directory with malformed JSON exits 3", async () => {
-    const dir = makeTmpDir();
+    const dir = await makeTmpDir();
     try {
-      writeFileSync(path.join(dir, "inception.json"), "{not valid json}");
+      await writeFile(path.join(dir, "inception.json"), "{not valid json}");
       const { stderr, code } = await run([dir]);
       assert.equal(code, 3);
       assert.ok(
@@ -128,14 +121,14 @@ describe("CLI exit codes and output", () => {
         `stderr should mention error: ${stderr}`,
       );
     } finally {
-      rmSync(dir, { recursive: true });
+      await rm(dir, { recursive: true });
     }
   });
 
   it("directory with schema-invalid manifest exits 3", async () => {
-    const dir = makeTmpDir();
+    const dir = await makeTmpDir();
     try {
-      writeFileSync(
+      await writeFile(
         path.join(dir, "inception.json"),
         JSON.stringify({ skills: "not-an-array" }),
       );
@@ -146,14 +139,14 @@ describe("CLI exit codes and output", () => {
         `stderr should mention error: ${stderr}`,
       );
     } finally {
-      rmSync(dir, { recursive: true });
+      await rm(dir, { recursive: true });
     }
   });
 
   it("valid manifest with --dry-run exits 0 and shows plan", async () => {
-    const dir = makeTmpDir();
+    const dir = await makeTmpDir();
     try {
-      makeValidRepo(dir);
+      await makeValidRepo(dir);
       const { stdout, code } = await run([
         dir,
         "--dry-run",
@@ -166,14 +159,14 @@ describe("CLI exit codes and output", () => {
         `stdout should include [dry-run]: ${stdout}`,
       );
     } finally {
-      rmSync(dir, { recursive: true });
+      await rm(dir, { recursive: true });
     }
   });
 
   it("revert --dry-run with valid manifest exits 0", async () => {
-    const dir = makeTmpDir();
+    const dir = await makeTmpDir();
     try {
-      makeValidRepo(dir);
+      await makeValidRepo(dir);
       const { code } = await run([
         "revert",
         dir,
@@ -183,7 +176,7 @@ describe("CLI exit codes and output", () => {
       ]);
       assert.equal(code, 0);
     } finally {
-      rmSync(dir, { recursive: true });
+      await rm(dir, { recursive: true });
     }
   });
 
@@ -200,12 +193,12 @@ describe("CLI exit codes and output", () => {
 
 describe("init command", () => {
   it("generates inception.json from a directory with skill folders", async () => {
-    const dir = makeTmpDir();
+    const dir = await makeTmpDir();
     try {
       // Create two skill directories
       for (const name of ["alpha", "beta"]) {
-        mkdirSync(path.join(dir, "skills", name), { recursive: true });
-        writeFileSync(
+        await mkdir(path.join(dir, "skills", name), { recursive: true });
+        await writeFile(
           path.join(dir, "skills", name, "SKILL.md"),
           `---\nname: ${name}\ndescription: A skill\n---\n`,
         );
@@ -224,15 +217,15 @@ describe("init command", () => {
       const names = manifest.skills.map((s) => s.name).sort();
       assert.deepEqual(names, ["alpha", "beta"]);
     } finally {
-      rmSync(dir, { recursive: true });
+      await rm(dir, { recursive: true });
     }
   });
 
   it("--dry-run does not write inception.json", async () => {
-    const dir = makeTmpDir();
+    const dir = await makeTmpDir();
     try {
-      mkdirSync(path.join(dir, "my-skill"), { recursive: true });
-      writeFileSync(
+      await mkdir(path.join(dir, "my-skill"), { recursive: true });
+      await writeFile(
         path.join(dir, "my-skill", "SKILL.md"),
         "---\nname: my-skill\ndescription: test\n---\n",
       );
@@ -243,41 +236,44 @@ describe("init command", () => {
         `stdout should include [dry-run]: ${stdout}`,
       );
       // File should NOT have been written
-      const { existsSync } = await import("node:fs");
-      assert.ok(
-        !existsSync(path.join(dir, "inception.json")),
-        "inception.json should not exist after dry-run",
-      );
+      const { access } = await import("node:fs/promises");
+      let exists = true;
+      try {
+        await access(path.join(dir, "inception.json"));
+      } catch {
+        exists = false;
+      }
+      assert.ok(!exists, "inception.json should not exist after dry-run");
     } finally {
-      rmSync(dir, { recursive: true });
+      await rm(dir, { recursive: true });
     }
   });
 
   it("refuses to overwrite existing inception.json without --force", async () => {
-    const dir = makeTmpDir();
+    const dir = await makeTmpDir();
     try {
-      mkdirSync(path.join(dir, "my-skill"), { recursive: true });
-      writeFileSync(
+      await mkdir(path.join(dir, "my-skill"), { recursive: true });
+      await writeFile(
         path.join(dir, "my-skill", "SKILL.md"),
         "---\nname: my-skill\ndescription: test\n---\n",
       );
-      writeFileSync(path.join(dir, "inception.json"), "{}");
+      await writeFile(path.join(dir, "inception.json"), "{}");
       const { code } = await run(["init", dir]);
       assert.equal(code, 2);
     } finally {
-      rmSync(dir, { recursive: true });
+      await rm(dir, { recursive: true });
     }
   });
 
   it("--force overwrites existing inception.json", async () => {
-    const dir = makeTmpDir();
+    const dir = await makeTmpDir();
     try {
-      mkdirSync(path.join(dir, "my-skill"), { recursive: true });
-      writeFileSync(
+      await mkdir(path.join(dir, "my-skill"), { recursive: true });
+      await writeFile(
         path.join(dir, "my-skill", "SKILL.md"),
         "---\nname: my-skill\ndescription: test\n---\n",
       );
-      writeFileSync(path.join(dir, "inception.json"), "{}");
+      await writeFile(path.join(dir, "inception.json"), "{}");
       const { code } = await run(["init", dir, "--force"]);
       assert.equal(code, 0);
 
@@ -291,15 +287,15 @@ describe("init command", () => {
       assert.equal(manifest.skills.length, 1);
       assert.equal(manifest.skills[0].name, "my-skill");
     } finally {
-      rmSync(dir, { recursive: true });
+      await rm(dir, { recursive: true });
     }
   });
 
   it("--agents restricts agent list in generated manifest", async () => {
-    const dir = makeTmpDir();
+    const dir = await makeTmpDir();
     try {
-      mkdirSync(path.join(dir, "my-skill"), { recursive: true });
-      writeFileSync(
+      await mkdir(path.join(dir, "my-skill"), { recursive: true });
+      await writeFile(
         path.join(dir, "my-skill", "SKILL.md"),
         "---\nname: my-skill\ndescription: test\n---\n",
       );
@@ -323,12 +319,12 @@ describe("init command", () => {
         "codex",
       ]);
     } finally {
-      rmSync(dir, { recursive: true });
+      await rm(dir, { recursive: true });
     }
   });
 
   it("empty directory with no skills exits 0 with info message", async () => {
-    const dir = makeTmpDir();
+    const dir = await makeTmpDir();
     try {
       const { stdout, code } = await run(["init", dir]);
       assert.equal(code, 0);
@@ -337,7 +333,7 @@ describe("init command", () => {
         `stdout should mention no skills: ${stdout}`,
       );
     } finally {
-      rmSync(dir, { recursive: true });
+      await rm(dir, { recursive: true });
     }
   });
 });

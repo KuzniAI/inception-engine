@@ -1,11 +1,5 @@
 import assert from "node:assert/strict";
-import {
-  existsSync,
-  mkdirSync,
-  readFileSync,
-  rmSync,
-  writeFileSync,
-} from "node:fs";
+import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { describe, it } from "node:test";
 import {
@@ -17,16 +11,16 @@ import type {
   ConfigPatchRevertAction,
   FileWriteRevertAction,
 } from "../../../src/types.ts";
-import { makeTmpDir } from "../../helpers/skill-dir.ts";
+import { exists, makeTmpDir } from "../../helpers/fs.ts";
 
 describe("revert integration (Windows)", {
   skip: process.platform !== "win32",
 }, () => {
   it("reverts a deployed mcpServer config-patch and unregisters it", async () => {
-    const home = makeTmpDir("ie-revert-home");
+    const home = await makeTmpDir("ie-revert-home");
     try {
       const configFile = path.join(home, ".claude.json");
-      writeFileSync(
+      await writeFile(
         configFile,
         JSON.stringify({
           other: "value",
@@ -57,21 +51,21 @@ describe("revert integration (Windows)", {
       );
       assert.equal(succeeded, 1);
       assert.equal(failed.length, 0);
-      assert.deepEqual(JSON.parse(readFileSync(configFile, "utf-8")), {
+      assert.deepEqual(JSON.parse(await readFile(configFile, "utf-8")), {
         other: "value",
       });
       assert.equal(await lookupDeployment(home, configFile), null);
     } finally {
-      rmSync(home, { recursive: true, force: true });
+      await rm(home, { recursive: true, force: true });
     }
   });
 
   it("reverts a deployed agentRule file-write and unregisters it", async () => {
-    const home = makeTmpDir("ie-revert-home");
+    const home = await makeTmpDir("ie-revert-home");
     try {
       const rulesFile = path.join(home, ".claude", "CLAUDE.md");
-      mkdirSync(path.dirname(rulesFile), { recursive: true });
-      writeFileSync(rulesFile, "# My Rules\n");
+      await mkdir(path.dirname(rulesFile), { recursive: true });
+      await writeFile(rulesFile, "# My Rules\n");
 
       await registerDeployment(home, rulesFile, {
         kind: "file-write",
@@ -95,10 +89,10 @@ describe("revert integration (Windows)", {
       );
       assert.equal(succeeded, 1);
       assert.equal(failed.length, 0);
-      assert.ok(!existsSync(rulesFile));
+      assert.ok(!(await exists(rulesFile)));
       assert.equal(await lookupDeployment(home, rulesFile), null);
     } finally {
-      rmSync(home, { recursive: true, force: true });
+      await rm(home, { recursive: true, force: true });
     }
   });
 });

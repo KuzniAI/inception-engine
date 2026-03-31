@@ -1,6 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdirSync, realpathSync, rmSync, writeFileSync } from "node:fs";
-import os from "node:os";
+import { realpath, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { describe, it } from "node:test";
 import { compileMcpServerActions } from "../../src/core/adapters/mcp.ts";
@@ -9,17 +8,9 @@ import type {
   ConfigPatchDeployAction,
   FileWriteDeployAction,
 } from "../../src/types.ts";
+import { makeTmpDir } from "../helpers/fs.ts";
 
 const posixJoin = path.posix.join;
-
-function makeTmpDir(): string {
-  const dir = path.join(
-    os.tmpdir(),
-    `ie-test-adapters-${Date.now()}-${Math.random().toString(36).slice(2)}`,
-  );
-  mkdirSync(dir, { recursive: true });
-  return dir;
-}
 
 describe("compileMcpServerActions", () => {
   it("returns zero actions and warnings when no detectedAgents overlap", () => {
@@ -139,11 +130,11 @@ describe("compileMcpServerActions", () => {
 
 describe("compileAgentRuleActions", () => {
   it("returns zero actions and warnings when no detectedAgents overlap", async () => {
-    const dir = makeTmpDir();
+    const dir = await makeTmpDir();
     try {
       const rulesFile = path.join(dir, "CLAUDE.md");
-      writeFileSync(rulesFile, "# Rules");
-      const realRoot = realpathSync(dir);
+      await writeFile(rulesFile, "# Rules");
+      const realRoot = await realpath(dir);
       const { actions, warnings } = await compileAgentRuleActions(
         {
           name: "my-rule",
@@ -159,12 +150,12 @@ describe("compileAgentRuleActions", () => {
       assert.equal(actions.length, 0);
       assert.equal(warnings.length, 0);
     } finally {
-      rmSync(dir, { recursive: true });
+      await rm(dir, { recursive: true });
     }
   });
 
   it("does not validate the rules source when no targeted agents overlap", async () => {
-    const dir = makeTmpDir();
+    const dir = await makeTmpDir();
     try {
       const { actions, warnings } = await compileAgentRuleActions(
         {
@@ -181,17 +172,17 @@ describe("compileAgentRuleActions", () => {
       assert.equal(actions.length, 0);
       assert.equal(warnings.length, 0);
     } finally {
-      rmSync(dir, { recursive: true });
+      await rm(dir, { recursive: true });
     }
   });
 
   it("returns a file-write action for claude-code with correct source and target", async () => {
-    const dir = makeTmpDir();
+    const dir = await makeTmpDir();
     try {
       const rulesFile = path.join(dir, "CLAUDE.md");
-      writeFileSync(rulesFile, "# Rules");
+      await writeFile(rulesFile, "# Rules");
       const home = "/home/test";
-      const realRoot = realpathSync(dir);
+      const realRoot = await realpath(dir);
       const { actions, warnings } = await compileAgentRuleActions(
         { name: "my-rule", agents: ["claude-code"], path: "CLAUDE.md" },
         dir,
@@ -213,15 +204,15 @@ describe("compileAgentRuleActions", () => {
       );
       assert.equal(action.confidence, "documented");
     } finally {
-      rmSync(dir, { recursive: true });
+      await rm(dir, { recursive: true });
     }
   });
 
   it("returns a schema-aware warning and no action for github-copilot rules", async () => {
-    const dir = makeTmpDir();
+    const dir = await makeTmpDir();
     try {
-      writeFileSync(path.join(dir, "rules.md"), "# Rules");
-      const realRoot = realpathSync(dir);
+      await writeFile(path.join(dir, "rules.md"), "# Rules");
+      const realRoot = await realpath(dir);
       const { actions, warnings } = await compileAgentRuleActions(
         {
           name: "my-rule",
@@ -246,15 +237,15 @@ describe("compileAgentRuleActions", () => {
         /deploy via the "claude-code" agentRules target/,
       );
     } finally {
-      rmSync(dir, { recursive: true });
+      await rm(dir, { recursive: true });
     }
   });
 
   it("returns a schema-aware warning and no action for antigravity rules", async () => {
-    const dir = makeTmpDir();
+    const dir = await makeTmpDir();
     try {
-      writeFileSync(path.join(dir, "rules.md"), "# Rules");
-      const realRoot = realpathSync(dir);
+      await writeFile(path.join(dir, "rules.md"), "# Rules");
+      const realRoot = await realpath(dir);
       const { actions, warnings } = await compileAgentRuleActions(
         { name: "my-rule", agents: ["antigravity"], path: "rules.md" },
         dir,
@@ -268,15 +259,15 @@ describe("compileAgentRuleActions", () => {
       assert.match(warnings[0]?.message ?? "", /antigravity/);
       assert.match(warnings[0]?.message ?? "", /repo-scoped rules files/);
     } finally {
-      rmSync(dir, { recursive: true });
+      await rm(dir, { recursive: true });
     }
   });
 
   it("throws when a supported rules target is given a non-Markdown source path", async () => {
-    const dir = makeTmpDir();
+    const dir = await makeTmpDir();
     try {
-      writeFileSync(path.join(dir, "rules.txt"), "plain text");
-      const realRoot = realpathSync(dir);
+      await writeFile(path.join(dir, "rules.txt"), "plain text");
+      const realRoot = await realpath(dir);
       await assert.rejects(
         compileAgentRuleActions(
           { name: "my-rule", agents: ["codex"], path: "rules.txt" },
@@ -289,12 +280,12 @@ describe("compileAgentRuleActions", () => {
         /must point to a Markdown source file/,
       );
     } finally {
-      rmSync(dir, { recursive: true });
+      await rm(dir, { recursive: true });
     }
   });
 
   it("throws when rules source file does not exist", async () => {
-    const dir = makeTmpDir();
+    const dir = await makeTmpDir();
     try {
       await assert.rejects(
         compileAgentRuleActions(
@@ -316,15 +307,15 @@ describe("compileAgentRuleActions", () => {
         },
       );
     } finally {
-      rmSync(dir, { recursive: true });
+      await rm(dir, { recursive: true });
     }
   });
 
   it("produces actions for each detected agent that has supported rules config", async () => {
-    const dir = makeTmpDir();
+    const dir = await makeTmpDir();
     try {
-      writeFileSync(path.join(dir, "rules.md"), "# Rules");
-      const realRoot = realpathSync(dir);
+      await writeFile(path.join(dir, "rules.md"), "# Rules");
+      const realRoot = await realpath(dir);
       const { actions, warnings } = await compileAgentRuleActions(
         {
           name: "my-rule",
@@ -343,7 +334,7 @@ describe("compileAgentRuleActions", () => {
       assert.ok(agents.includes("claude-code"));
       assert.ok(agents.includes("codex"));
     } finally {
-      rmSync(dir, { recursive: true });
+      await rm(dir, { recursive: true });
     }
   });
 });

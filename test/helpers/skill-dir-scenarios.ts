@@ -1,11 +1,5 @@
 import assert from "node:assert/strict";
-import {
-  existsSync,
-  mkdirSync,
-  readFileSync,
-  rmSync,
-  writeFileSync,
-} from "node:fs";
+import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { it } from "node:test";
 import { executeDeploy, planDeploy } from "../../src/core/deploy.ts";
@@ -15,10 +9,10 @@ import {
 } from "../../src/core/ownership.ts";
 import { executeRevert, planRevert } from "../../src/core/revert.ts";
 import type { SkillDirDeployAction } from "../../src/types.ts";
+import { exists, makeTmpDir } from "./fs.ts";
 import {
   createFailingRegistryPersistence,
   createSkillSource,
-  makeTmpDir,
   testSkillManifest,
 } from "./skill-dir.ts";
 
@@ -28,7 +22,7 @@ interface SkillDirScenarioOptions {
     target: string,
     source: string,
     expectedSkillMd: string,
-  ): void;
+  ): Promise<void>;
 }
 
 const FIRST_SKILL_MD =
@@ -40,10 +34,10 @@ export function registerSharedSkillDirDeployScenarios(
   options: SkillDirScenarioOptions,
 ): void {
   it("first deploy succeeds", async () => {
-    const sourceDir = makeTmpDir("ie-skill-dir-source");
-    const home = makeTmpDir("ie-skill-dir-home");
+    const sourceDir = await makeTmpDir("ie-skill-dir-source");
+    const home = await makeTmpDir("ie-skill-dir-home");
     try {
-      const source = createSkillSource(
+      const source = await createSkillSource(
         sourceDir,
         "skills/test-skill",
         FIRST_SKILL_MD,
@@ -63,23 +57,27 @@ export function registerSharedSkillDirDeployScenarios(
       );
       assert.equal(succeeded, 1);
       assert.equal(failed.length, 0);
-      options.assertManagedTarget(actions[0]?.target, source, FIRST_SKILL_MD);
+      await options.assertManagedTarget(
+        actions[0]?.target,
+        source,
+        FIRST_SKILL_MD,
+      );
 
       const entry = await lookupDeployment(home, actions[0]?.target);
       assert.ok(entry);
       assert.equal(entry.kind, "skill-dir");
       assert.equal(entry.method, options.method);
     } finally {
-      rmSync(sourceDir, { recursive: true, force: true });
-      rmSync(home, { recursive: true, force: true });
+      await rm(sourceDir, { recursive: true, force: true });
+      await rm(home, { recursive: true, force: true });
     }
   });
 
   it("dry-run reports the planned skill-dir change only", async () => {
-    const sourceDir = makeTmpDir("ie-skill-dir-source");
-    const home = makeTmpDir("ie-skill-dir-home");
+    const sourceDir = await makeTmpDir("ie-skill-dir-source");
+    const home = await makeTmpDir("ie-skill-dir-home");
     try {
-      createSkillSource(sourceDir, "skills/test-skill", FIRST_SKILL_MD);
+      await createSkillSource(sourceDir, "skills/test-skill", FIRST_SKILL_MD);
       const { actions } = await planDeploy(
         testSkillManifest,
         sourceDir,
@@ -100,18 +98,18 @@ export function registerSharedSkillDirDeployScenarios(
         planned[0]?.verb,
         options.method === "symlink" ? "create-symlink" : "copy-dir",
       );
-      assert.ok(!existsSync(actions[0]?.target));
+      assert.ok(!(await exists(actions[0]?.target)));
     } finally {
-      rmSync(sourceDir, { recursive: true, force: true });
-      rmSync(home, { recursive: true, force: true });
+      await rm(sourceDir, { recursive: true, force: true });
+      await rm(home, { recursive: true, force: true });
     }
   });
 
   it("refuses to overwrite an unmanaged target", async () => {
-    const sourceDir = makeTmpDir("ie-skill-dir-source");
-    const home = makeTmpDir("ie-skill-dir-home");
+    const sourceDir = await makeTmpDir("ie-skill-dir-source");
+    const home = await makeTmpDir("ie-skill-dir-home");
     try {
-      createSkillSource(sourceDir, "skills/test-skill", FIRST_SKILL_MD);
+      await createSkillSource(sourceDir, "skills/test-skill", FIRST_SKILL_MD);
       const { actions } = await planDeploy(
         testSkillManifest,
         sourceDir,
@@ -119,8 +117,8 @@ export function registerSharedSkillDirDeployScenarios(
         home,
       );
       const target = actions[0]?.target;
-      mkdirSync(target, { recursive: true });
-      writeFileSync(path.join(target, "user.txt"), "user content");
+      await mkdir(target, { recursive: true });
+      await writeFile(path.join(target, "user.txt"), "user content");
 
       const { succeeded, failed } = await executeDeploy(
         actions,
@@ -132,20 +130,20 @@ export function registerSharedSkillDirDeployScenarios(
       assert.equal(failed.length, 1);
       assert.match(failed[0]?.error, /not managed by inception-engine/);
       assert.equal(
-        readFileSync(path.join(target, "user.txt"), "utf-8"),
+        await readFile(path.join(target, "user.txt"), "utf-8"),
         "user content",
       );
     } finally {
-      rmSync(sourceDir, { recursive: true, force: true });
-      rmSync(home, { recursive: true, force: true });
+      await rm(sourceDir, { recursive: true, force: true });
+      await rm(home, { recursive: true, force: true });
     }
   });
 
   it("refuses to overwrite a target with a mismatched registry entry", async () => {
-    const sourceDir = makeTmpDir("ie-skill-dir-source");
-    const home = makeTmpDir("ie-skill-dir-home");
+    const sourceDir = await makeTmpDir("ie-skill-dir-source");
+    const home = await makeTmpDir("ie-skill-dir-home");
     try {
-      createSkillSource(sourceDir, "skills/test-skill", FIRST_SKILL_MD);
+      await createSkillSource(sourceDir, "skills/test-skill", FIRST_SKILL_MD);
       const { actions } = await planDeploy(
         testSkillManifest,
         sourceDir,
@@ -153,8 +151,8 @@ export function registerSharedSkillDirDeployScenarios(
         home,
       );
       const target = actions[0]?.target;
-      mkdirSync(target, { recursive: true });
-      writeFileSync(path.join(target, "SKILL.md"), "other");
+      await mkdir(target, { recursive: true });
+      await writeFile(path.join(target, "SKILL.md"), "other");
       await registerDeployment(home, target, {
         kind: "skill-dir",
         source: "/other/source",
@@ -173,20 +171,20 @@ export function registerSharedSkillDirDeployScenarios(
       assert.equal(failed.length, 1);
       assert.match(failed[0]?.error, /not managed by inception-engine/);
       assert.equal(
-        readFileSync(path.join(target, "SKILL.md"), "utf-8"),
+        await readFile(path.join(target, "SKILL.md"), "utf-8"),
         "other",
       );
     } finally {
-      rmSync(sourceDir, { recursive: true, force: true });
-      rmSync(home, { recursive: true, force: true });
+      await rm(sourceDir, { recursive: true, force: true });
+      await rm(home, { recursive: true, force: true });
     }
   });
 
   it("managed redeploy succeeds", async () => {
-    const sourceDir = makeTmpDir("ie-skill-dir-source");
-    const home = makeTmpDir("ie-skill-dir-home");
+    const sourceDir = await makeTmpDir("ie-skill-dir-source");
+    const home = await makeTmpDir("ie-skill-dir-home");
     try {
-      const source = createSkillSource(
+      const source = await createSkillSource(
         sourceDir,
         "skills/test-skill",
         FIRST_SKILL_MD,
@@ -207,18 +205,22 @@ export function registerSharedSkillDirDeployScenarios(
       );
       assert.equal(succeeded, 1);
       assert.equal(failed.length, 0);
-      options.assertManagedTarget(actions[0]?.target, source, FIRST_SKILL_MD);
+      await options.assertManagedTarget(
+        actions[0]?.target,
+        source,
+        FIRST_SKILL_MD,
+      );
     } finally {
-      rmSync(sourceDir, { recursive: true, force: true });
-      rmSync(home, { recursive: true, force: true });
+      await rm(sourceDir, { recursive: true, force: true });
+      await rm(home, { recursive: true, force: true });
     }
   });
 
   it("restores the prior managed target when registry persistence fails", async () => {
-    const sourceDir = makeTmpDir("ie-skill-dir-source");
-    const home = makeTmpDir("ie-skill-dir-home");
+    const sourceDir = await makeTmpDir("ie-skill-dir-source");
+    const home = await makeTmpDir("ie-skill-dir-home");
     try {
-      const firstSource = createSkillSource(
+      const firstSource = await createSkillSource(
         sourceDir,
         "skills/test-skill",
         FIRST_SKILL_MD,
@@ -231,7 +233,7 @@ export function registerSharedSkillDirDeployScenarios(
       );
       const firstAction = actions[0] as SkillDirDeployAction;
       await executeDeploy([firstAction], false, false, home);
-      writeFileSync(path.join(firstSource, "SKILL.md"), SECOND_SKILL_MD);
+      await writeFile(path.join(firstSource, "SKILL.md"), SECOND_SKILL_MD);
 
       const failAction: SkillDirDeployAction = {
         ...firstAction,
@@ -250,15 +252,15 @@ export function registerSharedSkillDirDeployScenarios(
       assert.equal(failed.length, 1);
       assert.match(failed[0]?.error, /simulated registry persistence failure/);
 
-      options.assertManagedTarget(
+      await options.assertManagedTarget(
         firstAction.target,
         firstSource,
         FIRST_SKILL_MD,
       );
-      assert.ok(!existsSync(`${firstAction.target}.inception-backup`));
+      assert.ok(!(await exists(`${firstAction.target}.inception-backup`)));
     } finally {
-      rmSync(sourceDir, { recursive: true, force: true });
-      rmSync(home, { recursive: true, force: true });
+      await rm(sourceDir, { recursive: true, force: true });
+      await rm(home, { recursive: true, force: true });
     }
   });
 }
@@ -267,10 +269,10 @@ export function registerSharedSkillDirRevertScenarios(
   options: SkillDirScenarioOptions,
 ): void {
   it("reverts a managed skill-dir target", async () => {
-    const sourceDir = makeTmpDir("ie-skill-dir-source");
-    const home = makeTmpDir("ie-skill-dir-home");
+    const sourceDir = await makeTmpDir("ie-skill-dir-source");
+    const home = await makeTmpDir("ie-skill-dir-home");
     try {
-      createSkillSource(sourceDir, "skills/test-skill", FIRST_SKILL_MD);
+      await createSkillSource(sourceDir, "skills/test-skill", FIRST_SKILL_MD);
       const { actions } = await planDeploy(
         testSkillManifest,
         sourceDir,
@@ -293,15 +295,15 @@ export function registerSharedSkillDirRevertScenarios(
       assert.equal(succeeded, 1);
       assert.equal(skipped, 0);
       assert.equal(failed.length, 0);
-      assert.ok(!existsSync(actions[0]?.target));
+      assert.ok(!(await exists(actions[0]?.target)));
     } finally {
-      rmSync(sourceDir, { recursive: true, force: true });
-      rmSync(home, { recursive: true, force: true });
+      await rm(sourceDir, { recursive: true, force: true });
+      await rm(home, { recursive: true, force: true });
     }
   });
 
   it("skips an unmanaged skill-dir target", async () => {
-    const home = makeTmpDir("ie-skill-dir-home");
+    const home = await makeTmpDir("ie-skill-dir-home");
     try {
       const revertActions = planRevert(
         testSkillManifest,
@@ -309,8 +311,8 @@ export function registerSharedSkillDirRevertScenarios(
         home,
       );
       const target = revertActions[0]?.target;
-      mkdirSync(target, { recursive: true });
-      writeFileSync(path.join(target, "SKILL.md"), FIRST_SKILL_MD);
+      await mkdir(target, { recursive: true });
+      await writeFile(path.join(target, "SKILL.md"), FIRST_SKILL_MD);
 
       const { succeeded, skipped, failed } = await executeRevert(
         revertActions,
@@ -321,17 +323,17 @@ export function registerSharedSkillDirRevertScenarios(
       assert.equal(succeeded, 0);
       assert.equal(skipped, 1);
       assert.equal(failed.length, 0);
-      assert.ok(existsSync(target));
+      assert.ok(await exists(target));
     } finally {
-      rmSync(home, { recursive: true, force: true });
+      await rm(home, { recursive: true, force: true });
     }
   });
 
   it("skips a target whose registry entry belongs to a different skill", async () => {
-    const sourceDir = makeTmpDir("ie-skill-dir-source");
-    const home = makeTmpDir("ie-skill-dir-home");
+    const sourceDir = await makeTmpDir("ie-skill-dir-source");
+    const home = await makeTmpDir("ie-skill-dir-home");
     try {
-      const source = createSkillSource(
+      const source = await createSkillSource(
         sourceDir,
         "skills/test-skill",
         FIRST_SKILL_MD,
@@ -343,8 +345,8 @@ export function registerSharedSkillDirRevertScenarios(
       );
       const target = revertActions[0]?.target;
 
-      mkdirSync(target, { recursive: true });
-      writeFileSync(path.join(target, "SKILL.md"), FIRST_SKILL_MD);
+      await mkdir(target, { recursive: true });
+      await writeFile(path.join(target, "SKILL.md"), FIRST_SKILL_MD);
       await registerDeployment(home, target, {
         kind: "skill-dir",
         source,
@@ -362,10 +364,10 @@ export function registerSharedSkillDirRevertScenarios(
       assert.equal(succeeded, 0);
       assert.equal(skipped, 1);
       assert.equal(failed.length, 0);
-      assert.ok(existsSync(target));
+      assert.ok(await exists(target));
     } finally {
-      rmSync(sourceDir, { recursive: true, force: true });
-      rmSync(home, { recursive: true, force: true });
+      await rm(sourceDir, { recursive: true, force: true });
+      await rm(home, { recursive: true, force: true });
     }
   });
 }

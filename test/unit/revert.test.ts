@@ -1,14 +1,12 @@
 import assert from "node:assert/strict";
 import {
-  chmodSync,
-  existsSync,
-  mkdirSync,
-  readFileSync,
-  rmSync,
-  symlinkSync,
-  writeFileSync,
-} from "node:fs";
-import os from "node:os";
+  chmod,
+  mkdir,
+  readFile,
+  rm,
+  symlink,
+  writeFile,
+} from "node:fs/promises";
 import path from "node:path";
 import { describe, it } from "node:test";
 import {
@@ -26,22 +24,16 @@ import type {
   FileWriteRevertAction,
   Manifest,
 } from "../../src/types.ts";
+import { exists, makeTmpDir } from "../helpers/fs.ts";
 
 logger.silence();
-
-function makeTmpDir(): string {
-  const dir = path.join(
-    os.tmpdir(),
-    `ie-test-revert-${Date.now()}-${Math.random().toString(36).slice(2)}`,
-  );
-  mkdirSync(dir, { recursive: true });
-  return dir;
-}
 
 const testManifest: Manifest = {
   skills: [
     { name: "test-skill", path: "skills/test-skill", agents: ["claude-code"] },
   ],
+  files: [],
+  configs: [],
   mcpServers: [],
   agentRules: [],
 };
@@ -70,6 +62,8 @@ describe("planRevertAll", () => {
           agents: ["claude-code", "codex", "gemini-cli"],
         },
       ],
+      files: [],
+      configs: [],
       mcpServers: [],
       agentRules: [],
     };
@@ -96,6 +90,8 @@ describe("planRevertAll", () => {
           ],
         },
       ],
+      files: [],
+      configs: [],
       mcpServers: [],
       agentRules: [],
     };
@@ -129,15 +125,15 @@ describe("planRevertAll", () => {
 
 describe("executeRevert", { skip: process.platform === "win32" }, () => {
   it("removes a symlink registered in the deployment registry", async () => {
-    const home = makeTmpDir();
-    const sourceDir = makeTmpDir();
+    const home = await makeTmpDir();
+    const sourceDir = await makeTmpDir();
     try {
       const actions = planRevert(testManifest, ["claude-code"], home);
       const target = actions[0]?.target;
 
       // Create symlink and register in registry
-      mkdirSync(path.dirname(target), { recursive: true });
-      symlinkSync(sourceDir, target, "dir");
+      await mkdir(path.dirname(target), { recursive: true });
+      await symlink(sourceDir, target, "dir");
       await registerDeployment(home, target, {
         kind: "skill-dir",
         source: sourceDir,
@@ -145,7 +141,7 @@ describe("executeRevert", { skip: process.platform === "win32" }, () => {
         agent: "claude-code",
         method: "symlink",
       });
-      assert.ok(existsSync(target));
+      assert.ok(await exists(target));
 
       const { succeeded, skipped } = await executeRevert(
         actions,
@@ -155,25 +151,25 @@ describe("executeRevert", { skip: process.platform === "win32" }, () => {
       );
       assert.equal(succeeded, 1);
       assert.equal(skipped, 0);
-      assert.ok(!existsSync(target));
+      assert.ok(!(await exists(target)));
 
       // Registry entry should be removed
       const entry = await lookupDeployment(home, target);
       assert.equal(entry, null);
     } finally {
-      rmSync(home, { recursive: true, force: true });
-      rmSync(sourceDir, { recursive: true });
+      await rm(home, { recursive: true, force: true });
+      await rm(sourceDir, { recursive: true });
     }
   });
 
   it("removes a copied directory registered in the deployment registry", async () => {
-    const home = makeTmpDir();
+    const home = await makeTmpDir();
     try {
       const actions = planRevert(testManifest, ["claude-code"], home);
       const target = actions[0]?.target;
 
-      mkdirSync(target, { recursive: true });
-      writeFileSync(path.join(target, "SKILL.md"), "test");
+      await mkdir(target, { recursive: true });
+      await writeFile(path.join(target, "SKILL.md"), "test");
       await registerDeployment(home, target, {
         kind: "skill-dir",
         source: "/original/source",
@@ -190,18 +186,18 @@ describe("executeRevert", { skip: process.platform === "win32" }, () => {
       );
       assert.equal(succeeded, 1);
       assert.equal(skipped, 0);
-      assert.ok(!existsSync(target));
+      assert.ok(!(await exists(target)));
 
       // Registry entry should be removed
       const entry = await lookupDeployment(home, target);
       assert.equal(entry, null);
     } finally {
-      rmSync(home, { recursive: true, force: true });
+      await rm(home, { recursive: true, force: true });
     }
   });
 
   it("skips missing targets", async () => {
-    const home = makeTmpDir();
+    const home = await makeTmpDir();
     try {
       const actions = planRevert(testManifest, ["claude-code"], home);
       const { succeeded, skipped } = await executeRevert(
@@ -213,20 +209,20 @@ describe("executeRevert", { skip: process.platform === "win32" }, () => {
       assert.equal(succeeded, 0);
       assert.equal(skipped, 1);
     } finally {
-      rmSync(home, { recursive: true });
+      await rm(home, { recursive: true });
     }
   });
 
   it("records a failure when removal is blocked by permissions", async () => {
-    const home = makeTmpDir();
-    const sourceDir = makeTmpDir();
+    const home = await makeTmpDir();
+    const sourceDir = await makeTmpDir();
     const actions = planRevert(testManifest, ["claude-code"], home);
     const target = actions[0]?.target ?? "";
     const targetParent = path.dirname(target);
     try {
       // Create the target directory and register it
-      mkdirSync(target, { recursive: true });
-      writeFileSync(path.join(target, "SKILL.md"), "test");
+      await mkdir(target, { recursive: true });
+      await writeFile(path.join(target, "SKILL.md"), "test");
       await registerDeployment(home, target, {
         kind: "skill-dir",
         source: sourceDir,
@@ -236,7 +232,7 @@ describe("executeRevert", { skip: process.platform === "win32" }, () => {
       });
 
       // Make the parent directory non-writable so rm() fails
-      chmodSync(targetParent, 0o555);
+      await chmod(targetParent, 0o555);
 
       const { succeeded, skipped, failed } = await executeRevert(
         actions,
@@ -248,21 +244,21 @@ describe("executeRevert", { skip: process.platform === "win32" }, () => {
       assert.equal(skipped, 0);
       assert.equal(failed.length, 1);
     } finally {
-      chmodSync(targetParent, 0o755);
-      rmSync(home, { recursive: true, force: true });
-      rmSync(sourceDir, { recursive: true, force: true });
+      await chmod(targetParent, 0o755);
+      await rm(home, { recursive: true, force: true });
+      await rm(sourceDir, { recursive: true, force: true });
     }
   });
 
   it("does not remove in dry-run mode", async () => {
-    const home = makeTmpDir();
-    const sourceDir = makeTmpDir();
+    const home = await makeTmpDir();
+    const sourceDir = await makeTmpDir();
     try {
       const actions = planRevert(testManifest, ["claude-code"], home);
       const target = actions[0]?.target;
 
-      mkdirSync(path.dirname(target), { recursive: true });
-      symlinkSync(sourceDir, target, "dir");
+      await mkdir(path.dirname(target), { recursive: true });
+      await symlink(sourceDir, target, "dir");
       await registerDeployment(home, target, {
         kind: "skill-dir",
         source: sourceDir,
@@ -273,52 +269,31 @@ describe("executeRevert", { skip: process.platform === "win32" }, () => {
 
       const { succeeded } = await executeRevert(actions, true, false, home);
       assert.equal(succeeded, 1);
-      assert.ok(existsSync(target), "symlink should still exist after dry-run");
+      assert.ok(
+        await exists(target),
+        "symlink should still exist after dry-run",
+      );
 
       // Registry entry should still exist after dry-run
       const entry = await lookupDeployment(home, target);
       assert.ok(entry, "registry entry should still exist after dry-run");
     } finally {
-      rmSync(home, { recursive: true, force: true });
-      rmSync(sourceDir, { recursive: true });
+      await rm(home, { recursive: true, force: true });
+      await rm(sourceDir, { recursive: true });
     }
   });
 
   it("skips target that exists but is not in registry", async () => {
-    const home = makeTmpDir();
-    const sourceDir = makeTmpDir();
+    const home = await makeTmpDir();
+    const sourceDir = await makeTmpDir();
     try {
       const actions = planRevert(testManifest, ["claude-code"], home);
       const target = actions[0]?.target;
 
       // Create symlink but do NOT register — should be treated as unmanaged
-      writeFileSync(path.join(sourceDir, "SKILL.md"), "---");
-      mkdirSync(path.dirname(target), { recursive: true });
-      symlinkSync(sourceDir, target, "dir");
-
-      const { succeeded, skipped } = await executeRevert(
-        actions,
-        false,
-        false,
-        home,
-      );
-      assert.equal(succeeded, 0);
-      assert.equal(skipped, 1);
-      assert.ok(existsSync(target), "symlink should still exist — not managed");
-    } finally {
-      rmSync(home, { recursive: true, force: true });
-      rmSync(sourceDir, { recursive: true });
-    }
-  });
-
-  it("skips directory that exists but is not in registry", async () => {
-    const home = makeTmpDir();
-    try {
-      const actions = planRevert(testManifest, ["claude-code"], home);
-      const target = actions[0]?.target;
-
-      mkdirSync(target, { recursive: true });
-      writeFileSync(path.join(target, "SKILL.md"), "user content");
+      await writeFile(path.join(sourceDir, "SKILL.md"), "---");
+      await mkdir(path.dirname(target), { recursive: true });
+      await symlink(sourceDir, target, "dir");
 
       const { succeeded, skipped } = await executeRevert(
         actions,
@@ -329,24 +304,51 @@ describe("executeRevert", { skip: process.platform === "win32" }, () => {
       assert.equal(succeeded, 0);
       assert.equal(skipped, 1);
       assert.ok(
-        existsSync(target),
+        await exists(target),
+        "symlink should still exist — not managed",
+      );
+    } finally {
+      await rm(home, { recursive: true, force: true });
+      await rm(sourceDir, { recursive: true });
+    }
+  });
+
+  it("skips directory that exists but is not in registry", async () => {
+    const home = await makeTmpDir();
+    try {
+      const actions = planRevert(testManifest, ["claude-code"], home);
+      const target = actions[0]?.target;
+
+      await mkdir(target, { recursive: true });
+      await writeFile(path.join(target, "SKILL.md"), "user content");
+
+      const { succeeded, skipped } = await executeRevert(
+        actions,
+        false,
+        false,
+        home,
+      );
+      assert.equal(succeeded, 0);
+      assert.equal(skipped, 1);
+      assert.ok(
+        await exists(target),
         "directory should still exist — not in registry",
       );
     } finally {
-      rmSync(home, { recursive: true, force: true });
+      await rm(home, { recursive: true, force: true });
     }
   });
 
   it("skips target whose registry entry has mismatched skill or agent", async () => {
-    const home = makeTmpDir();
-    const sourceDir = makeTmpDir();
+    const home = await makeTmpDir();
+    const sourceDir = await makeTmpDir();
     try {
       const actions = planRevert(testManifest, ["claude-code"], home);
       const target = actions[0]?.target;
 
       // Create symlink and register under a different skill/agent
-      mkdirSync(path.dirname(target), { recursive: true });
-      symlinkSync(sourceDir, target, "dir");
+      await mkdir(path.dirname(target), { recursive: true });
+      await symlink(sourceDir, target, "dir");
       await registerDeployment(home, target, {
         kind: "skill-dir",
         source: sourceDir,
@@ -364,12 +366,12 @@ describe("executeRevert", { skip: process.platform === "win32" }, () => {
       assert.equal(succeeded, 0);
       assert.equal(skipped, 1);
       assert.ok(
-        existsSync(target),
+        await exists(target),
         "symlink should still exist — registry entry does not match",
       );
     } finally {
-      rmSync(home, { recursive: true, force: true });
-      rmSync(sourceDir, { recursive: true });
+      await rm(home, { recursive: true, force: true });
+      await rm(sourceDir, { recursive: true });
     }
   });
 });
@@ -378,14 +380,14 @@ describe("executeRevert", { skip: process.platform === "win32" }, () => {
 // platforms. This suite has no Windows guard intentionally.
 describe("executeRevert — copy method (cross-platform)", () => {
   it("removes a copy-deployed skill registered in the deployment registry", async () => {
-    const home = makeTmpDir();
+    const home = await makeTmpDir();
     try {
       const actions = planRevert(testManifest, ["claude-code"], home);
       const target = actions[0]?.target;
       assert.ok(target, "planRevert should produce an action");
 
-      mkdirSync(target, { recursive: true });
-      writeFileSync(path.join(target, "SKILL.md"), "---\nname: test-skill\n");
+      await mkdir(target, { recursive: true });
+      await writeFile(path.join(target, "SKILL.md"), "---\nname: test-skill\n");
       await registerDeployment(home, target, {
         kind: "skill-dir",
         source: "/original/source/skills/test-skill",
@@ -393,7 +395,7 @@ describe("executeRevert — copy method (cross-platform)", () => {
         agent: "claude-code",
         method: "copy",
       });
-      assert.ok(existsSync(target));
+      assert.ok(await exists(target));
 
       const { succeeded, skipped } = await executeRevert(
         actions,
@@ -403,25 +405,25 @@ describe("executeRevert — copy method (cross-platform)", () => {
       );
       assert.equal(succeeded, 1);
       assert.equal(skipped, 0);
-      assert.ok(!existsSync(target), "copy directory should be removed");
+      assert.ok(!(await exists(target)), "copy directory should be removed");
 
       const entry = await lookupDeployment(home, target);
       assert.equal(entry, null, "registry entry should be cleared");
     } finally {
-      rmSync(home, { recursive: true, force: true });
+      await rm(home, { recursive: true, force: true });
     }
   });
 
   it("skips an unmanaged directory that is not in the registry", async () => {
-    const home = makeTmpDir();
+    const home = await makeTmpDir();
     try {
       const actions = planRevert(testManifest, ["claude-code"], home);
       const target = actions[0]?.target;
       assert.ok(target);
 
       // Create the directory but do NOT register it
-      mkdirSync(target, { recursive: true });
-      writeFileSync(path.join(target, "SKILL.md"), "---\nname: test-skill\n");
+      await mkdir(target, { recursive: true });
+      await writeFile(path.join(target, "SKILL.md"), "---\nname: test-skill\n");
 
       const { succeeded, skipped } = await executeRevert(
         actions,
@@ -431,14 +433,17 @@ describe("executeRevert — copy method (cross-platform)", () => {
       );
       assert.equal(succeeded, 0);
       assert.equal(skipped, 1);
-      assert.ok(existsSync(target), "unmanaged directory should be untouched");
+      assert.ok(
+        await exists(target),
+        "unmanaged directory should be untouched",
+      );
     } finally {
-      rmSync(home, { recursive: true, force: true });
+      await rm(home, { recursive: true, force: true });
     }
   });
 
   it("skips when the target does not exist at all", async () => {
-    const home = makeTmpDir();
+    const home = await makeTmpDir();
     try {
       const actions = planRevert(testManifest, ["claude-code"], home);
       const { succeeded, skipped } = await executeRevert(
@@ -450,21 +455,21 @@ describe("executeRevert — copy method (cross-platform)", () => {
       assert.equal(succeeded, 0);
       assert.equal(skipped, 1);
     } finally {
-      rmSync(home, { recursive: true, force: true });
+      await rm(home, { recursive: true, force: true });
     }
   });
 
   it("records a failure when unregistering is blocked by permissions on Windows", {
     skip: process.platform !== "win32",
   }, async () => {
-    const home = makeTmpDir();
-    const sourceDir = makeTmpDir();
+    const home = await makeTmpDir();
+    const sourceDir = await makeTmpDir();
     const actions = planRevert(testManifest, ["claude-code"], home);
     const target = actions[0]?.target ?? "";
     try {
-      mkdirSync(target, { recursive: true });
+      await mkdir(target, { recursive: true });
       const blockedFile = path.join(target, "SKILL.md");
-      writeFileSync(blockedFile, "test");
+      await writeFile(blockedFile, "test");
       await registerDeployment(home, target, {
         kind: "skill-dir",
         source: sourceDir,
@@ -478,7 +483,7 @@ describe("executeRevert — copy method (cross-platform)", () => {
         ".inception-engine",
         "registry.json",
       );
-      chmodSync(registryFile, 0o444);
+      await chmod(registryFile, 0o444);
 
       const { succeeded, skipped, failed } = await executeRevert(
         actions,
@@ -491,22 +496,25 @@ describe("executeRevert — copy method (cross-platform)", () => {
       assert.equal(failed.length, 1);
     } finally {
       try {
-        chmodSync(path.join(home, ".inception-engine", "registry.json"), 0o666);
+        await chmod(
+          path.join(home, ".inception-engine", "registry.json"),
+          0o666,
+        );
       } catch {
         /* best effort */
       }
-      rmSync(home, { recursive: true, force: true });
-      rmSync(sourceDir, { recursive: true, force: true });
+      await rm(home, { recursive: true, force: true });
+      await rm(sourceDir, { recursive: true, force: true });
     }
   });
 });
 
 describe("executeRevert — file-write", () => {
   it("deletes the written file and unregisters", async () => {
-    const home = makeTmpDir();
+    const home = await makeTmpDir();
     try {
       const targetFile = path.join(home, "written-file.txt");
-      writeFileSync(targetFile, "managed content");
+      await writeFile(targetFile, "managed content");
 
       await registerDeployment(home, targetFile, {
         kind: "file-write",
@@ -530,17 +538,17 @@ describe("executeRevert — file-write", () => {
       );
       assert.equal(succeeded, 1);
       assert.equal(skipped, 0);
-      assert.ok(!existsSync(targetFile), "file should be deleted");
+      assert.ok(!(await exists(targetFile)), "file should be deleted");
 
       const entry = await lookupDeployment(home, targetFile);
       assert.equal(entry, null, "registry entry should be removed");
     } finally {
-      rmSync(home, { recursive: true, force: true });
+      await rm(home, { recursive: true, force: true });
     }
   });
 
   it("skips missing target", async () => {
-    const home = makeTmpDir();
+    const home = await makeTmpDir();
     try {
       const action: FileWriteRevertAction = {
         kind: "file-write",
@@ -558,15 +566,15 @@ describe("executeRevert — file-write", () => {
       assert.equal(succeeded, 0);
       assert.equal(skipped, 1);
     } finally {
-      rmSync(home, { recursive: true, force: true });
+      await rm(home, { recursive: true, force: true });
     }
   });
 
   it("skips unmanaged file not in registry", async () => {
-    const home = makeTmpDir();
+    const home = await makeTmpDir();
     try {
       const targetFile = path.join(home, "unmanaged.txt");
-      writeFileSync(targetFile, "user content");
+      await writeFile(targetFile, "user content");
 
       const action: FileWriteRevertAction = {
         kind: "file-write",
@@ -583,17 +591,20 @@ describe("executeRevert — file-write", () => {
       );
       assert.equal(succeeded, 0);
       assert.equal(skipped, 1);
-      assert.ok(existsSync(targetFile), "unmanaged file should not be deleted");
+      assert.ok(
+        await exists(targetFile),
+        "unmanaged file should not be deleted",
+      );
     } finally {
-      rmSync(home, { recursive: true, force: true });
+      await rm(home, { recursive: true, force: true });
     }
   });
 
   it("dry-run does not delete file and returns planned change", async () => {
-    const home = makeTmpDir();
+    const home = await makeTmpDir();
     try {
       const targetFile = path.join(home, "file.txt");
-      writeFileSync(targetFile, "content");
+      await writeFile(targetFile, "content");
 
       await registerDeployment(home, targetFile, {
         kind: "file-write",
@@ -617,25 +628,25 @@ describe("executeRevert — file-write", () => {
       );
       assert.equal(succeeded, 1);
       assert.ok(
-        existsSync(targetFile),
+        await exists(targetFile),
         "file should still exist after dry-run",
       );
       assert.equal(planned.length, 1);
       assert.equal(planned[0]?.verb, "remove");
       assert.equal(planned[0]?.kind, "file-write");
     } finally {
-      rmSync(home, { recursive: true, force: true });
+      await rm(home, { recursive: true, force: true });
     }
   });
 });
 
 describe("executeRevert — config-patch", () => {
   it("restores original values from undoPatch", async () => {
-    const home = makeTmpDir();
+    const home = await makeTmpDir();
     try {
       const configFile = path.join(home, "config.json");
       // Current state after patching: b was changed to 99, c was added
-      writeFileSync(configFile, JSON.stringify({ a: 1, b: 99, c: 3 }));
+      await writeFile(configFile, JSON.stringify({ a: 1, b: 99, c: 3 }));
 
       await registerDeployment(home, configFile, {
         kind: "config-patch",
@@ -661,7 +672,7 @@ describe("executeRevert — config-patch", () => {
       assert.equal(succeeded, 1);
       assert.equal(skipped, 0);
 
-      const restored = JSON.parse(readFileSync(configFile, "utf-8"));
+      const restored = JSON.parse(await readFile(configFile, "utf-8"));
       assert.equal(restored.a, 1);
       assert.equal(restored.b, 2); // restored to original
       assert.equal("c" in restored, false); // deleted (was absent before)
@@ -669,15 +680,15 @@ describe("executeRevert — config-patch", () => {
       const entry = await lookupDeployment(home, configFile);
       assert.equal(entry, null);
     } finally {
-      rmSync(home, { recursive: true, force: true });
+      await rm(home, { recursive: true, force: true });
     }
   });
 
   it("deletes keys that were added by the patch (undoPatch value null)", async () => {
-    const home = makeTmpDir();
+    const home = await makeTmpDir();
     try {
       const configFile = path.join(home, "config.json");
-      writeFileSync(configFile, JSON.stringify({ a: 1, newKey: "added" }));
+      await writeFile(configFile, JSON.stringify({ a: 1, newKey: "added" }));
 
       await registerDeployment(home, configFile, {
         kind: "config-patch",
@@ -695,16 +706,16 @@ describe("executeRevert — config-patch", () => {
       };
 
       await executeRevert([action], false, false, home);
-      const restored = JSON.parse(readFileSync(configFile, "utf-8"));
+      const restored = JSON.parse(await readFile(configFile, "utf-8"));
       assert.equal(restored.a, 1);
       assert.equal("newKey" in restored, false);
     } finally {
-      rmSync(home, { recursive: true, force: true });
+      await rm(home, { recursive: true, force: true });
     }
   });
 
   it("skips when config file is gone", async () => {
-    const home = makeTmpDir();
+    const home = await makeTmpDir();
     try {
       const action: ConfigPatchRevertAction = {
         kind: "config-patch",
@@ -722,15 +733,15 @@ describe("executeRevert — config-patch", () => {
       assert.equal(succeeded, 0);
       assert.equal(skipped, 1);
     } finally {
-      rmSync(home, { recursive: true, force: true });
+      await rm(home, { recursive: true, force: true });
     }
   });
 
   it("skips when no registry entry exists", async () => {
-    const home = makeTmpDir();
+    const home = await makeTmpDir();
     try {
       const configFile = path.join(home, "config.json");
-      writeFileSync(configFile, JSON.stringify({ a: 1 }));
+      await writeFile(configFile, JSON.stringify({ a: 1 }));
 
       const action: ConfigPatchRevertAction = {
         kind: "config-patch",
@@ -748,18 +759,18 @@ describe("executeRevert — config-patch", () => {
       assert.equal(succeeded, 0);
       assert.equal(skipped, 1);
       // File should be untouched
-      const content = JSON.parse(readFileSync(configFile, "utf-8"));
+      const content = JSON.parse(await readFile(configFile, "utf-8"));
       assert.equal(content.a, 1);
     } finally {
-      rmSync(home, { recursive: true, force: true });
+      await rm(home, { recursive: true, force: true });
     }
   });
 
   it("dry-run does not modify config and returns planned change", async () => {
-    const home = makeTmpDir();
+    const home = await makeTmpDir();
     try {
       const configFile = path.join(home, "config.json");
-      writeFileSync(configFile, JSON.stringify({ a: 1, b: 99 }));
+      await writeFile(configFile, JSON.stringify({ a: 1, b: 99 }));
 
       await registerDeployment(home, configFile, {
         kind: "config-patch",
@@ -784,14 +795,14 @@ describe("executeRevert — config-patch", () => {
       );
       assert.equal(succeeded, 1);
 
-      const after = JSON.parse(readFileSync(configFile, "utf-8"));
+      const after = JSON.parse(await readFile(configFile, "utf-8"));
       assert.equal(after.b, 99, "config should be unchanged after dry-run");
 
       assert.equal(planned.length, 1);
       assert.equal(planned[0]?.verb, "unapply-patch");
       assert.equal(planned[0]?.kind, "config-patch");
     } finally {
-      rmSync(home, { recursive: true, force: true });
+      await rm(home, { recursive: true, force: true });
     }
   });
 });
@@ -908,7 +919,7 @@ describe("executeRevert — mcpServer and agentRule integration", {
   skip: process.platform === "win32",
 }, () => {
   it("reverts a deployed mcpServer config-patch and unregisters it", async () => {
-    const home = makeTmpDir();
+    const home = await makeTmpDir();
     try {
       // Simulate a deployed mcpServer: config file with mcpServers key patched in
       const configFile = path.join(home, ".claude.json");
@@ -917,7 +928,7 @@ describe("executeRevert — mcpServer and agentRule integration", {
         other: "value",
         mcpServers: { "my-mcp": { command: "npx" } },
       };
-      writeFileSync(configFile, JSON.stringify(patched));
+      await writeFile(configFile, JSON.stringify(patched));
 
       await registerDeployment(home, configFile, {
         kind: "config-patch",
@@ -943,7 +954,7 @@ describe("executeRevert — mcpServer and agentRule integration", {
       assert.equal(succeeded, 1);
       assert.equal(failed.length, 0);
 
-      const restored = JSON.parse(readFileSync(configFile, "utf-8"));
+      const restored = JSON.parse(await readFile(configFile, "utf-8"));
       assert.deepEqual(restored, original);
 
       const entry = await lookupDeployment(home, configFile);
@@ -953,12 +964,12 @@ describe("executeRevert — mcpServer and agentRule integration", {
         "registry entry should be removed after revert",
       );
     } finally {
-      rmSync(home, { recursive: true, force: true });
+      await rm(home, { recursive: true, force: true });
     }
   });
 
   it("reverts nested config-patch, preserving sibling MCP server", async () => {
-    const home = makeTmpDir();
+    const home = await makeTmpDir();
     try {
       // Original config already has one MCP server; we deployed a second one
       const configFile = path.join(home, ".claude.json");
@@ -968,7 +979,7 @@ describe("executeRevert — mcpServer and agentRule integration", {
           "new-server": { command: "new" },
         },
       };
-      writeFileSync(configFile, JSON.stringify(patched));
+      await writeFile(configFile, JSON.stringify(patched));
 
       // Deep undo patch: only remove "new-server" under mcpServers
       await registerDeployment(home, configFile, {
@@ -995,7 +1006,7 @@ describe("executeRevert — mcpServer and agentRule integration", {
       assert.equal(succeeded, 1);
       assert.equal(failed.length, 0);
 
-      const restored = JSON.parse(readFileSync(configFile, "utf-8"));
+      const restored = JSON.parse(await readFile(configFile, "utf-8"));
       // "new-server" should be gone, "existing-server" should be preserved
       assert.equal("new-server" in restored.mcpServers, false);
       assert.deepEqual(restored.mcpServers["existing-server"], {
@@ -1009,16 +1020,16 @@ describe("executeRevert — mcpServer and agentRule integration", {
         "registry entry should be removed after revert",
       );
     } finally {
-      rmSync(home, { recursive: true, force: true });
+      await rm(home, { recursive: true, force: true });
     }
   });
 
   it("reverts a deployed agentRule file-write and unregisters it", async () => {
-    const home = makeTmpDir();
+    const home = await makeTmpDir();
     try {
       const rulesFile = path.join(home, ".claude", "CLAUDE.md");
-      mkdirSync(path.dirname(rulesFile), { recursive: true });
-      writeFileSync(rulesFile, "# My Rules\n");
+      await mkdir(path.dirname(rulesFile), { recursive: true });
+      await writeFile(rulesFile, "# My Rules\n");
 
       await registerDeployment(home, rulesFile, {
         kind: "file-write",
@@ -1044,7 +1055,7 @@ describe("executeRevert — mcpServer and agentRule integration", {
       assert.equal(failed.length, 0);
 
       assert.ok(
-        !existsSync(rulesFile),
+        !(await exists(rulesFile)),
         "rules file should be removed after revert",
       );
 
@@ -1055,16 +1066,16 @@ describe("executeRevert — mcpServer and agentRule integration", {
         "registry entry should be removed after revert",
       );
     } finally {
-      rmSync(home, { recursive: true, force: true });
+      await rm(home, { recursive: true, force: true });
     }
   });
 
   it("dry-run for mcpServer revert returns planned change without modifying config", async () => {
-    const home = makeTmpDir();
+    const home = await makeTmpDir();
     try {
       const configFile = path.join(home, ".claude.json");
       const patched = { mcpServers: { "my-mcp": { command: "npx" } } };
-      writeFileSync(configFile, JSON.stringify(patched));
+      await writeFile(configFile, JSON.stringify(patched));
 
       await registerDeployment(home, configFile, {
         kind: "config-patch",
@@ -1091,23 +1102,23 @@ describe("executeRevert — mcpServer and agentRule integration", {
       assert.equal(planned.length, 1);
       assert.equal(planned[0]?.verb, "unapply-patch");
 
-      const unchanged = JSON.parse(readFileSync(configFile, "utf-8"));
+      const unchanged = JSON.parse(await readFile(configFile, "utf-8"));
       assert.deepEqual(
         unchanged,
         patched,
         "config should be unchanged during dry-run",
       );
     } finally {
-      rmSync(home, { recursive: true, force: true });
+      await rm(home, { recursive: true, force: true });
     }
   });
 
   it("dry-run for agentRule revert returns planned change without deleting file", async () => {
-    const home = makeTmpDir();
+    const home = await makeTmpDir();
     try {
       const rulesFile = path.join(home, ".claude", "CLAUDE.md");
-      mkdirSync(path.dirname(rulesFile), { recursive: true });
-      writeFileSync(rulesFile, "# My Rules\n");
+      await mkdir(path.dirname(rulesFile), { recursive: true });
+      await writeFile(rulesFile, "# My Rules\n");
 
       await registerDeployment(home, rulesFile, {
         kind: "file-write",
@@ -1135,11 +1146,11 @@ describe("executeRevert — mcpServer and agentRule integration", {
       assert.equal(planned[0]?.kind, "file-write");
 
       assert.ok(
-        existsSync(rulesFile),
+        await exists(rulesFile),
         "rules file should still exist after dry-run",
       );
     } finally {
-      rmSync(home, { recursive: true, force: true });
+      await rm(home, { recursive: true, force: true });
     }
   });
 });
