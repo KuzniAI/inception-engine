@@ -15,6 +15,22 @@ export interface AgentPaths {
 
 export type Confidence = "documented" | "implementation-only" | "provisional";
 
+export interface SupportedAgentSurface {
+  status: "supported";
+  path: AgentPaths;
+  schemaLabel: string;
+}
+
+export interface UnsupportedAgentSurface {
+  status: "unsupported";
+  schemaLabel: string;
+  reason: string;
+}
+
+export type AgentSurfaceSupport =
+  | SupportedAgentSurface
+  | UnsupportedAgentSurface;
+
 export interface AgentProvenance {
   skills: Confidence;
   detectPaths: Confidence;
@@ -30,16 +46,12 @@ export interface AgentConfig {
   detectPaths: AgentPaths;
   detectBinary: string | null;
   provenance: AgentProvenance;
-  // Path to the JSON config file that holds mcpServers for this agent.
-  // Absent if MCP config location is unknown or not yet documented.
-  mcpConfigPath?: AgentPaths;
-  // Path for deploying a rules/instruction file for this agent.
-  // Absent if rules files are not yet documented for this agent.
-  agentRulesPath?: AgentPaths;
-  // When true, this agent reads Claude-native instruction artifacts (e.g. CLAUDE.md)
-  // directly, so no separate agentRules deployment target is needed.
-  // Deploy via the "claude-code" agentRules entry to reach this agent automatically.
-  claudeNativeInstruction?: true;
+  // Agent-specific MCP surface support. Unsupported entries are carried
+  // explicitly so adapter warnings can explain whether support is blocked by
+  // TOML, frontmatter, repo-scoped files, or other non-JSON schemas.
+  mcpSupport?: AgentSurfaceSupport;
+  // Agent-specific persistent instruction/rules surface support.
+  agentRulesSupport?: AgentSurfaceSupport;
   policyNote?: string;
 }
 

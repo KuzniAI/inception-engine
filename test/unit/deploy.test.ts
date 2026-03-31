@@ -378,7 +378,7 @@ describe("planDeploy", () => {
     }
   });
 
-  it("adapter: mcpServers entry emits a warning for agent without documented mcpConfigPath", async () => {
+  it("adapter: mcpServers entry emits a schema-aware warning for unsupported MCP surfaces", async () => {
     const sourceDir = makeTmpDir();
     try {
       const manifest: Manifest = {
@@ -403,10 +403,7 @@ describe("planDeploy", () => {
       assert.equal(actions.length, 0);
       assert.equal(warnings.length, 1);
       assert.equal(warnings[0]?.kind, "confidence");
-      assert.match(
-        warnings[0]?.message ?? "",
-        /does not have a documented MCP config path/,
-      );
+      assert.match(warnings[0]?.message ?? "", /repo-scoped MCP surfaces/);
     } finally {
       rmSync(sourceDir, { recursive: true });
     }

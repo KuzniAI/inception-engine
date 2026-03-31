@@ -74,7 +74,7 @@ describe("compileMcpServerActions", () => {
     );
   });
 
-  it("returns a warning and no action when agent is detected but has no mcpConfigPath (github-copilot)", () => {
+  it("returns a schema-aware warning and no action for github-copilot MCP", () => {
     const { actions, warnings } = compileMcpServerActions(
       {
         name: "my-mcp",
@@ -87,14 +87,11 @@ describe("compileMcpServerActions", () => {
     assert.equal(actions.length, 0);
     assert.equal(warnings.length, 1);
     assert.equal(warnings[0]?.kind, "confidence");
-    assert.match(
-      warnings[0]?.message ?? "",
-      /does not have a documented MCP config path/,
-    );
+    assert.match(warnings[0]?.message ?? "", /repo-scoped MCP surfaces/);
     assert.match(warnings[0]?.message ?? "", /github-copilot/);
   });
 
-  it("returns a warning and no action for antigravity (no mcpConfigPath)", () => {
+  it("returns a schema-aware warning and no action for antigravity MCP", () => {
     const { actions, warnings } = compileMcpServerActions(
       { name: "my-mcp", agents: ["antigravity"], config: { command: "s" } },
       ["antigravity"],
@@ -103,9 +100,26 @@ describe("compileMcpServerActions", () => {
     assert.equal(actions.length, 0);
     assert.equal(warnings.length, 1);
     assert.match(warnings[0]?.message ?? "", /antigravity/);
+    assert.match(warnings[0]?.message ?? "", /frontmatter-driven MCP rules/);
   });
 
-  it("produces actions for each detected agent that has a mcpConfigPath", () => {
+  it("throws when a supported MCP target is missing both command and url", () => {
+    assert.throws(
+      () =>
+        compileMcpServerActions(
+          {
+            name: "my-mcp",
+            agents: ["claude-code"],
+            config: { args: ["--verbose"] },
+          },
+          ["claude-code"],
+          "/home/test",
+        ),
+      /must define either a non-empty "command" or "url"/,
+    );
+  });
+
+  it("produces actions for each detected agent that has supported MCP config", () => {
     const { actions, warnings } = compileMcpServerActions(
       {
         name: "my-mcp",
@@ -203,7 +217,7 @@ describe("compileAgentRuleActions", () => {
     }
   });
 
-  it("returns a warning and no action for github-copilot (reads CLAUDE.md natively — no separate deployment needed)", async () => {
+  it("returns a schema-aware warning and no action for github-copilot rules", async () => {
     const dir = makeTmpDir();
     try {
       writeFileSync(path.join(dir, "rules.md"), "# Rules");
@@ -223,17 +237,20 @@ describe("compileAgentRuleActions", () => {
       assert.equal(actions.length, 0);
       assert.equal(warnings.length, 1);
       assert.equal(warnings[0]?.kind, "confidence");
-      assert.match(warnings[0]?.message ?? "", /reads CLAUDE\.md natively/);
       assert.match(
         warnings[0]?.message ?? "",
-        /deploy via "claude-code" target/,
+        /Claude-native shared instructions/,
+      );
+      assert.match(
+        warnings[0]?.message ?? "",
+        /deploy via the "claude-code" agentRules target/,
       );
     } finally {
       rmSync(dir, { recursive: true });
     }
   });
 
-  it("returns a warning and no action for antigravity (no agentRulesPath)", async () => {
+  it("returns a schema-aware warning and no action for antigravity rules", async () => {
     const dir = makeTmpDir();
     try {
       writeFileSync(path.join(dir, "rules.md"), "# Rules");
@@ -249,6 +266,28 @@ describe("compileAgentRuleActions", () => {
       assert.equal(actions.length, 0);
       assert.equal(warnings.length, 1);
       assert.match(warnings[0]?.message ?? "", /antigravity/);
+      assert.match(warnings[0]?.message ?? "", /repo-scoped rules files/);
+    } finally {
+      rmSync(dir, { recursive: true });
+    }
+  });
+
+  it("throws when a supported rules target is given a non-Markdown source path", async () => {
+    const dir = makeTmpDir();
+    try {
+      writeFileSync(path.join(dir, "rules.txt"), "plain text");
+      const realRoot = realpathSync(dir);
+      await assert.rejects(
+        compileAgentRuleActions(
+          { name: "my-rule", agents: ["codex"], path: "rules.txt" },
+          dir,
+          dir,
+          realRoot,
+          ["codex"],
+          "/home/test",
+        ),
+        /must point to a Markdown source file/,
+      );
     } finally {
       rmSync(dir, { recursive: true });
     }
@@ -281,7 +320,7 @@ describe("compileAgentRuleActions", () => {
     }
   });
 
-  it("produces actions for each detected agent that has agentRulesPath", async () => {
+  it("produces actions for each detected agent that has supported rules config", async () => {
     const dir = makeTmpDir();
     try {
       writeFileSync(path.join(dir, "rules.md"), "# Rules");

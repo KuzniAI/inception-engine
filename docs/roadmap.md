@@ -21,7 +21,7 @@ These items should stay near the top because they unlock multiple follow-on feat
 
 ### Quality Enablers
 
-1. Strengthen MCP and instruction adapters with per-agent schema validation where support depends on TOML, frontmatter, repo-scoped files, or other non-JSON shapes. Score: `6/8` (`Architecture 2`, `Agents 2`, `OS 0`, `Confidence 2`)
+1. ~~Strengthen MCP and instruction adapters with per-agent schema validation where support depends on TOML, frontmatter, repo-scoped files, or other non-JSON shapes.~~ Score: `6/8` (`Architecture 2`, `Agents 2`, `OS 0`, `Confidence 2`)
 2. ~~Add targeted validation and revert tests for agent-definition surfaces before promoting them from roadmap to supported capability.~~ Score: `4/8` (`Architecture 1`, `Agents 1`, `OS 1`, `Confidence 1`)
 
 ## Functional Features

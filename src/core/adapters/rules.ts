@@ -8,7 +8,11 @@ import type {
   PlanWarning,
 } from "../../types.ts";
 import { getPlatformKey, resolvePlaceholders } from "../resolve.ts";
-import { validateSourceFile, validateSourcePath } from "../validation.ts";
+import {
+  validateAgentRuleMarkdownPath,
+  validateSourceFile,
+  validateSourcePath,
+} from "../validation.ts";
 
 export interface RulesAdapterResult {
   actions: FileWriteDeployAction[];
@@ -29,48 +33,53 @@ export async function compileAgentRuleActions(
   const targetAgents = entry.agents.filter((agentId) =>
     detectedAgents.includes(agentId),
   );
+  const supportedTargets: Array<{
+    agentId: AgentId;
+    confidence: FileWriteDeployAction["confidence"];
+    target: string;
+  }> = [];
 
   if (targetAgents.length === 0) {
     return { actions, warnings };
   }
 
-  // Validate the source file once (before iterating agents) since it is shared.
+  for (const agentId of targetAgents) {
+    const agent = AGENT_REGISTRY_BY_ID[agentId];
+    const support = agent?.agentRulesSupport;
+    if (!support || support.status === "unsupported") {
+      warnings.push({
+        kind: "confidence",
+        message: `agentRules: agent "${agentId}" uses ${support?.schemaLabel ?? "an unsupported instruction schema"} and ${support?.reason ?? "does not expose a supported rules adapter"} — skipping "${entry.name}"`,
+      });
+      continue;
+    }
+
+    supportedTargets.push({
+      agentId,
+      confidence: agent.provenance.agentRules ?? "provisional",
+      target: resolvePlaceholders(support.path[platform], "", home),
+    });
+  }
+
+  if (supportedTargets.length === 0) {
+    return { actions, warnings };
+  }
+
+  // Validate the shared source file only when at least one target uses the
+  // current global-Markdown adapter surface.
   const source = path.resolve(sourceDir, entry.path);
   await validateSourcePath(source, entry.path, resolvedSourceDir, realRoot);
   await validateSourceFile(source, entry.path);
 
-  for (const agentId of targetAgents) {
-    const agent = AGENT_REGISTRY_BY_ID[agentId];
-
-    if (agent?.claudeNativeInstruction) {
-      warnings.push({
-        kind: "confidence",
-        message: `agentRules: agent "${agentId}" reads CLAUDE.md natively — deploy via "claude-code" target to reach Copilot automatically; no separate deployment needed`,
-      });
-      continue;
-    }
-
-    if (!agent?.agentRulesPath) {
-      warnings.push({
-        kind: "confidence",
-        message: `agentRules: agent "${agentId}" does not have a documented rules file path — skipping "${entry.name}"`,
-      });
-      continue;
-    }
-
-    const target = resolvePlaceholders(
-      agent.agentRulesPath[platform],
-      "",
-      home,
-    );
-
+  for (const target of supportedTargets) {
+    validateAgentRuleMarkdownPath(entry.path, target.agentId);
     actions.push({
       kind: "file-write",
       skill: entry.name,
-      agent: agentId,
+      agent: target.agentId,
       source,
-      target,
-      confidence: agent.provenance.agentRules ?? "provisional",
+      target: target.target,
+      confidence: target.confidence,
     });
   }
 
@@ -88,12 +97,9 @@ export function compileAgentRuleReverts(
   for (const agentId of entry.agents) {
     if (agentFilter && !agentFilter.includes(agentId)) continue;
     const agent = AGENT_REGISTRY_BY_ID[agentId];
-    if (!agent?.agentRulesPath) continue;
-    const target = resolvePlaceholders(
-      agent.agentRulesPath[platform],
-      "",
-      home,
-    );
+    const support = agent?.agentRulesSupport;
+    if (!support || support.status === "unsupported") continue;
+    const target = resolvePlaceholders(support.path[platform], "", home);
     actions.push({
       kind: "file-write",
       skill: entry.name,

@@ -8,6 +8,7 @@ import type {
   PlanWarning,
 } from "../../types.ts";
 import { getPlatformKey, resolvePlaceholders } from "../resolve.ts";
+import { validateMcpServerConfigShape } from "../validation.ts";
 
 export interface McpAdapterResult {
   actions: ConfigPatchDeployAction[];
@@ -26,15 +27,18 @@ export function compileMcpServerActions(
   for (const agentId of entry.agents) {
     if (!detectedAgents.includes(agentId)) continue;
     const agent = AGENT_REGISTRY_BY_ID[agentId];
-    if (!agent?.mcpConfigPath) {
+    const support = agent?.mcpSupport;
+    if (!support || support.status === "unsupported") {
       warnings.push({
         kind: "confidence",
-        message: `mcpServers: agent "${agentId}" does not have a documented MCP config path — skipping "${entry.name}"`,
+        message: `mcpServers: agent "${agentId}" uses ${support?.schemaLabel ?? "an unsupported MCP schema"} and ${support?.reason ?? "does not expose a supported MCP adapter"} — skipping "${entry.name}"`,
       });
       continue;
     }
 
-    const target = resolvePlaceholders(agent.mcpConfigPath[platform], "", home);
+    validateMcpServerConfigShape(entry.config, entry.name, agentId);
+
+    const target = resolvePlaceholders(support.path[platform], "", home);
     // Ensure no stray empty segments collapse the path unexpectedly
     const resolvedTarget = path.resolve(target);
 
@@ -62,9 +66,10 @@ export function compileMcpServerReverts(
   for (const agentId of entry.agents) {
     if (agentFilter && !agentFilter.includes(agentId)) continue;
     const agent = AGENT_REGISTRY_BY_ID[agentId];
-    if (!agent?.mcpConfigPath) continue;
+    const support = agent?.mcpSupport;
+    if (!support || support.status === "unsupported") continue;
     const target = path.resolve(
-      resolvePlaceholders(agent.mcpConfigPath[platform], "", home),
+      resolvePlaceholders(support.path[platform], "", home),
     );
     actions.push({
       kind: "config-patch",

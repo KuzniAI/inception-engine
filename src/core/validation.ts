@@ -96,6 +96,83 @@ export async function validateSourceFile(
   }
 }
 
+function isRecordOfStrings(value: unknown): value is Record<string, string> {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    !Array.isArray(value) &&
+    Object.values(value).every((entry) => typeof entry === "string")
+  );
+}
+
+function validateNonEmptyStringField(
+  value: unknown,
+  field: string,
+  entryName: string,
+  agentId: string,
+): void {
+  if (typeof value !== "string" || value.trim().length === 0) {
+    throw new UserError(
+      "DEPLOY_FAILED",
+      `mcpServers entry "${entryName}" for agent "${agentId}" must define "${field}" as a non-empty string`,
+    );
+  }
+}
+
+export function validateMcpServerConfigShape(
+  config: Record<string, unknown>,
+  entryName: string,
+  agentId: string,
+): void {
+  const hasCommand = Object.hasOwn(config, "command");
+  const hasUrl = Object.hasOwn(config, "url");
+
+  if (!(hasCommand || hasUrl)) {
+    throw new UserError(
+      "DEPLOY_FAILED",
+      `mcpServers entry "${entryName}" for agent "${agentId}" must define either a non-empty "command" or "url"`,
+    );
+  }
+
+  if (hasCommand) {
+    validateNonEmptyStringField(config.command, "command", entryName, agentId);
+  }
+  if (hasUrl) {
+    validateNonEmptyStringField(config.url, "url", entryName, agentId);
+  }
+
+  if (
+    Object.hasOwn(config, "args") &&
+    (!Array.isArray(config.args) ||
+      config.args.some((arg) => typeof arg !== "string"))
+  ) {
+    throw new UserError(
+      "DEPLOY_FAILED",
+      `mcpServers entry "${entryName}" for agent "${agentId}" must define "args" as an array of strings when present`,
+    );
+  }
+
+  if (Object.hasOwn(config, "env") && !isRecordOfStrings(config.env)) {
+    throw new UserError(
+      "DEPLOY_FAILED",
+      `mcpServers entry "${entryName}" for agent "${agentId}" must define "env" as an object of string values when present`,
+    );
+  }
+}
+
+export function validateAgentRuleMarkdownPath(
+  manifestPath: string,
+  agentId: string,
+): void {
+  const extension = path.extname(manifestPath).toLowerCase();
+  if (extension !== ".md" && extension !== ".markdown") {
+    throw new UserError(
+      "DEPLOY_FAILED",
+      `agentRules entry "${manifestPath}" for agent "${agentId}" must point to a Markdown source file`,
+    );
+  }
+}
+
 function trimMatchingQuotes(value: string): string {
   if (
     (value.startsWith('"') && value.endsWith('"')) ||

@@ -20,13 +20,21 @@ export const AGENT_REGISTRY: readonly AgentConfig[] = [
       mcpConfig: "documented",
       agentRules: "documented",
     },
-    mcpConfigPath: {
-      posix: ["{home}", ".claude.json"],
-      windows: ["{home}", ".claude.json"],
+    mcpSupport: {
+      status: "supported",
+      schemaLabel: "JSON mcpServers config",
+      path: {
+        posix: ["{home}", ".claude.json"],
+        windows: ["{home}", ".claude.json"],
+      },
     },
-    agentRulesPath: {
-      posix: ["{home}", ".claude", "CLAUDE.md"],
-      windows: ["{home}", ".claude", "CLAUDE.md"],
+    agentRulesSupport: {
+      status: "supported",
+      schemaLabel: "global Markdown rules file",
+      path: {
+        posix: ["{home}", ".claude", "CLAUDE.md"],
+        windows: ["{home}", ".claude", "CLAUDE.md"],
+      },
     },
   },
   {
@@ -47,10 +55,19 @@ export const AGENT_REGISTRY: readonly AgentConfig[] = [
       detectBinary: "documented",
       agentRules: "documented",
     },
-    // mcpConfigPath omitted: Codex uses TOML config, not JSON — not supported by config-patch
-    agentRulesPath: {
-      posix: ["{home}", ".codex", "AGENTS.md"],
-      windows: ["{home}", ".codex", "AGENTS.md"],
+    mcpSupport: {
+      status: "unsupported",
+      schemaLabel: "config.toml MCP schema",
+      reason:
+        "Codex stores MCP servers in config.toml, so JSON merge-patch deployment is not sufficient yet",
+    },
+    agentRulesSupport: {
+      status: "supported",
+      schemaLabel: "global Markdown rules file",
+      path: {
+        posix: ["{home}", ".codex", "AGENTS.md"],
+        windows: ["{home}", ".codex", "AGENTS.md"],
+      },
     },
   },
   {
@@ -72,13 +89,21 @@ export const AGENT_REGISTRY: readonly AgentConfig[] = [
       mcpConfig: "documented",
       agentRules: "documented",
     },
-    mcpConfigPath: {
-      posix: ["{home}", ".gemini", "settings.json"],
-      windows: ["{home}", ".gemini", "settings.json"],
+    mcpSupport: {
+      status: "supported",
+      schemaLabel: "JSON mcpServers config",
+      path: {
+        posix: ["{home}", ".gemini", "settings.json"],
+        windows: ["{home}", ".gemini", "settings.json"],
+      },
     },
-    agentRulesPath: {
-      posix: ["{home}", ".gemini", "GEMINI.md"],
-      windows: ["{home}", ".gemini", "GEMINI.md"],
+    agentRulesSupport: {
+      status: "supported",
+      schemaLabel: "global Markdown rules file",
+      path: {
+        posix: ["{home}", ".gemini", "GEMINI.md"],
+        windows: ["{home}", ".gemini", "GEMINI.md"],
+      },
     },
   },
   {
@@ -98,7 +123,18 @@ export const AGENT_REGISTRY: readonly AgentConfig[] = [
       detectPaths: "implementation-only",
       detectBinary: "provisional",
     },
-    // mcpConfigPath and agentRulesPath omitted: paths not documented strongly enough for this release
+    mcpSupport: {
+      status: "unsupported",
+      schemaLabel: "frontmatter-driven MCP rules",
+      reason:
+        "Antigravity MCP support depends on frontmatter inside repo-scoped .agents/rules files, which this release does not translate or validate yet",
+    },
+    agentRulesSupport: {
+      status: "unsupported",
+      schemaLabel: "repo-scoped rules files",
+      reason:
+        "Antigravity instructions live in repo-scoped .agents/rules files rather than one global Markdown target",
+    },
   },
   {
     id: "opencode",
@@ -118,10 +154,19 @@ export const AGENT_REGISTRY: readonly AgentConfig[] = [
       detectBinary: "documented",
       agentRules: "documented",
     },
-    // mcpConfigPath omitted: OpenCode uses opencode.json (TOML-adjacent format), not plain JSON
-    agentRulesPath: {
-      posix: ["{xdg_config}", "opencode", "AGENTS.md"],
-      windows: ["{appdata}", "opencode", "AGENTS.md"],
+    mcpSupport: {
+      status: "unsupported",
+      schemaLabel: "opencode.json MCP schema",
+      reason:
+        "OpenCode keeps MCP config in opencode.json under its own shape, so plain JSON merge-patch support is not implemented here",
+    },
+    agentRulesSupport: {
+      status: "supported",
+      schemaLabel: "global Markdown rules file",
+      path: {
+        posix: ["{xdg_config}", "opencode", "AGENTS.md"],
+        windows: ["{appdata}", "opencode", "AGENTS.md"],
+      },
     },
   },
   {
@@ -141,10 +186,18 @@ export const AGENT_REGISTRY: readonly AgentConfig[] = [
       detectPaths: "documented",
       detectBinary: "documented",
     },
-    // agentRulesPath omitted: Copilot reads CLAUDE.md natively (Claude-first portability rule).
-    // Deploy via the "claude-code" agentRules entry — it reaches Copilot automatically.
-    // mcpConfigPath omitted: Copilot MCP config surface is not implemented here yet.
-    claudeNativeInstruction: true,
+    mcpSupport: {
+      status: "unsupported",
+      schemaLabel: "repo-scoped MCP surfaces",
+      reason:
+        "GitHub Copilot MCP support depends on repo-scoped files such as devcontainer or agent-frontmatter mappings, which are not translated here",
+    },
+    agentRulesSupport: {
+      status: "unsupported",
+      schemaLabel: "Claude-native shared instructions",
+      reason:
+        'GitHub Copilot reads CLAUDE.md natively, so deploy via the "claude-code" agentRules target instead of a separate rules surface',
+    },
     policyNote:
       "Organization policies may override locally deployed skills. Verify with your GitHub org admin if deployed skills are not active.",
   },

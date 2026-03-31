@@ -128,17 +128,17 @@ Each **mcpServer** entry registers an MCP server into the agent's config file by
 
 - **name** - Unique identifier (same format as skill names); used as the server's key in the config
 - **agents** - Array of agent IDs to register this server with
-- **config** - Raw server descriptor object (e.g. `{ "command": "...", "args": [...] }` for stdio transport). The exact shape is passed through verbatim; agent adapters handle agent-specific requirements.
+- **config** - Raw server descriptor object. For the currently supported JSON-backed adapters, inception-engine requires at least one non-empty `command` or `url` field, validates `args` as an array of strings when present, and validates `env` as a string-to-string object when present. Additional keys are passed through verbatim.
 
-MCP server registration is currently supported for `claude-code` (`~/.claude.json`) and `gemini-cli` (`~/.gemini/settings.json`). Other agents emit a warning and are skipped. Revert removes the registered server entry from the config file.
+MCP server registration is currently supported for `claude-code` (`~/.claude.json`) and `gemini-cli` (`~/.gemini/settings.json`). Other agents emit a schema-aware warning and are skipped when their support would require a non-JSON adapter, such as Codex `config.toml`, Antigravity frontmatter in repo-scoped rules files, OpenCode `opencode.json`, or GitHub Copilot repo-scoped MCP surfaces. Revert removes the registered server entry from the config file.
 
 Each **agentRules** entry deploys a Markdown instruction file to an agent's supported global rules file location:
 
 - **name** - Unique identifier (same format as skill names)
-- **path** - Relative path to the source Markdown file within the repo
+- **path** - Relative path to the source Markdown file within the repo; supported global rules adapters require a `.md` or `.markdown` source path
 - **agents** - Array of agent IDs to deploy this file to
 
-Global rules-file deployment is currently supported for `claude-code` (`~/.claude/CLAUDE.md`), `codex` (`~/.codex/AGENTS.md`), `gemini-cli` (`~/.gemini/GEMINI.md`), and `opencode` (`~/.config/opencode/AGENTS.md`). For `github-copilot`, no separate deployment is needed because Copilot reads `CLAUDE.md` natively — target it via the `claude-code` agentRules entry and it reaches Copilot automatically. Other agents emit a warning and are skipped because their instruction surfaces are different, repo-scoped, or not yet implemented. Revert removes the deployed rules file.
+Global rules-file deployment is currently supported for `claude-code` (`~/.claude/CLAUDE.md`), `codex` (`~/.codex/AGENTS.md`), `gemini-cli` (`~/.gemini/GEMINI.md`), and `opencode` (`~/.config/opencode/AGENTS.md`). For `github-copilot`, no separate deployment is needed because Copilot reads `CLAUDE.md` natively — target it via the `claude-code` agentRules entry and it reaches Copilot automatically. Other agents emit schema-aware warnings and are skipped when their instruction surfaces are repo-scoped, frontmatter-driven, or otherwise not implemented as a single global Markdown file. Revert removes the deployed rules file.
 
 ## Creating Skills
 
