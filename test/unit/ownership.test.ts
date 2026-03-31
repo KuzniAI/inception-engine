@@ -458,7 +458,7 @@ describe("verifyDeployment", () => {
   });
 });
 
-describe("registerDeployment — config-patch", () => {
+describe("registerDeployment - config-patch", () => {
   it("stores patch and undoPatch in registry", async () => {
     const home = await makeTmpDir();
     try {
@@ -488,7 +488,7 @@ describe("registerDeployment — config-patch", () => {
   });
 });
 
-describe("loadRegistry — backward compatibility", () => {
+describe("loadRegistry - backward compatibility", () => {
   it("reads old-style skill-dir entries without discriminated union", async () => {
     const home = await makeTmpDir();
     try {
