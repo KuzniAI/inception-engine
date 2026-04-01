@@ -323,7 +323,7 @@ describe("init command", () => {
     }
   });
 
-  it("empty directory with no skills exits 0 with info message", async () => {
+  it("empty directory with no skills exits 0 with info message and writes manifest", async () => {
     const dir = await makeTmpDir();
     try {
       const { stdout, code } = await run(["init", dir]);
@@ -331,6 +331,265 @@ describe("init command", () => {
       assert.ok(
         stdout.includes("No skill"),
         `stdout should mention no skills: ${stdout}`,
+      );
+      // manifest is still written even with no skills
+      const manifest = JSON.parse(
+        (
+          await import("node:fs/promises").then((m) =>
+            m.readFile(path.join(dir, "inception.json"), "utf-8"),
+          )
+        ).toString(),
+      ) as Record<string, unknown>;
+      assert.ok(
+        Array.isArray(manifest.skills),
+        "manifest.skills should be an array",
+      );
+    } finally {
+      await rm(dir, { recursive: true });
+    }
+  });
+
+  it("generated manifest always includes all five section keys", async () => {
+    const dir = await makeTmpDir();
+    try {
+      await mkdir(path.join(dir, "my-skill"), { recursive: true });
+      await writeFile(
+        path.join(dir, "my-skill", "SKILL.md"),
+        "---\nname: my-skill\ndescription: test\n---\n",
+      );
+      const { code } = await run(["init", dir]);
+      assert.equal(code, 0);
+      const manifest = JSON.parse(
+        (
+          await import("node:fs/promises").then((m) =>
+            m.readFile(path.join(dir, "inception.json"), "utf-8"),
+          )
+        ).toString(),
+      ) as Record<string, unknown>;
+      assert.ok(
+        Array.isArray(manifest.skills),
+        "manifest.skills should be an array",
+      );
+      assert.ok(
+        Array.isArray(manifest.files),
+        "manifest.files should be an array",
+      );
+      assert.ok(
+        Array.isArray(manifest.configs),
+        "manifest.configs should be an array",
+      );
+      assert.ok(
+        Array.isArray(manifest.mcpServers),
+        "manifest.mcpServers should be an array",
+      );
+      assert.ok(
+        Array.isArray(manifest.agentRules),
+        "manifest.agentRules should be an array",
+      );
+    } finally {
+      await rm(dir, { recursive: true });
+    }
+  });
+
+  it("discovers CLAUDE.md as agentRules entry for claude-code", async () => {
+    const dir = await makeTmpDir();
+    try {
+      await mkdir(path.join(dir, "my-skill"), { recursive: true });
+      await writeFile(
+        path.join(dir, "my-skill", "SKILL.md"),
+        "---\nname: my-skill\ndescription: test\n---\n",
+      );
+      await writeFile(path.join(dir, "CLAUDE.md"), "# rules\n");
+      const { code } = await run(["init", dir]);
+      assert.equal(code, 0);
+      const manifest = JSON.parse(
+        (
+          await import("node:fs/promises").then((m) =>
+            m.readFile(path.join(dir, "inception.json"), "utf-8"),
+          )
+        ).toString(),
+      ) as {
+        agentRules: Array<{ name: string; path: string; agents: string[] }>;
+      };
+      assert.ok(
+        manifest.agentRules.length > 0,
+        "should have at least one agentRules entry",
+      );
+      const entry = manifest.agentRules.find((r) =>
+        r.path.endsWith("CLAUDE.md"),
+      );
+      assert.ok(entry, "should have an entry for CLAUDE.md");
+      assert.ok(
+        entry?.agents.includes("claude-code"),
+        `agents should include claude-code, got: ${JSON.stringify(entry?.agents)}`,
+      );
+    } finally {
+      await rm(dir, { recursive: true });
+    }
+  });
+
+  it("discovers AGENTS.md as agentRules entry for codex and opencode", async () => {
+    const dir = await makeTmpDir();
+    try {
+      await mkdir(path.join(dir, "my-skill"), { recursive: true });
+      await writeFile(
+        path.join(dir, "my-skill", "SKILL.md"),
+        "---\nname: my-skill\ndescription: test\n---\n",
+      );
+      await writeFile(path.join(dir, "AGENTS.md"), "# rules\n");
+      const { code } = await run(["init", dir]);
+      assert.equal(code, 0);
+      const manifest = JSON.parse(
+        (
+          await import("node:fs/promises").then((m) =>
+            m.readFile(path.join(dir, "inception.json"), "utf-8"),
+          )
+        ).toString(),
+      ) as {
+        agentRules: Array<{ name: string; path: string; agents: string[] }>;
+      };
+      const entry = manifest.agentRules.find((r) =>
+        r.path.endsWith("AGENTS.md"),
+      );
+      assert.ok(entry, "should have an entry for AGENTS.md");
+      assert.deepEqual(
+        entry?.agents.slice().sort(),
+        ["codex", "opencode"],
+        `expected codex+opencode, got: ${JSON.stringify(entry?.agents)}`,
+      );
+    } finally {
+      await rm(dir, { recursive: true });
+    }
+  });
+
+  it("discovers GEMINI.md as agentRules entry for gemini-cli and antigravity", async () => {
+    const dir = await makeTmpDir();
+    try {
+      await mkdir(path.join(dir, "my-skill"), { recursive: true });
+      await writeFile(
+        path.join(dir, "my-skill", "SKILL.md"),
+        "---\nname: my-skill\ndescription: test\n---\n",
+      );
+      await writeFile(path.join(dir, "GEMINI.md"), "# rules\n");
+      const { code } = await run(["init", dir]);
+      assert.equal(code, 0);
+      const manifest = JSON.parse(
+        (
+          await import("node:fs/promises").then((m) =>
+            m.readFile(path.join(dir, "inception.json"), "utf-8"),
+          )
+        ).toString(),
+      ) as {
+        agentRules: Array<{ name: string; path: string; agents: string[] }>;
+      };
+      const entry = manifest.agentRules.find((r) =>
+        r.path.endsWith("GEMINI.md"),
+      );
+      assert.ok(entry, "should have an entry for GEMINI.md");
+      assert.deepEqual(
+        entry?.agents.slice().sort(),
+        ["antigravity", "gemini-cli"],
+        `expected gemini-cli+antigravity, got: ${JSON.stringify(entry?.agents)}`,
+      );
+    } finally {
+      await rm(dir, { recursive: true });
+    }
+  });
+
+  it("--agents filter is applied to discovered agentRules entries", async () => {
+    const dir = await makeTmpDir();
+    try {
+      await mkdir(path.join(dir, "my-skill"), { recursive: true });
+      await writeFile(
+        path.join(dir, "my-skill", "SKILL.md"),
+        "---\nname: my-skill\ndescription: test\n---\n",
+      );
+      // CLAUDE.md normally maps to claude-code only; with --agents codex it should
+      // fall back to the active agents list since intersection would be empty
+      await writeFile(path.join(dir, "CLAUDE.md"), "# rules\n");
+      const { code } = await run(["init", dir, "--agents", "codex"]);
+      assert.equal(code, 0);
+      const manifest = JSON.parse(
+        (
+          await import("node:fs/promises").then((m) =>
+            m.readFile(path.join(dir, "inception.json"), "utf-8"),
+          )
+        ).toString(),
+      ) as {
+        agentRules: Array<{ name: string; path: string; agents: string[] }>;
+      };
+      const entry = manifest.agentRules.find((r) =>
+        r.path.endsWith("CLAUDE.md"),
+      );
+      assert.ok(entry, "should have an entry for CLAUDE.md");
+      // intersection of [claude-code] and [codex] is empty → falls back to activeAgents [codex]
+      assert.deepEqual(
+        entry?.agents,
+        ["codex"],
+        `expected [codex] fallback, got: ${JSON.stringify(entry?.agents)}`,
+      );
+    } finally {
+      await rm(dir, { recursive: true });
+    }
+  });
+
+  it("directory with no .md files produces agentRules: []", async () => {
+    const dir = await makeTmpDir();
+    try {
+      await mkdir(path.join(dir, "my-skill"), { recursive: true });
+      await writeFile(
+        path.join(dir, "my-skill", "SKILL.md"),
+        "---\nname: my-skill\ndescription: test\n---\n",
+      );
+      const { code } = await run(["init", dir]);
+      assert.equal(code, 0);
+      const manifest = JSON.parse(
+        (
+          await import("node:fs/promises").then((m) =>
+            m.readFile(path.join(dir, "inception.json"), "utf-8"),
+          )
+        ).toString(),
+      ) as { agentRules: unknown[] };
+      assert.deepEqual(manifest.agentRules, []);
+    } finally {
+      await rm(dir, { recursive: true });
+    }
+  });
+
+  it("agentRules name collision with skill gets -rules suffix", async () => {
+    const dir = await makeTmpDir();
+    try {
+      // Skill named "my-rules", and a file "my-rules.md" → name collision
+      await mkdir(path.join(dir, "my-rules"), { recursive: true });
+      await writeFile(
+        path.join(dir, "my-rules", "SKILL.md"),
+        "---\nname: my-rules\ndescription: test\n---\n",
+      );
+      await writeFile(path.join(dir, "my-rules.md"), "# rules\n");
+      const { code } = await run(["init", dir]);
+      assert.equal(code, 0);
+      const manifest = JSON.parse(
+        (
+          await import("node:fs/promises").then((m) =>
+            m.readFile(path.join(dir, "inception.json"), "utf-8"),
+          )
+        ).toString(),
+      ) as {
+        skills: Array<{ name: string }>;
+        agentRules: Array<{ name: string; path: string }>;
+      };
+      assert.ok(
+        manifest.skills.some((s) => s.name === "my-rules"),
+        "skill name should be my-rules",
+      );
+      const rulesEntry = manifest.agentRules.find((r) =>
+        r.path.endsWith("my-rules.md"),
+      );
+      assert.ok(rulesEntry, "should have agentRules entry for my-rules.md");
+      assert.equal(
+        rulesEntry?.name,
+        "my-rules-rules",
+        `expected my-rules-rules, got: ${rulesEntry?.name}`,
       );
     } finally {
       await rm(dir, { recursive: true });

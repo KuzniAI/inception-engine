@@ -21,6 +21,8 @@
       "agents": ["claude-code", "codex", "gemini-cli", "antigravity", "opencode", "github-copilot"]
     }
   ],
+  "files": [],
+  "configs": [],
   "mcpServers": [],
   "agentRules": []
 }
