@@ -1,0 +1,1 @@
+Work on this roadmap item: Remove GitHub Copilot-specific instruction deployment work where Copilot already consumes Claude-native artifacts such as `CLAUDE.md`. Score: `6/8` (`Architecture 2`, `Agents 2`, `OS 0`, `Confidence 2`)
