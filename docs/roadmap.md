@@ -11,7 +11,7 @@ Each scored item uses a simple `0-2` scale per value for a maximum score of `8`.
 
 ## Architecture Enablers
 
-1. Add manifest-generation or adapter-assisted workflows for non-JSON targets such as TOML, frontmatter-driven files, and mixed repo-local instruction surfaces. Score: `6/8` (`Architecture 2`, `Agents 2`, `OS 0`, `Confidence 2`)
+1. ~~Add manifest-generation or adapter-assisted workflows for non-JSON targets such as TOML, frontmatter-driven files, and mixed repo-local instruction surfaces.~~ Score: `6/8` (`Architecture 2`, `Agents 2`, `OS 0`, `Confidence 2`)
 2. ~~Add explicit Gemini CLI / Antigravity collision handling for shared `GEMINI.md`-adjacent workflows.~~ Score: `5/8` (`Architecture 2`, `Agents 1`, `OS 0`, `Confidence 2`)
 3. Expand `init` from skill-folder discovery into a real bootstrap flow that can scaffold the broader manifest surfaces the north star depends on, including `files`, `configs`, `mcpServers`, and `agentRules`, or emit agent-aware placeholders instead of a skills-only manifest. Score: `6/8` (`Architecture 2`, `Agents 2`, `OS 0`, `Confidence 2`)
 

@@ -29,8 +29,8 @@ import type {
   SkillDirDeployAction,
   TomlPatchDeployAction,
 } from "../types.ts";
-import { compileAdapterActions } from "./adapters/index.ts";
 import { writeFrontmatterFile } from "./adapters/frontmatter.ts";
+import { compileAdapterActions } from "./adapters/index.ts";
 import { applyTomlMcpPatch } from "./adapters/toml.ts";
 import {
   lookupDeployment,
