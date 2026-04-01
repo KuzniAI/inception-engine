@@ -39,7 +39,7 @@ import {
   verifyDeployment,
 } from "./ownership.ts";
 import { getDeployMethod, resolveAgentSkillPath } from "./resolve.ts";
-import { resolveTargetTemplate } from "./runtime-paths.ts";
+import { getPathApi, resolveTargetTemplate } from "./runtime-paths.ts";
 import {
   sourceAccessError,
   validateSkillDefinitionFile,
@@ -144,8 +144,9 @@ function detectAmbiguities(
   const hasAntigravity = detectedAgents.includes("antigravity");
 
   if (hasGeminiCli && hasAntigravity) {
-    const sharedGeminiMd = path.resolve(home, ".gemini", "GEMINI.md");
-    const sharedSettings = path.resolve(home, ".gemini", "settings.json");
+    const homePathApi = getPathApi(home);
+    const sharedGeminiMd = homePathApi.join(home, ".gemini", "GEMINI.md");
+    const sharedSettings = homePathApi.join(home, ".gemini", "settings.json");
 
     const targetsShared = actions.some(
       (a) => a.target === sharedGeminiMd || a.target === sharedSettings,

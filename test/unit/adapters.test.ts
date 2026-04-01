@@ -94,7 +94,10 @@ describe("compileMcpServerActions", () => {
     assert.equal(warnings.length, 0);
     assert.equal(actions[0]?.kind, "frontmatter-emit");
     assert.equal(actions[0]?.agent, "antigravity");
-    assert.match(actions[0]?.target, /\.agents\/rules\/my-mcp\.md$/);
+    assert.ok(
+      actions[0]?.target.endsWith(path.join(".agents", "rules", "my-mcp.md")),
+      `expected target to end with .agents/rules/my-mcp.md, got ${actions[0]?.target}`,
+    );
   });
 
   it("throws when a supported MCP target is missing both command and url", () => {
