@@ -19,6 +19,11 @@ export interface SupportedAgentSurface {
   status: "supported";
   path: AgentPaths;
   schemaLabel: string;
+  // Override the top-level key used when patching a JSON config file.
+  // Defaults to "mcpServers" when absent. Allows agents like OpenCode that
+  // store MCP servers under a different key (e.g. "mcp") to reuse the
+  // existing JSON merge-patch adapter without a new action kind.
+  mcpPatchKey?: string;
 }
 
 export interface UnsupportedAgentSurface {
@@ -88,10 +93,32 @@ export interface ConfigPatchDeployAction {
   confidence?: Confidence;
 }
 
+export interface TomlPatchDeployAction {
+  kind: "toml-patch";
+  skill: string;
+  agent: AgentId;
+  target: string;
+  config: Record<string, unknown>;
+  confidence?: Confidence;
+}
+
+export interface FrontmatterEmitDeployAction {
+  kind: "frontmatter-emit";
+  skill: string;
+  agent: AgentId;
+  // Absolute path to the .md file to create/update.
+  target: string;
+  // Key-value pairs to write into the YAML frontmatter block.
+  frontmatter: Record<string, unknown>;
+  confidence?: Confidence;
+}
+
 export type DeployAction =
   | SkillDirDeployAction
   | FileWriteDeployAction
-  | ConfigPatchDeployAction;
+  | ConfigPatchDeployAction
+  | TomlPatchDeployAction
+  | FrontmatterEmitDeployAction;
 
 export interface SkillDirRevertAction {
   kind: "skill-dir";
@@ -114,28 +141,52 @@ export interface ConfigPatchRevertAction {
   target: string;
 }
 
+export interface TomlPatchRevertAction {
+  kind: "toml-patch";
+  skill: string;
+  agent: AgentId;
+  target: string;
+}
+
+export interface FrontmatterEmitRevertAction {
+  kind: "frontmatter-emit";
+  skill: string;
+  agent: AgentId;
+  target: string;
+}
+
 export type RevertAction =
   | SkillDirRevertAction
   | FileWriteRevertAction
-  | ConfigPatchRevertAction;
+  | ConfigPatchRevertAction
+  | TomlPatchRevertAction
+  | FrontmatterEmitRevertAction;
 
 export type PlannedChangeVerb =
   | "create-symlink"
   | "copy-dir"
   | "write-file"
   | "patch-config"
+  | "patch-toml"
+  | "emit-frontmatter"
   | "remove"
   | "unapply-patch";
 
 export interface PlannedChange {
   verb: PlannedChangeVerb;
-  kind: "skill-dir" | "file-write" | "config-patch";
+  kind:
+    | "skill-dir"
+    | "file-write"
+    | "config-patch"
+    | "toml-patch"
+    | "frontmatter-emit";
   skill: string;
   agent: AgentId;
   source?: string;
   target: string;
   method?: "symlink" | "copy";
   patch?: Record<string, unknown>;
+  frontmatter?: Record<string, unknown>;
   confidence?: Confidence;
 }
 

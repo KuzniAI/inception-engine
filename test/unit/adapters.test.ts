@@ -82,16 +82,19 @@ describe("compileMcpServerActions", () => {
     assert.match(warnings[0]?.message ?? "", /github-copilot/);
   });
 
-  it("returns a schema-aware warning and no action for antigravity MCP", () => {
+  it("returns a frontmatter-emit action for antigravity MCP", () => {
+    const home = "/home/test";
     const { actions, warnings } = compileMcpServerActions(
       { name: "my-mcp", agents: ["antigravity"], config: { command: "s" } },
       ["antigravity"],
-      "/home/test",
+      home,
+      "/repo/test",
     );
-    assert.equal(actions.length, 0);
-    assert.equal(warnings.length, 1);
-    assert.match(warnings[0]?.message ?? "", /antigravity/);
-    assert.match(warnings[0]?.message ?? "", /frontmatter-driven MCP rules/);
+    assert.equal(actions.length, 1);
+    assert.equal(warnings.length, 0);
+    assert.equal(actions[0]?.kind, "frontmatter-emit");
+    assert.equal(actions[0]?.agent, "antigravity");
+    assert.match(actions[0]?.target, /\.agents\/rules\/my-mcp\.md$/);
   });
 
   it("throws when a supported MCP target is missing both command and url", () => {
@@ -241,7 +244,7 @@ describe("compileAgentRuleActions", () => {
     }
   });
 
-  it("returns a schema-aware warning and no action for antigravity rules", async () => {
+  it("returns a file-write action for antigravity rules", async () => {
     const dir = await makeTmpDir();
     try {
       await writeFile(path.join(dir, "rules.md"), "# Rules");
@@ -253,11 +256,13 @@ describe("compileAgentRuleActions", () => {
         realRoot,
         ["antigravity"],
         "/home/test",
+        "/repo/test",
       );
-      assert.equal(actions.length, 0);
-      assert.equal(warnings.length, 1);
-      assert.match(warnings[0]?.message ?? "", /antigravity/);
-      assert.match(warnings[0]?.message ?? "", /repo-scoped rules files/);
+      assert.equal(actions.length, 1);
+      assert.equal(warnings.length, 0);
+      assert.equal(actions[0]?.kind, "file-write");
+      assert.equal(actions[0]?.agent, "antigravity");
+      assert.match(actions[0]?.target, /\.agents\/rules\/my-rule\.md$/);
     } finally {
       await rm(dir, { recursive: true });
     }

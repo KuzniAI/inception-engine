@@ -5,22 +5,89 @@ import type {
   AgentId,
   ConfigPatchDeployAction,
   ConfigPatchRevertAction,
+  FrontmatterEmitDeployAction,
+  FrontmatterEmitRevertAction,
   PlanWarning,
+  TomlPatchDeployAction,
+  TomlPatchRevertAction,
 } from "../../types.ts";
 import { getPlatformKey, resolvePlaceholders } from "../resolve.ts";
 import { validateMcpServerConfigShape } from "../validation.ts";
 
 export interface McpAdapterResult {
-  actions: ConfigPatchDeployAction[];
+  actions: Array<
+    | ConfigPatchDeployAction
+    | TomlPatchDeployAction
+    | FrontmatterEmitDeployAction
+  >;
   warnings: PlanWarning[];
+}
+
+/**
+ * Determines whether a resolved config path targets a TOML file.
+ */
+function isTomlTarget(targetPath: string): boolean {
+  return path.extname(targetPath).toLowerCase() === ".toml";
+}
+
+/**
+ * Determines whether a resolved config path targets a Markdown file
+ * (indicates a frontmatter-emit surface, e.g. Antigravity's .agents/rules/).
+ */
+function isMarkdownTarget(targetPath: string): boolean {
+  const ext = path.extname(targetPath).toLowerCase();
+  return ext === ".md" || ext === ".markdown";
+}
+
+type McpDeployAction =
+  | ConfigPatchDeployAction
+  | TomlPatchDeployAction
+  | FrontmatterEmitDeployAction;
+
+function buildMcpDeployAction(
+  entry: McpServerEntry,
+  agentId: AgentId,
+  resolvedTarget: string,
+  confidence: import("../../types.ts").Confidence,
+  mcpPatchKey: string,
+): McpDeployAction {
+  if (isMarkdownTarget(resolvedTarget)) {
+    return {
+      kind: "frontmatter-emit",
+      skill: entry.name,
+      agent: agentId,
+      target: resolvedTarget,
+      frontmatter: { "mcp-servers": { [entry.name]: entry.config } },
+      confidence,
+    } satisfies FrontmatterEmitDeployAction;
+  }
+  if (isTomlTarget(resolvedTarget)) {
+    return {
+      kind: "toml-patch",
+      skill: entry.name,
+      agent: agentId,
+      target: resolvedTarget,
+      config: entry.config,
+      confidence,
+    } satisfies TomlPatchDeployAction;
+  }
+  return {
+    kind: "config-patch",
+    skill: entry.name,
+    agent: agentId,
+    target: resolvedTarget,
+    patch: { [mcpPatchKey]: { [entry.name]: entry.config } },
+    confidence,
+  } satisfies ConfigPatchDeployAction;
 }
 
 export function compileMcpServerActions(
   entry: McpServerEntry,
   detectedAgents: AgentId[],
   home: string,
+  repo?: string,
 ): McpAdapterResult {
-  const actions: ConfigPatchDeployAction[] = [];
+  const actions: McpAdapterResult["actions"] = [];
   const warnings: PlanWarning[] = [];
   const platform = getPlatformKey();
 
@@ -31,25 +98,32 @@ export function compileMcpServerActions(
     if (!support || support.status === "unsupported") {
       warnings.push({
         kind: "confidence",
-        message: `mcpServers: agent "${agentId}" uses ${support?.schemaLabel ?? "an unsupported MCP schema"} and ${support?.reason ?? "does not expose a supported MCP adapter"} — skipping "${entry.name}"`,
+        message: `mcpServers: agent "${agentId}" uses ${support?.schemaLabel ?? "an unsupported MCP schema"} and ${support?.status === "unsupported" ? support.reason : "does not expose a supported MCP adapter"} — skipping "${entry.name}"`,
       });
       continue;
     }
 
     validateMcpServerConfigShape(entry.config, entry.name, agentId);
 
-    const target = resolvePlaceholders(support.path[platform], "", home);
-    // Ensure no stray empty segments collapse the path unexpectedly
-    const resolvedTarget = path.resolve(target);
+    const rawTarget = resolvePlaceholders(
+      support.path[platform],
+      entry.name,
+      home,
+      repo,
+    );
+    const resolvedTarget = path.resolve(rawTarget);
+    const confidence = agent.provenance.mcpConfig ?? "provisional";
+    const mcpPatchKey = support.mcpPatchKey ?? "mcpServers";
 
-    actions.push({
-      kind: "config-patch",
-      skill: entry.name,
-      agent: agentId,
-      target: resolvedTarget,
-      patch: { mcpServers: { [entry.name]: entry.config } },
-      confidence: agent.provenance.mcpConfig ?? "provisional",
-    });
+    actions.push(
+      buildMcpDeployAction(
+        entry,
+        agentId,
+        resolvedTarget,
+        confidence,
+        mcpPatchKey,
+      ),
+    );
   }
 
   return { actions, warnings };
@@ -59,8 +133,15 @@ export function compileMcpServerReverts(
   entry: McpServerEntry,
   agentFilter: AgentId[] | null,
   home: string,
-): ConfigPatchRevertAction[] {
-  const actions: ConfigPatchRevertAction[] = [];
+  repo?: string,
+): Array<
+  ConfigPatchRevertAction | TomlPatchRevertAction | FrontmatterEmitRevertAction
+> {
+  const actions: Array<
+    | ConfigPatchRevertAction
+    | TomlPatchRevertAction
+    | FrontmatterEmitRevertAction
+  > = [];
   const platform = getPlatformKey();
 
   for (const agentId of entry.agents) {
@@ -68,15 +149,37 @@ export function compileMcpServerReverts(
     const agent = AGENT_REGISTRY_BY_ID[agentId];
     const support = agent?.mcpSupport;
     if (!support || support.status === "unsupported") continue;
-    const target = path.resolve(
-      resolvePlaceholders(support.path[platform], "", home),
+
+    const rawTarget = resolvePlaceholders(
+      support.path[platform],
+      entry.name,
+      home,
+      repo,
     );
-    actions.push({
-      kind: "config-patch",
-      skill: entry.name,
-      agent: agentId,
-      target,
-    });
+    const target = path.resolve(rawTarget);
+
+    if (isMarkdownTarget(target)) {
+      actions.push({
+        kind: "frontmatter-emit",
+        skill: entry.name,
+        agent: agentId,
+        target,
+      });
+    } else if (isTomlTarget(target)) {
+      actions.push({
+        kind: "toml-patch",
+        skill: entry.name,
+        agent: agentId,
+        target,
+      });
+    } else {
+      actions.push({
+        kind: "config-patch",
+        skill: entry.name,
+        agent: agentId,
+        target,
+      });
+    }
   }
   return actions;
 }

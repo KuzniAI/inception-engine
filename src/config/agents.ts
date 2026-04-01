@@ -56,10 +56,12 @@ export const AGENT_REGISTRY: readonly AgentConfig[] = [
       agentRules: "documented",
     },
     mcpSupport: {
-      status: "unsupported",
-      schemaLabel: "config.toml MCP schema",
-      reason:
-        "Codex stores MCP servers in config.toml, so JSON merge-patch deployment is not sufficient yet",
+      status: "supported",
+      schemaLabel: "TOML mcpServers config",
+      path: {
+        posix: ["{home}", ".codex", "config.toml"],
+        windows: ["{home}", ".codex", "config.toml"],
+      },
     },
     agentRulesSupport: {
       status: "supported",
@@ -124,16 +126,20 @@ export const AGENT_REGISTRY: readonly AgentConfig[] = [
       detectBinary: "provisional",
     },
     mcpSupport: {
-      status: "unsupported",
-      schemaLabel: "frontmatter-driven MCP rules",
-      reason:
-        "Antigravity MCP support depends on frontmatter inside repo-scoped .agents/rules files, which this release does not translate or validate yet",
+      status: "supported",
+      schemaLabel: "repo-local frontmatter-emit MCP rules",
+      path: {
+        posix: ["{repo}", ".agents", "rules", "{name}.md"],
+        windows: ["{repo}", ".agents", "rules", "{name}.md"],
+      },
     },
     agentRulesSupport: {
-      status: "unsupported",
-      schemaLabel: "repo-scoped rules files",
-      reason:
-        "Antigravity instructions live in repo-scoped .agents/rules files rather than one global Markdown target",
+      status: "supported",
+      schemaLabel: "repo-local Markdown rules file",
+      path: {
+        posix: ["{repo}", ".agents", "rules", "{name}.md"],
+        windows: ["{repo}", ".agents", "rules", "{name}.md"],
+      },
     },
   },
   {
@@ -155,10 +161,13 @@ export const AGENT_REGISTRY: readonly AgentConfig[] = [
       agentRules: "documented",
     },
     mcpSupport: {
-      status: "unsupported",
-      schemaLabel: "opencode.json MCP schema",
-      reason:
-        "OpenCode keeps MCP config in opencode.json under its own shape, so plain JSON merge-patch support is not implemented here",
+      status: "supported",
+      schemaLabel: "opencode.json MCP config",
+      path: {
+        posix: ["{xdg_config}", "opencode", "opencode.json"],
+        windows: ["{appdata}", "opencode", "opencode.json"],
+      },
+      mcpPatchKey: "mcp",
     },
     agentRulesSupport: {
       status: "supported",

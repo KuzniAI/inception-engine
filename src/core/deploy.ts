@@ -22,12 +22,16 @@ import type {
   ConfigPatchDeployAction,
   DeployAction,
   FileWriteDeployAction,
+  FrontmatterEmitDeployAction,
   Manifest,
   PlannedChange,
   PlanWarning,
   SkillDirDeployAction,
+  TomlPatchDeployAction,
 } from "../types.ts";
 import { compileAdapterActions } from "./adapters/index.ts";
+import { writeFrontmatterFile } from "./adapters/frontmatter.ts";
+import { applyTomlMcpPatch } from "./adapters/toml.ts";
 import {
   lookupDeployment,
   type RegistryPersistence,
@@ -237,6 +241,7 @@ function planConfigPatchActions(
   manifest: Manifest,
   detectedAgents: AgentId[],
   home: string,
+  repo?: string,
 ): ConfigPatchDeployAction[] {
   const actions: ConfigPatchDeployAction[] = [];
   for (const configEntry of manifest.configs ?? []) {
@@ -248,7 +253,7 @@ function planConfigPatchActions(
         kind: "config-patch",
         skill: configEntry.name,
         agent: agentId,
-        target: resolveTargetTemplate(configEntry.target, home),
+        target: resolveTargetTemplate(configEntry.target, home, repo),
         patch: configEntry.patch,
         confidence: agent.provenance.skills,
       });
@@ -288,7 +293,12 @@ export async function planDeploy(
       detectedAgents,
       home,
     )),
-    ...planConfigPatchActions(manifest, detectedAgents, home),
+    ...planConfigPatchActions(
+      manifest,
+      detectedAgents,
+      home,
+      resolvedSourceDir,
+    ),
   ];
 
   const adapterResult = await compileAdapterActions(
@@ -299,6 +309,7 @@ export async function planDeploy(
     realRoot,
     detectedAgents,
     home,
+    resolvedSourceDir,
   );
   actions.push(...adapterResult.actions);
 
@@ -309,6 +320,39 @@ export async function planDeploy(
   ];
 
   return { actions, warnings };
+}
+
+async function dispatchDeployAction(
+  action: DeployAction,
+  dryRun: boolean,
+  verbose: boolean,
+  home: string,
+  planned: PlannedChange[],
+  deps: DeployDependencies,
+): Promise<{ error: string | null }> {
+  switch (action.kind) {
+    case "skill-dir":
+      return deploySkillDir(action, dryRun, verbose, home, planned, deps);
+    case "file-write":
+      return deployFileWrite(action, dryRun, verbose, home, planned, deps);
+    case "config-patch":
+      return deployConfigPatch(action, dryRun, verbose, home, planned, deps);
+    case "toml-patch":
+      return deployTomlPatch(action, dryRun, verbose, home, planned, deps);
+    case "frontmatter-emit":
+      return deployFrontmatterEmit(
+        action,
+        dryRun,
+        verbose,
+        home,
+        planned,
+        deps,
+      );
+    default:
+      throw new Error(
+        `Unhandled deploy action kind: ${(action as DeployAction).kind}`,
+      );
+  }
 }
 
 export async function executeDeploy(
@@ -327,58 +371,18 @@ export async function executeDeploy(
   const planned: PlannedChange[] = [];
 
   for (const action of actions) {
-    switch (action.kind) {
-      case "skill-dir": {
-        const result = await deploySkillDir(
-          action,
-          dryRun,
-          verbose,
-          home,
-          planned,
-          deps,
-        );
-        if (result.error === null) {
-          succeeded++;
-        } else {
-          failed.push({ action, error: result.error });
-        }
-        break;
-      }
-      case "file-write": {
-        const result = await deployFileWrite(
-          action,
-          dryRun,
-          verbose,
-          home,
-          planned,
-          deps,
-        );
-        if (result.error === null) {
-          succeeded++;
-        } else {
-          failed.push({ action, error: result.error });
-        }
-        break;
-      }
-      case "config-patch": {
-        const result = await deployConfigPatch(
-          action,
-          dryRun,
-          verbose,
-          home,
-          planned,
-          deps,
-        );
-        if (result.error === null) {
-          succeeded++;
-        } else {
-          failed.push({ action, error: result.error });
-        }
-        break;
-      }
-      default: {
-        throw new Error(`Unhandled deploy action kind: ${action}`);
-      }
+    const result = await dispatchDeployAction(
+      action,
+      dryRun,
+      verbose,
+      home,
+      planned,
+      deps,
+    );
+    if (result.error === null) {
+      succeeded++;
+    } else {
+      failed.push({ action, error: result.error });
     }
   }
 
@@ -937,4 +941,138 @@ async function backupExisting(
   await rm(backupPath, { recursive: true, force: true });
   await rename(targetPath, backupPath);
   return backupPath;
+}
+
+async function deployTomlPatch(
+  action: TomlPatchDeployAction,
+  dryRun: boolean,
+  verbose: boolean,
+  home: string,
+  planned: PlannedChange[],
+  deps: DeployDependencies,
+): Promise<{ error: string | null }> {
+  const label = `${action.skill} -> ${action.agent}`;
+
+  if (dryRun) {
+    planned.push({
+      verb: "patch-toml",
+      kind: "toml-patch",
+      skill: action.skill,
+      agent: action.agent,
+      target: action.target,
+      confidence: action.confidence,
+    });
+    return { error: null };
+  }
+
+  try {
+    // Guard against double-patching by a different skill/agent.
+    const existingEntry = await lookupDeployment(
+      home,
+      action.target,
+      deps.registry,
+    );
+    if (
+      existingEntry &&
+      (existingEntry.skill !== action.skill ||
+        existingEntry.agent !== action.agent)
+    ) {
+      throw new Error(
+        `Config "${action.target}" is already patched by skill "${existingEntry.skill}" for agent "${existingEntry.agent}" — refusing to double-patch`,
+      );
+    }
+
+    await applyTomlMcpPatch(action.target, action.skill, action.config);
+    await registerDeployment(
+      home,
+      action.target,
+      {
+        kind: "config-patch",
+        patch: { mcpServers: { [action.skill]: action.config } },
+        undoPatch: { mcpServers: { [action.skill]: null } },
+        skill: action.skill,
+        agent: action.agent,
+      },
+      deps.registry,
+    );
+
+    logger.ok(label);
+    if (verbose) {
+      logger.detail(
+        `patch-toml: wrote [mcpServers.${action.skill}] to ${action.target}`,
+      );
+    }
+    return { error: null };
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    logger.fail(label, msg);
+    return { error: msg };
+  }
+}
+
+async function deployFrontmatterEmit(
+  action: FrontmatterEmitDeployAction,
+  dryRun: boolean,
+  verbose: boolean,
+  home: string,
+  planned: PlannedChange[],
+  deps: DeployDependencies,
+): Promise<{ error: string | null }> {
+  const label = `${action.skill} -> ${action.agent}`;
+
+  if (dryRun) {
+    planned.push({
+      verb: "emit-frontmatter",
+      kind: "frontmatter-emit",
+      skill: action.skill,
+      agent: action.agent,
+      target: action.target,
+      frontmatter: action.frontmatter,
+      confidence: action.confidence,
+    });
+    return { error: null };
+  }
+
+  try {
+    // Guard against double-patching by a different skill/agent.
+    const existingEntry = await lookupDeployment(
+      home,
+      action.target,
+      deps.registry,
+    );
+    if (
+      existingEntry &&
+      (existingEntry.skill !== action.skill ||
+        existingEntry.agent !== action.agent)
+    ) {
+      throw new Error(
+        `File "${action.target}" is already managed by skill "${existingEntry.skill}" for agent "${existingEntry.agent}" — refusing to overwrite`,
+      );
+    }
+
+    await writeFrontmatterFile(action.target, action.frontmatter, {
+      preserveBody: true,
+    });
+    await registerDeployment(
+      home,
+      action.target,
+      {
+        kind: "file-write",
+        source: action.target,
+        skill: action.skill,
+        agent: action.agent,
+      },
+      deps.registry,
+    );
+
+    logger.ok(label);
+    if (verbose) {
+      logger.detail(`emit-frontmatter: wrote ${action.target}`);
+    }
+    return { error: null };
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    logger.fail(label, msg);
+    return { error: msg };
+  }
 }

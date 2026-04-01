@@ -26,6 +26,7 @@ export async function compileAgentRuleActions(
   realRoot: string,
   detectedAgents: AgentId[],
   home: string,
+  repo?: string,
 ): Promise<RulesAdapterResult> {
   const actions: FileWriteDeployAction[] = [];
   const warnings: PlanWarning[] = [];
@@ -49,7 +50,7 @@ export async function compileAgentRuleActions(
     if (!support || support.status === "unsupported") {
       warnings.push({
         kind: "confidence",
-        message: `agentRules: agent "${agentId}" uses ${support?.schemaLabel ?? "an unsupported instruction schema"} and ${support?.reason ?? "does not expose a supported rules adapter"} — skipping "${entry.name}"`,
+        message: `agentRules: agent "${agentId}" uses ${support?.schemaLabel ?? "an unsupported instruction schema"} and ${support?.status === "unsupported" ? support.reason : "does not expose a supported rules adapter"} — skipping "${entry.name}"`,
       });
       continue;
     }
@@ -57,7 +58,12 @@ export async function compileAgentRuleActions(
     supportedTargets.push({
       agentId,
       confidence: agent.provenance.agentRules ?? "provisional",
-      target: resolvePlaceholders(support.path[platform], "", home),
+      target: resolvePlaceholders(
+        support.path[platform],
+        entry.name,
+        home,
+        repo,
+      ),
     });
   }
 
@@ -90,6 +96,7 @@ export function compileAgentRuleReverts(
   entry: AgentRuleEntry,
   agentFilter: AgentId[] | null,
   home: string,
+  repo?: string,
 ): FileWriteRevertAction[] {
   const actions: FileWriteRevertAction[] = [];
   const platform = getPlatformKey();
@@ -99,7 +106,12 @@ export function compileAgentRuleReverts(
     const agent = AGENT_REGISTRY_BY_ID[agentId];
     const support = agent?.agentRulesSupport;
     if (!support || support.status === "unsupported") continue;
-    const target = resolvePlaceholders(support.path[platform], "", home);
+    const target = resolvePlaceholders(
+      support.path[platform],
+      entry.name,
+      home,
+      repo,
+    );
     actions.push({
       kind: "file-write",
       skill: entry.name,

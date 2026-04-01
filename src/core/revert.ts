@@ -10,11 +10,13 @@ import type {
   PlannedChange,
   RevertAction,
   SkillDirRevertAction,
+  TomlPatchRevertAction,
 } from "../types.ts";
 import {
   compileAgentRuleReverts,
   compileMcpServerReverts,
 } from "./adapters/index.ts";
+import { revertTomlMcpPatch } from "./adapters/toml.ts";
 import {
   lookupDeployment,
   type RegistryPersistence,
@@ -93,16 +95,17 @@ export function planRevert(
   manifest: Manifest,
   detectedAgents: AgentId[],
   home: string,
+  repo?: string,
 ): RevertAction[] {
   return [
     ...buildSkillDirReverts(manifest, home, detectedAgents),
     ...buildFileWriteReverts(manifest, home, detectedAgents),
     ...buildConfigPatchReverts(manifest, home, detectedAgents),
     ...(manifest.mcpServers ?? []).flatMap((e) =>
-      compileMcpServerReverts(e, detectedAgents, home),
+      compileMcpServerReverts(e, detectedAgents, home, repo),
     ),
     ...(manifest.agentRules ?? []).flatMap((e) =>
-      compileAgentRuleReverts(e, detectedAgents, home),
+      compileAgentRuleReverts(e, detectedAgents, home, repo),
     ),
   ];
 }
@@ -110,16 +113,17 @@ export function planRevert(
 export function planRevertAll(
   manifest: Manifest,
   home: string,
+  repo?: string,
 ): RevertAction[] {
   return [
     ...buildSkillDirReverts(manifest, home, null),
     ...buildFileWriteReverts(manifest, home, null),
     ...buildConfigPatchReverts(manifest, home, null),
     ...(manifest.mcpServers ?? []).flatMap((e) =>
-      compileMcpServerReverts(e, null, home),
+      compileMcpServerReverts(e, null, home, repo),
     ),
     ...(manifest.agentRules ?? []).flatMap((e) =>
-      compileAgentRuleReverts(e, null, home),
+      compileAgentRuleReverts(e, null, home, repo),
     ),
   ];
 }
@@ -245,8 +249,37 @@ export async function executeRevert(
           deps,
         );
         break;
+      case "toml-patch":
+        result = await revertTomlPatch(
+          action,
+          dryRun,
+          verbose,
+          home,
+          planned,
+          deps,
+        );
+        break;
+      case "frontmatter-emit":
+        // Frontmatter-emit files are fully managed by inception — revert
+        // deletes the file, same as a file-write revert.
+        result = await revertFileWrite(
+          {
+            kind: "file-write",
+            skill: action.skill,
+            agent: action.agent,
+            target: action.target,
+          },
+          dryRun,
+          verbose,
+          home,
+          planned,
+          deps,
+        );
+        break;
       default:
-        throw new Error(`Unhandled revert action kind: ${action}`);
+        throw new Error(
+          `Unhandled revert action kind: ${(action as RevertAction).kind}`,
+        );
     }
     recordOutcome(result, action, counts, failed);
   }
@@ -457,6 +490,70 @@ async function revertConfigPatch(
     logger.ok(label);
     if (verbose) {
       logger.detail(`unapplied patch from: ${action.target}`);
+    }
+    return { outcome: "ok" };
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    logger.fail(label, msg);
+    return { outcome: "fail", error: msg };
+  }
+}
+
+async function revertTomlPatch(
+  action: TomlPatchRevertAction,
+  dryRun: boolean,
+  verbose: boolean,
+  home: string,
+  planned: PlannedChange[],
+  deps: RevertDependencies,
+): Promise<RevertOutcome> {
+  const label = `${action.skill} -> ${action.agent}`;
+
+  try {
+    await lstat(action.target);
+  } catch (err) {
+    const result = lstatOutcome(err);
+    if (result.outcome === "skip") {
+      logger.skip(label, "(not found, skipping)");
+      return result;
+    }
+    logger.fail(label, result.error);
+    return result;
+  }
+
+  const entry = await lookupDeployment(home, action.target, deps.registry);
+  if (
+    !entry ||
+    entry.kind !== "config-patch" ||
+    entry.skill !== action.skill ||
+    entry.agent !== action.agent
+  ) {
+    logger.warn(
+      label,
+      `skipping: ${action.target} is not in the deployment registry — not managed by inception-engine`,
+    );
+    return { outcome: "skip" };
+  }
+
+  if (dryRun) {
+    planned.push({
+      verb: "unapply-patch",
+      kind: "toml-patch",
+      skill: action.skill,
+      agent: action.agent,
+      target: action.target,
+    });
+    return { outcome: "ok" };
+  }
+
+  try {
+    await revertTomlMcpPatch(action.target, action.skill);
+    await unregisterDeployment(home, action.target, deps.registry);
+    logger.ok(label);
+    if (verbose) {
+      logger.detail(
+        `removed [mcpServers.${action.skill}] from: ${action.target}`,
+      );
     }
     return { outcome: "ok" };
   } catch (err) {

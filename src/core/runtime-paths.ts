@@ -5,10 +5,10 @@ export interface RuntimePaths {
   xdgConfig: string;
 }
 
-type TargetRoot = "home" | "appdata" | "xdg_config";
+type TargetRoot = "home" | "appdata" | "xdg_config" | "repo";
 
 const TARGET_TEMPLATE_RE =
-  /^\{(home|appdata|xdg_config)\}(?<suffix>(?:[\\/].*)?)$/;
+  /^\{(home|appdata|xdg_config|repo)\}(?<suffix>(?:[\\/].*)?)$/;
 
 export function getPathApi(
   root: string,
@@ -55,19 +55,42 @@ export function resolveRuntimePaths(home: string): RuntimePaths {
   return { appdata, xdgConfig };
 }
 
-export function resolveTargetTemplate(template: string, home: string): string {
+export function resolveTargetTemplate(
+  template: string,
+  home: string,
+  repo?: string,
+): string {
   const { appdata, xdgConfig } = resolveRuntimePaths(home);
   const match = TARGET_TEMPLATE_RE.exec(template);
   if (!match) {
     throw new Error(`Invalid target template: ${template}`);
   }
 
-  const baseByRoot: Record<TargetRoot, string> = {
+  const root = match[1] as TargetRoot;
+  if (root === "repo") {
+    if (!repo) {
+      throw new Error(
+        `Target template uses {repo} but no manifest directory was provided: ${template}`,
+      );
+    }
+    const suffix = match.groups?.suffix ?? "";
+    const segments = suffix.split(/[\\/]+/).filter(Boolean);
+    const repoPathApi = getPathApi(repo);
+    const resolved =
+      segments.length === 0 ? repo : repoPathApi.join(repo, ...segments);
+    if (!isSameOrDescendantPath(resolved, repo)) {
+      throw new Error(
+        `Target template resolves outside its placeholder root: ${template}`,
+      );
+    }
+    return suffix === "" ? repo : `${repo}${suffix}`;
+  }
+
+  const baseByRoot: Record<Exclude<TargetRoot, "repo">, string> = {
     home,
     appdata,
     xdg_config: xdgConfig,
   };
-  const root = match[1] as TargetRoot;
   const suffix = match.groups?.suffix ?? "";
   const segments = suffix.split(/[\\/]+/).filter(Boolean);
   const pathApi = getPathApi(baseByRoot[root]);

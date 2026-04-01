@@ -3,14 +3,20 @@ import type {
   AgentId,
   ConfigPatchDeployAction,
   FileWriteDeployAction,
+  FrontmatterEmitDeployAction,
   PlanWarning,
+  TomlPatchDeployAction,
 } from "../../types.ts";
 import { compileMcpServerActions, compileMcpServerReverts } from "./mcp.ts";
 import { compileAgentRuleActions, compileAgentRuleReverts } from "./rules.ts";
 
 export { compileAgentRuleReverts, compileMcpServerReverts };
 
-export type AdapterAction = ConfigPatchDeployAction | FileWriteDeployAction;
+export type AdapterAction =
+  | ConfigPatchDeployAction
+  | FileWriteDeployAction
+  | TomlPatchDeployAction
+  | FrontmatterEmitDeployAction;
 
 export interface AdapterResult {
   actions: AdapterAction[];
@@ -25,12 +31,13 @@ export async function compileAdapterActions(
   realRoot: string,
   detectedAgents: AgentId[],
   home: string,
+  repo?: string,
 ): Promise<AdapterResult> {
   const actions: AdapterAction[] = [];
   const warnings: PlanWarning[] = [];
 
   for (const entry of mcpServers) {
-    const r = compileMcpServerActions(entry, detectedAgents, home);
+    const r = compileMcpServerActions(entry, detectedAgents, home, repo);
     actions.push(...r.actions);
     warnings.push(...r.warnings);
   }
@@ -43,6 +50,7 @@ export async function compileAdapterActions(
       realRoot,
       detectedAgents,
       home,
+      repo,
     );
     actions.push(...r.actions);
     warnings.push(...r.warnings);

@@ -48,8 +48,8 @@ Managed skills overwrite their previous version. If a target exists but was not 
 | Skills (SKILL.md) | All agents via manifest and CLI | All agents |
 | File write | All agents via manifest and CLI | All agents |
 | Config patch (JSON merge) | All agents via manifest and CLI | All agents |
-| MCP Servers | claude-code, gemini-cli; other agents are warned and skipped | claude-code, gemini-cli |
-| Global Rules Files | claude-code, codex, gemini-cli, opencode; github-copilot reads CLAUDE.md natively (deploy via claude-code); other agents are warned and skipped | claude-code, codex, gemini-cli, opencode |
+| MCP Servers | claude-code, gemini-cli, codex, antigravity, opencode; github-copilot repo-scoped surfaces are warned and skipped | claude-code, gemini-cli, codex, antigravity, opencode |
+| Global/Repo Rules Files | All agents (antigravity uses repo-local `.agents/rules/`); github-copilot reads CLAUDE.md natively (deploy via claude-code) | All agents |
 | `init` manifest generation | Scans `SKILL.md` directories and writes starter `skills` entries | N/A |
 
 Features that depend on agent-specific config surfaces are intentionally conservative: if a target path or schema is not implemented with enough confidence, inception-engine warns and skips it rather than guessing.
@@ -130,7 +130,12 @@ Each **mcpServer** entry registers an MCP server into the agent's config file by
 - **agents** - Array of agent IDs to register this server with
 - **config** - Raw server descriptor object. For the currently supported JSON-backed adapters, inception-engine requires at least one non-empty `command` or `url` field, validates `args` as an array of strings when present, and validates `env` as a string-to-string object when present. Additional keys are passed through verbatim.
 
-MCP server registration is currently supported for `claude-code` (`~/.claude.json`) and `gemini-cli` (`~/.gemini/settings.json`). Other agents emit a schema-aware warning and are skipped when their support would require a non-JSON adapter, such as Codex `config.toml`, Antigravity frontmatter in repo-scoped rules files, OpenCode `opencode.json`, or GitHub Copilot repo-scoped MCP surfaces. Revert removes the registered server entry from the config file.
+MCP server registration is supported for all agents except GitHub Copilot. Inception-engine automatically uses the correct adapter for each agent's configuration schema:
+- **JSON (Merge Patch)**: `claude-code` (`~/.claude.json`), `gemini-cli` (`~/.gemini/settings.json`), and `opencode` (`~/.config/opencode/opencode.json` using the custom `"mcp"` key).
+- **TOML (Patch)**: `codex` (`~/.codex/config.toml`).
+- **Markdown Frontmatter (Emit)**: `antigravity` (repo-local `.agents/rules/{name}.md` files).
+
+Revert removes the registered server entry from the respective configuration file. GitHub Copilot, which uses repo-scoped MCP surfaces not yet implemented by inception-engine, continues to emit a schema-aware warning and is skipped.
 
 Each **agentRules** entry deploys a Markdown instruction file to an agent's supported global rules file location:
 
@@ -138,7 +143,7 @@ Each **agentRules** entry deploys a Markdown instruction file to an agent's supp
 - **path** - Relative path to the source Markdown file within the repo; supported global rules adapters require a `.md` or `.markdown` source path
 - **agents** - Array of agent IDs to deploy this file to
 
-Global rules-file deployment is currently supported for `claude-code` (`~/.claude/CLAUDE.md`), `codex` (`~/.codex/AGENTS.md`), `gemini-cli` (`~/.gemini/GEMINI.md`), and `opencode` (`~/.config/opencode/AGENTS.md`). For `github-copilot`, no separate deployment is needed because Copilot reads `CLAUDE.md` natively — target it via the `claude-code` agentRules entry and it reaches Copilot automatically. Other agents emit schema-aware warnings and are skipped when their instruction surfaces are repo-scoped, frontmatter-driven, or otherwise not implemented as a single global Markdown file. Revert removes the deployed rules file.
+Instruction rule deployment is supported for all agents. For most agents, this targets a single global rules file (e.g., `~/.claude/CLAUDE.md` for `claude-code`, `~/.codex/AGENTS.md` for `codex`, `~/.gemini/GEMINI.md` for `gemini-cli`, and `~/.config/opencode/AGENTS.md` for `opencode`). For `antigravity`, inception-engine deploys to repo-local instruction surfaces at `{repo}/.agents/rules/{name}.md`. For `github-copilot`, no separate deployment is needed because Copilot reads `CLAUDE.md` natively — target it via the `claude-code` agentRules entry and it reaches Copilot automatically. Revert removes the deployed rules file.
 
 ## Creating Skills
 
