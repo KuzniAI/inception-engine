@@ -130,17 +130,30 @@ function detectCollisions(actions: DeployAction[]): PlanWarning[] {
   return warnings;
 }
 
-function detectAmbiguities(detectedAgents: AgentId[]): PlanWarning[] {
+function detectAmbiguities(
+  detectedAgents: AgentId[],
+  actions: DeployAction[],
+  home: string,
+): PlanWarning[] {
   const warnings: PlanWarning[] = [];
-  if (
-    detectedAgents.includes("gemini-cli") &&
-    detectedAgents.includes("antigravity")
-  ) {
-    warnings.push({
-      kind: "ambiguity",
-      message:
-        'Both "gemini-cli" and "antigravity" share the ~/.gemini/ base directory. antigravity skill support is implementation-only. Verify that deployed skill paths do not conflict.',
-    });
+  const hasGeminiCli = detectedAgents.includes("gemini-cli");
+  const hasAntigravity = detectedAgents.includes("antigravity");
+
+  if (hasGeminiCli && hasAntigravity) {
+    const sharedGeminiMd = path.resolve(home, ".gemini", "GEMINI.md");
+    const sharedSettings = path.resolve(home, ".gemini", "settings.json");
+
+    const targetsShared = actions.some(
+      (a) => a.target === sharedGeminiMd || a.target === sharedSettings,
+    );
+
+    if (targetsShared) {
+      warnings.push({
+        kind: "ambiguity",
+        message:
+          "Both 'gemini-cli' and 'antigravity' are active, and a deployment targets a shared surface (~/.gemini/GEMINI.md or settings.json). Because Antigravity treats GEMINI.md as an Agent Blueprint, changes intended for one runtime may unexpectedly affect the other.",
+      });
+    }
   }
   return warnings;
 }
@@ -290,7 +303,7 @@ export async function planDeploy(
   actions.push(...adapterResult.actions);
 
   const warnings: PlanWarning[] = [
-    ...detectAmbiguities(detectedAgents),
+    ...detectAmbiguities(detectedAgents, actions, home),
     ...detectCollisions(actions),
     ...adapterResult.warnings,
   ];

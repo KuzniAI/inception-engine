@@ -303,7 +303,70 @@ describe("planDeploy", () => {
     }
   });
 
-  it("emits ambiguity warning when both gemini-cli and antigravity are detected", async () => {
+  it("emits ambiguity warning when both gemini-cli and antigravity are detected and share GEMINI.md", async () => {
+    const sourceDir = await makeTmpDir();
+    const bothManifest: Manifest = {
+      skills: [],
+      files: [],
+      configs: [],
+      mcpServers: [],
+      agentRules: [
+        {
+          name: "shared-rules",
+          path: "GEMINI.md",
+          agents: ["gemini-cli", "antigravity"],
+        },
+      ],
+    };
+    try {
+      await writeFile(path.join(sourceDir, "GEMINI.md"), "# Shared Rules");
+      const { warnings } = await planDeploy(
+        bothManifest,
+        sourceDir,
+        ["gemini-cli", "antigravity"],
+        "/home/test",
+      );
+      const ambiguity = warnings.find((w) => w.kind === "ambiguity");
+      assert.ok(ambiguity, "expected an ambiguity warning");
+      assert.match(ambiguity.message, /shared surface/);
+      assert.match(ambiguity.message, /GEMINI\.md/);
+    } finally {
+      await rm(sourceDir, { recursive: true });
+    }
+  });
+
+  it("emits ambiguity warning when both gemini-cli and antigravity are detected and share settings.json", async () => {
+    const sourceDir = await makeTmpDir();
+    const bothManifest: Manifest = {
+      skills: [],
+      files: [],
+      configs: [],
+      mcpServers: [
+        {
+          name: "shared-mcp",
+          agents: ["gemini-cli", "antigravity"],
+          config: { command: "my-server" },
+        },
+      ],
+      agentRules: [],
+    };
+    try {
+      const { warnings } = await planDeploy(
+        bothManifest,
+        sourceDir,
+        ["gemini-cli", "antigravity"],
+        "/home/test",
+      );
+      const ambiguity = warnings.find((w) => w.kind === "ambiguity");
+      assert.ok(ambiguity, "expected an ambiguity warning");
+      assert.match(ambiguity.message, /shared surface/);
+      assert.match(ambiguity.message, /settings\.json/);
+    } finally {
+      await rm(sourceDir, { recursive: true });
+    }
+  });
+
+  it("emits NO ambiguity warning when both gemini-cli and antigravity are detected but targets are distinct", async () => {
     const sourceDir = await makeTmpDir();
     const bothManifest: Manifest = {
       skills: [
@@ -327,9 +390,7 @@ describe("planDeploy", () => {
         "/home/test",
       );
       const ambiguity = warnings.find((w) => w.kind === "ambiguity");
-      assert.ok(ambiguity, "expected an ambiguity warning");
-      assert.match(ambiguity.message, /gemini-cli/);
-      assert.match(ambiguity.message, /antigravity/);
+      assert.ok(!ambiguity, "did not expect an ambiguity warning");
     } finally {
       await rm(sourceDir, { recursive: true });
     }
