@@ -1,0 +1,36 @@
+These uni tests failed, but only on windows-latest runner on GiThub
+
+test at test\unit\adapters.test.ts:85:3
+✖ returns a frontmatter-emit action for antigravity MCP (0.9315ms)
+  AssertionError [ERR_ASSERTION]: The input did not match the regular expression /\.agents\/rules\/my-mcp\.md$/. Input:
+  
+  'D:\\repo\\test\\.agents\\rules\\my-mcp.md'
+  
+      at TestContext.<anonymous> (file:///D:/a/inception-engine/inception-engine/test/unit/adapters.test.ts:97:12)
+      at Test.runInAsyncScope (node:async_hooks:228:14)
+      at Test.run (node:internal/test_runner/test:1118:25)
+      at Suite.processPendingSubtests (node:internal/test_runner/test:787:18)
+      at Test.postRun (node:internal/test_runner/test:1247:19)
+      at Test.run (node:internal/test_runner/test:1175:12)
+      at async Suite.processPendingSubtests (node:internal/test_runner/test:787:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 'D:\\repo\\test\\.agents\\rules\\my-mcp.md',
+    expected: /\.agents\/rules\/my-mcp\.md$/,
+    operator: 'match',
+    diff: 'simple'
+  }
+
+test at test\unit\deploy.test.ts:306:3
+✖ emits ambiguity warning when both gemini-cli and antigravity are detected and share GEMINI.md (3.5537ms)
+  AssertionError [ERR_ASSERTION]: expected an ambiguity warning
+      at TestContext.<anonymous> (file:///D:/a/inception-engine/inception-engine/test/unit/deploy.test.ts:330:14)
+      at async Test.run (node:internal/test_runner/test:1125:7)
+      at async Suite.processPendingSubtests (node:internal/test_runner/test:787:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
