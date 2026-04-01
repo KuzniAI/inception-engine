@@ -147,9 +147,21 @@ function detectAmbiguities(
     const homePathApi = getPathApi(home);
     const sharedGeminiMd = homePathApi.join(home, ".gemini", "GEMINI.md");
     const sharedSettings = homePathApi.join(home, ".gemini", "settings.json");
+    
+    // Normalize paths for comparison to handle case-insensitivity on Windows
+    const normalize = (pathStr: string) => 
+      homePathApi === path.win32 
+        ? pathStr.toLowerCase() 
+        : pathStr;
+
+    const normalizedGeminiMd = normalize(sharedGeminiMd);
+    const normalizedSettings = normalize(sharedSettings);
 
     const targetsShared = actions.some(
-      (a) => a.target === sharedGeminiMd || a.target === sharedSettings,
+      (a) => {
+        const normalizedTarget = normalize(a.target);
+        return normalizedTarget === normalizedGeminiMd || normalizedTarget === normalizedSettings;
+      },
     );
 
     if (targetsShared) {
