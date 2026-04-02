@@ -11,7 +11,7 @@ Each scored item uses a simple `0-2` scale per value for a maximum score of `8`.
 
 ## Architecture Enablers
 
-1. ~~Expand `init` beyond skill-folder discovery so bootstrap can infer or scaffold `files`, `configs`, and `mcpServers` from repo conventions, and reconcile discovered instruction files with the Claude-first portability direction instead of stopping at placeholder arrays and basic `agentRules` discovery. Score: `6/8` (`Architecture 2`, `Agents 2`, `OS 0`, `Confidence 2`)~~
+1. Infer or scaffold `files` and `configs` manifest entries from repo conventions without guessing unsafe target paths, so `init` covers more than skills, `agentRules`, and `mcpServers`. Score: `4/8` (`Architecture 1`, `Agents 1`, `OS 0`, `Confidence 2`)
 
 ## Functional Features
 
@@ -27,7 +27,6 @@ Ordered from highest to lowest after the fixed first step and architecture enabl
 8. Retain dedicated GitHub Copilot MCP deployment only for the surfaces that are genuinely Copilot-specific, such as devcontainer or agent-frontmatter mappings. Score: `5/8` (`Architecture 1`, `Agents 2`, `OS 0`, `Confidence 2`)
 9. Expand instruction-file support beyond today's global rules-file deployment to cover repo-local and workspace-local instruction surfaces for agents with documented behavior. Score: `4/8` (`Architecture 1`, `Agents 1`, `OS 0`, `Confidence 2`)
 10. Add preflight analysis for instruction precedence, collisions, and instruction-budget risk before deployment. Score: `3/8` (`Architecture 1`, `Agents 0`, `OS 0`, `Confidence 2`)
-11. Update `init` so generated manifests stop baking in legacy `github-copilot` skill targets by default when the product direction is Claude-first portability for shared artifacts. Score: `5/8` (`Architecture 1`, `Agents 2`, `OS 0`, `Confidence 2`)
 
 ## Quality And Maintenance
 

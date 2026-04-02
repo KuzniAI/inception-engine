@@ -164,7 +164,7 @@ The `name` and `description` fields in the frontmatter are used by most agents. 
 
 ## `init` Command
 
-`init` is meant to bootstrap a repository that already has skill folders. It recursively scans the target directory, treats any directory containing `SKILL.md` as a skill, and writes a starter `inception.json`.
+`init` is meant to bootstrap a repository that already has skills and related manifest assets. It recursively scans the target directory, treats any directory containing `SKILL.md` as a skill, discovers supported instruction and MCP conventions, and writes a starter `inception.json`.
 
 Current `init` behavior:
 
