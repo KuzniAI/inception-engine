@@ -8,7 +8,7 @@ GitHub Copilot is no longer treated as a separate instruction or skill target in
 
 The broader portability layer is the roadmap direction, but this README focuses on what is working now.
 
-`init` is available as a bootstrap command, but what works today is intentionally narrow: it scans for directories containing `SKILL.md` and generates starter `skills` entries plus empty `mcpServers` and `agentRules` arrays. It does not infer `files`, `configs`, MCP server definitions, or rules files from the repository yet.
+`init` is available as a bootstrap command. It scans for directories containing `SKILL.md`, discovers agent-rules Markdown files using the Claude-first portability conventions, and reads `mcp-servers.json` from the repo root to populate `mcpServers`. `files` and `configs` remain empty — `init` emits guidance when it detects a `files/` or `configs/` directory.
 
 ## Quick Start
 
@@ -50,7 +50,7 @@ Managed skills overwrite their previous version. If a target exists but was not 
 | Config patch (JSON merge) | All agents via manifest and CLI | All agents |
 | MCP Servers | claude-code, gemini-cli, codex, antigravity, opencode; github-copilot repo-scoped surfaces are warned and skipped | claude-code, gemini-cli, codex, antigravity, opencode |
 | Global/Repo Rules Files | All agents (antigravity uses repo-local `.agents/rules/`); github-copilot reads CLAUDE.md natively (deploy via claude-code) | All agents |
-| `init` manifest generation | Scans `SKILL.md` directories and writes starter `skills` entries | N/A |
+| `init` manifest generation | Scans `SKILL.md` directories (`skills`), `.md` files with Claude-first agent mapping (`agentRules`), and `mcp-servers.json` (`mcpServers`); emits hints for `files/` and `configs/` directories | N/A |
 
 Features that depend on agent-specific config surfaces are intentionally conservative: if a target path or schema is not implemented with enough confidence, inception-engine warns and skips it rather than guessing.
 
@@ -173,12 +173,30 @@ Current `init` behavior:
 - Applies either the `--agents` list or all currently known agent IDs
 - Refuses to overwrite an existing `inception.json` unless `--force` is provided
 - Supports `--dry-run` so you can inspect the generated manifest before writing it
+- Discovers agent-rules Markdown files in the root and conventional subdirectories (`rules/`, `instructions/`, `.github/`, `.agents/rules/`), mapping them to agents using Claude-first portability conventions: `copilot-instructions.md` maps to `claude-code` (Copilot reads `CLAUDE.md` natively), and the fallback for unrecognized files excludes agents whose agentRules surface is unsupported
+- Reads `mcp-servers.json` from the repo root (if present) and generates `mcpServers` entries; invalid entries are warned and skipped
+- Emits guidance when a `files/` or `configs/` directory is detected at the repo root
 
 Current `init` limitations:
 
 - It does not reconcile generated manifest entries against `SKILL.md` frontmatter values
-- It does not infer `files`, `configs`, `mcpServers`, or `agentRules`
-- It does not reconcile generated output with the longer-term Claude-first portability direction
+- `files` and `configs` entries cannot be inferred automatically since deployment targets are system-specific; add them manually after `init`
+
+### Repo Conventions Recognized by `init`
+
+Place a `mcp-servers.json` file at the repo root to have `init` populate the `mcpServers` section automatically. The file must be a JSON array of MCP server entries using the same schema as the `mcpServers` field in `inception.json`:
+
+```json
+[
+  {
+    "name": "my-server",
+    "agents": ["claude-code", "gemini-cli"],
+    "config": { "command": "npx", "args": ["-y", "my-mcp-server"] }
+  }
+]
+```
+
+Invalid entries are warned and skipped; the rest are written into the generated manifest verbatim.
 
 ## CLI Reference
 

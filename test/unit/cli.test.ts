@@ -595,4 +595,279 @@ describe("init command", () => {
       await rm(dir, { recursive: true });
     }
   });
+
+  // --- portability reconciliation ---
+
+  it("copilot-instructions.md maps to claude-code, not github-copilot", async () => {
+    const dir = await makeTmpDir();
+    try {
+      await writeFile(path.join(dir, "copilot-instructions.md"), "# rules\n");
+      const { code } = await run(["init", dir]);
+      assert.equal(code, 0);
+      const manifest = JSON.parse(
+        (
+          await import("node:fs/promises").then((m) =>
+            m.readFile(path.join(dir, "inception.json"), "utf-8"),
+          )
+        ).toString(),
+      ) as {
+        agentRules: Array<{ name: string; path: string; agents: string[] }>;
+      };
+      const entry = manifest.agentRules.find((r) =>
+        r.path.includes("copilot-instructions"),
+      );
+      assert.ok(entry, "should have an entry for copilot-instructions.md");
+      assert.ok(
+        entry?.agents.includes("claude-code"),
+        `agents should include claude-code, got: ${JSON.stringify(entry?.agents)}`,
+      );
+      assert.ok(
+        !entry?.agents.includes("github-copilot"),
+        `agents should not include github-copilot, got: ${JSON.stringify(entry?.agents)}`,
+      );
+    } finally {
+      await rm(dir, { recursive: true });
+    }
+  });
+
+  it("unrecognized .md fallback excludes github-copilot", async () => {
+    const dir = await makeTmpDir();
+    try {
+      await writeFile(path.join(dir, "my-custom-rules.md"), "# rules\n");
+      const { code } = await run(["init", dir]);
+      assert.equal(code, 0);
+      const manifest = JSON.parse(
+        (
+          await import("node:fs/promises").then((m) =>
+            m.readFile(path.join(dir, "inception.json"), "utf-8"),
+          )
+        ).toString(),
+      ) as {
+        agentRules: Array<{ name: string; path: string; agents: string[] }>;
+      };
+      const entry = manifest.agentRules.find((r) =>
+        r.path.includes("my-custom-rules"),
+      );
+      assert.ok(entry, "should have an entry for my-custom-rules.md");
+      assert.ok(
+        !entry?.agents.includes("github-copilot"),
+        `fallback agents should not include github-copilot, got: ${JSON.stringify(entry?.agents)}`,
+      );
+    } finally {
+      await rm(dir, { recursive: true });
+    }
+  });
+
+  it("--agents github-copilot produces agentRules: []", async () => {
+    const dir = await makeTmpDir();
+    try {
+      await writeFile(path.join(dir, "my-custom-rules.md"), "# rules\n");
+      const { code } = await run(["init", dir, "--agents", "github-copilot"]);
+      assert.equal(code, 0);
+      const manifest = JSON.parse(
+        (
+          await import("node:fs/promises").then((m) =>
+            m.readFile(path.join(dir, "inception.json"), "utf-8"),
+          )
+        ).toString(),
+      ) as { agentRules: unknown[] };
+      assert.deepEqual(
+        manifest.agentRules,
+        [],
+        "github-copilot cannot receive agentRules, so agentRules should be []",
+      );
+    } finally {
+      await rm(dir, { recursive: true });
+    }
+  });
+
+  // --- mcp-servers.json discovery ---
+
+  it("valid mcp-servers.json populates mcpServers", async () => {
+    const dir = await makeTmpDir();
+    try {
+      await writeFile(
+        path.join(dir, "mcp-servers.json"),
+        JSON.stringify([
+          {
+            name: "my-server",
+            agents: ["claude-code"],
+            config: { command: "npx", args: ["-y", "my-pkg"] },
+          },
+        ]),
+      );
+      const { code } = await run(["init", dir]);
+      assert.equal(code, 0);
+      const manifest = JSON.parse(
+        (
+          await import("node:fs/promises").then((m) =>
+            m.readFile(path.join(dir, "inception.json"), "utf-8"),
+          )
+        ).toString(),
+      ) as {
+        mcpServers: Array<{
+          name: string;
+          agents: string[];
+          config: Record<string, unknown>;
+        }>;
+      };
+      assert.equal(manifest.mcpServers.length, 1);
+      assert.equal(manifest.mcpServers[0].name, "my-server");
+      assert.deepEqual(manifest.mcpServers[0].agents, ["claude-code"]);
+      assert.equal(manifest.mcpServers[0].config.command, "npx");
+    } finally {
+      await rm(dir, { recursive: true });
+    }
+  });
+
+  it("invalid JSON in mcp-servers.json produces mcpServers: [] and a warning", async () => {
+    const dir = await makeTmpDir();
+    try {
+      await writeFile(path.join(dir, "mcp-servers.json"), "{not json}");
+      const { code, stdout } = await run(["init", dir]);
+      assert.equal(code, 0);
+      const manifest = JSON.parse(
+        (
+          await import("node:fs/promises").then((m) =>
+            m.readFile(path.join(dir, "inception.json"), "utf-8"),
+          )
+        ).toString(),
+      ) as { mcpServers: unknown[] };
+      assert.deepEqual(manifest.mcpServers, []);
+      assert.ok(
+        stdout.includes("mcp-servers.json"),
+        "stdout should mention mcp-servers.json warning",
+      );
+    } finally {
+      await rm(dir, { recursive: true });
+    }
+  });
+
+  it("non-array mcp-servers.json produces mcpServers: [] and a warning", async () => {
+    const dir = await makeTmpDir();
+    try {
+      await writeFile(
+        path.join(dir, "mcp-servers.json"),
+        JSON.stringify({ name: "not-an-array" }),
+      );
+      const { code, stdout } = await run(["init", dir]);
+      assert.equal(code, 0);
+      const manifest = JSON.parse(
+        (
+          await import("node:fs/promises").then((m) =>
+            m.readFile(path.join(dir, "inception.json"), "utf-8"),
+          )
+        ).toString(),
+      ) as { mcpServers: unknown[] };
+      assert.deepEqual(manifest.mcpServers, []);
+      assert.ok(
+        stdout.includes("mcp-servers.json"),
+        "stdout should mention mcp-servers.json warning",
+      );
+    } finally {
+      await rm(dir, { recursive: true });
+    }
+  });
+
+  it("mcp-servers.json with mixed valid/invalid entries only keeps valid ones", async () => {
+    const dir = await makeTmpDir();
+    try {
+      await writeFile(
+        path.join(dir, "mcp-servers.json"),
+        JSON.stringify([
+          {
+            name: "valid-server",
+            agents: ["claude-code"],
+            config: { command: "npx" },
+          },
+          { name: "missing-config-and-agents" },
+        ]),
+      );
+      const { code } = await run(["init", dir]);
+      assert.equal(code, 0);
+      const manifest = JSON.parse(
+        (
+          await import("node:fs/promises").then((m) =>
+            m.readFile(path.join(dir, "inception.json"), "utf-8"),
+          )
+        ).toString(),
+      ) as { mcpServers: Array<{ name: string }> };
+      assert.equal(manifest.mcpServers.length, 1);
+      assert.equal(manifest.mcpServers[0].name, "valid-server");
+    } finally {
+      await rm(dir, { recursive: true });
+    }
+  });
+
+  it("missing mcp-servers.json produces mcpServers: [] with no warning", async () => {
+    const dir = await makeTmpDir();
+    try {
+      const { code, stdout } = await run(["init", dir]);
+      assert.equal(code, 0);
+      const manifest = JSON.parse(
+        (
+          await import("node:fs/promises").then((m) =>
+            m.readFile(path.join(dir, "inception.json"), "utf-8"),
+          )
+        ).toString(),
+      ) as { mcpServers: unknown[] };
+      assert.deepEqual(manifest.mcpServers, []);
+      assert.ok(
+        !stdout.includes("mcp-servers.json"),
+        "stdout should not mention mcp-servers.json when file is absent",
+      );
+    } finally {
+      await rm(dir, { recursive: true });
+    }
+  });
+
+  // --- files/ and configs/ directory hints ---
+
+  it("files/ directory produces a hint in stdout and files remains []", async () => {
+    const dir = await makeTmpDir();
+    try {
+      await mkdir(path.join(dir, "files"), { recursive: true });
+      await writeFile(path.join(dir, "files", "settings.json"), "{}");
+      const { code, stdout } = await run(["init", dir]);
+      assert.equal(code, 0);
+      const manifest = JSON.parse(
+        (
+          await import("node:fs/promises").then((m) =>
+            m.readFile(path.join(dir, "inception.json"), "utf-8"),
+          )
+        ).toString(),
+      ) as { files: unknown[] };
+      assert.deepEqual(manifest.files, []);
+      assert.ok(
+        stdout.includes("files/"),
+        "stdout should mention the files/ directory",
+      );
+    } finally {
+      await rm(dir, { recursive: true });
+    }
+  });
+
+  it("configs/ directory produces a hint in stdout and configs remains []", async () => {
+    const dir = await makeTmpDir();
+    try {
+      await mkdir(path.join(dir, "configs"), { recursive: true });
+      await writeFile(path.join(dir, "configs", "patch.json"), "{}");
+      const { code, stdout } = await run(["init", dir]);
+      assert.equal(code, 0);
+      const manifest = JSON.parse(
+        (
+          await import("node:fs/promises").then((m) =>
+            m.readFile(path.join(dir, "inception.json"), "utf-8"),
+          )
+        ).toString(),
+      ) as { configs: unknown[] };
+      assert.deepEqual(manifest.configs, []);
+      assert.ok(
+        stdout.includes("configs/"),
+        "stdout should mention the configs/ directory",
+      );
+    } finally {
+      await rm(dir, { recursive: true });
+    }
+  });
 });

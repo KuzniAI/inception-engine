@@ -11,7 +11,7 @@ Each scored item uses a simple `0-2` scale per value for a maximum score of `8`.
 
 ## Architecture Enablers
 
-1. Expand `init` beyond skill-folder discovery so bootstrap can infer or scaffold `files`, `configs`, and `mcpServers` from repo conventions, and reconcile discovered instruction files with the Claude-first portability direction instead of stopping at placeholder arrays and basic `agentRules` discovery. Score: `6/8` (`Architecture 2`, `Agents 2`, `OS 0`, `Confidence 2`)
+1. ~~Expand `init` beyond skill-folder discovery so bootstrap can infer or scaffold `files`, `configs`, and `mcpServers` from repo conventions, and reconcile discovered instruction files with the Claude-first portability direction instead of stopping at placeholder arrays and basic `agentRules` discovery. Score: `6/8` (`Architecture 2`, `Agents 2`, `OS 0`, `Confidence 2`)~~
 
 ## Functional Features
 

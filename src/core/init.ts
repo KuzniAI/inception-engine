@@ -1,12 +1,14 @@
-import { access, readdir, writeFile } from "node:fs/promises";
+import { access, readFile, readdir, writeFile } from "node:fs/promises";
 import path from "node:path";
+import { AGENT_REGISTRY_BY_ID } from "../config/agents.ts";
 import { dryRunPrefix, logger } from "../logger.ts";
 import type {
   AgentId,
   AgentRuleEntry,
+  McpServerEntry,
   SkillEntry,
 } from "../schemas/manifest.ts";
-import { AGENT_IDS } from "../schemas/manifest.ts";
+import { AGENT_IDS, McpServerEntrySchema } from "../schemas/manifest.ts";
 
 const SAFE_NAME_RE = /^[a-zA-Z0-9][a-zA-Z0-9._-]*$/;
 
@@ -27,7 +29,7 @@ const AGENT_RULES_FILE_PATTERNS: Array<{
     fileNames: ["gemini.md", "gemini-instructions.md"],
     agents: ["gemini-cli", "antigravity"],
   },
-  { fileNames: ["copilot-instructions.md"], agents: ["github-copilot"] },
+  { fileNames: ["copilot-instructions.md"], agents: ["claude-code"] },
 ];
 
 // Conventional subdirectory names to scan one level deep for .md files.
@@ -226,6 +228,9 @@ function buildAgentRules(
     const intersection = defaultAgents.filter((a) => activeAgents.includes(a));
     const agents = intersection.length > 0 ? intersection : activeAgents;
 
+    // Skip if no capable agents remain (e.g. --agents github-copilot only)
+    if (agents.length === 0) continue;
+
     // Resolve name collision with skill names
     let name = rawName;
     if (namesSeen.has(name)) {
@@ -252,12 +257,84 @@ function buildAgentRules(
   return rules;
 }
 
+async function loadMcpServers(baseDir: string): Promise<McpServerEntry[]> {
+  const filePath = path.join(baseDir, "mcp-servers.json");
+  let raw: string;
+  try {
+    raw = await readFile(filePath, "utf-8");
+  } catch {
+    return [];
+  }
+
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    logger.warn("init", "mcp-servers.json: invalid JSON, skipping");
+    return [];
+  }
+
+  if (!Array.isArray(parsed)) {
+    logger.warn("init", "mcp-servers.json: expected a JSON array, skipping");
+    return [];
+  }
+
+  const results: McpServerEntry[] = [];
+  for (let i = 0; i < parsed.length; i++) {
+    const result = McpServerEntrySchema.safeParse(parsed[i]);
+    if (result.success) {
+      results.push(result.data);
+    } else {
+      logger.warn("init", `mcp-servers.json: entry[${i}] invalid, skipping`);
+    }
+  }
+  return results;
+}
+
+async function emitDirectoryHints(baseDir: string): Promise<void> {
+  for (const [dir, section] of [
+    ["files", "files"],
+    ["configs", "configs"],
+  ] as const) {
+    try {
+      await access(path.join(baseDir, dir));
+      logger.info(
+        `Detected ${dir}/ directory — add ${section} entries manually to the generated manifest with target paths.`,
+      );
+    } catch {
+      // directory does not exist — silent
+    }
+  }
+}
+
 async function manifestExists(manifestPath: string): Promise<boolean> {
   try {
     await access(manifestPath);
     return true;
   } catch {
     return false;
+  }
+}
+
+function logVerboseManifest(
+  skills: SkillEntry[],
+  agentRules: AgentRuleEntry[],
+  mcpServers: McpServerEntry[],
+): void {
+  for (const s of skills) {
+    logger.detail(`${s.name}  →  ${s.path}`);
+  }
+  if (agentRules.length > 0) {
+    logger.detail("agentRules:");
+    for (const r of agentRules) {
+      logger.detail(`  ${r.name}  →  ${r.path}  [${r.agents.join(", ")}]`);
+    }
+  }
+  if (mcpServers.length > 0) {
+    logger.detail("mcpServers:");
+    for (const m of mcpServers) {
+      logger.detail(`  ${m.name}  [${m.agents.join(", ")}]`);
+    }
   }
 }
 
@@ -272,6 +349,10 @@ export interface InitOptions {
 export async function runInit(options: InitOptions): Promise<number> {
   const { directory, dryRun, force, verbose } = options;
   const agents: AgentId[] = options.agents ?? ([...AGENT_IDS] as AgentId[]);
+  const agentRulesCapableAgents = agents.filter(
+    (id) =>
+      AGENT_REGISTRY_BY_ID[id].agentRulesSupport?.status !== "unsupported",
+  );
 
   const manifestPath = path.join(directory, "inception.json");
 
@@ -301,43 +382,39 @@ export async function runInit(options: InitOptions): Promise<number> {
   );
   const agentRules = buildAgentRules(
     agentRulesCandidates,
-    agents,
+    agentRulesCapableAgents,
     skillNamesSeen,
   );
+
+  const mcpServers = await loadMcpServers(directory);
 
   const manifest = {
     skills,
     files: [],
     configs: [],
-    mcpServers: [],
+    mcpServers,
     agentRules,
   };
   const json = `${JSON.stringify(manifest, null, 2)}\n`;
 
   if (dryRun) {
     logger.info(
-      `${dryRunPrefix(true)}Would write ${manifestPath} with ${skills.length} skill(s) and ${agentRules.length} agentRule(s):`,
+      `${dryRunPrefix(true)}Would write ${manifestPath} with ${skills.length} skill(s), ${agentRules.length} agentRule(s), and ${mcpServers.length} mcpServer(s):`,
     );
     logger.info("");
     logger.info(json);
+    await emitDirectoryHints(directory);
     return 0;
   }
 
   await writeFile(manifestPath, json, "utf-8");
 
   logger.info(
-    `Generated ${manifestPath} with ${skills.length} skill(s) and ${agentRules.length} agentRule(s).`,
+    `Generated ${manifestPath} with ${skills.length} skill(s), ${agentRules.length} agentRule(s), and ${mcpServers.length} mcpServer(s).`,
   );
   if (verbose) {
-    for (const s of skills) {
-      logger.detail(`${s.name}  →  ${s.path}`);
-    }
-    if (agentRules.length > 0) {
-      logger.detail("agentRules:");
-      for (const r of agentRules) {
-        logger.detail(`  ${r.name}  →  ${r.path}  [${r.agents.join(", ")}]`);
-      }
-    }
+    logVerboseManifest(skills, agentRules, mcpServers);
   }
+  await emitDirectoryHints(directory);
   return 0;
 }
