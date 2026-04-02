@@ -143,3 +143,5 @@ vite.config.ts.timestamp-*
 
 # macOS files
 .DS_Store
+
+.claude/settings.local.json
