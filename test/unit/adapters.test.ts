@@ -12,8 +12,6 @@ import type {
 } from "../../src/types.ts";
 import { makeTmpDir } from "../helpers/fs.ts";
 
-const posixJoin = path.posix.join;
-
 describe("compileMcpServerActions", () => {
   it("returns zero actions and warnings when no detectedAgents overlap", () => {
     const { actions, warnings } = compileMcpServerActions(
@@ -207,7 +205,7 @@ describe("compileAgentRuleActions", () => {
       assert.equal(action.agent, "claude-code");
       assert.equal(action.source, rulesFile);
       assert.ok(
-        action.target.endsWith(posixJoin(".claude", "CLAUDE.md")),
+        action.target.endsWith(path.join(".claude", "CLAUDE.md")),
         `expected target under .claude/CLAUDE.md, got: ${action.target}`,
       );
       assert.equal(action.confidence, "documented");
@@ -384,7 +382,7 @@ describe("compilePermissionsActions", () => {
     assert.equal(action.skill, "safety");
     assert.equal(action.agent, "claude-code");
     assert.ok(
-      action.target.endsWith(posixJoin(".claude", "settings.json")),
+      action.target.endsWith(path.join(".claude", "settings.json")),
       `expected target to end with .claude/settings.json, got: ${action.target}`,
     );
     assert.deepEqual(action.patch, {
@@ -411,7 +409,7 @@ describe("compilePermissionsActions", () => {
     assert.equal(action.skill, "codex-approval");
     assert.equal(action.agent, "codex");
     assert.ok(
-      action.target.endsWith(posixJoin(".codex", "config.toml")),
+      action.target.endsWith(path.join(".codex", "config.toml")),
       `expected target to end with .codex/config.toml, got: ${action.target}`,
     );
     assert.deepEqual(action.config, { approval_policy: "suggest" });
