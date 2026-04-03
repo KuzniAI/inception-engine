@@ -12,6 +12,7 @@ Each scored item uses a simple `0-2` scale per value for a maximum score of `8`.
 ## Architecture Enablers
 
 1. ~~Infer or scaffold `files` and `configs` manifest entries from repo conventions without guessing unsafe target paths, so `init` covers more than skills, `agentRules`, and `mcpServers`. Score: `4/8` (`Architecture 1`, `Agents 1`, `OS 0`, `Confidence 2`)~~
+   Implemented via explicit repo-sidecar conventions: `init` reads `files-manifest.json` and `configs-manifest.json` to populate those sections, while still avoiding unsafe target-path guessing.
 
 ## Functional Features
 
