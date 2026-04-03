@@ -1,0 +1,5 @@
+Review the implemented items on docs/roadmap.md against the codebase. Remove them or update occordingly
+
+---
+
+remove implemented stuff from roadmap
