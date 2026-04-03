@@ -5,10 +5,17 @@ import { dryRunPrefix, logger } from "../logger.ts";
 import type {
   AgentId,
   AgentRuleEntry,
+  ConfigEntry,
+  FileEntry,
   McpServerEntry,
   SkillEntry,
 } from "../schemas/manifest.ts";
-import { AGENT_IDS, McpServerEntrySchema } from "../schemas/manifest.ts";
+import {
+  AGENT_IDS,
+  ConfigEntrySchema,
+  FileEntrySchema,
+  McpServerEntrySchema,
+} from "../schemas/manifest.ts";
 
 const SAFE_NAME_RE = /^[a-zA-Z0-9][a-zA-Z0-9._-]*$/;
 
@@ -291,16 +298,96 @@ async function loadMcpServers(baseDir: string): Promise<McpServerEntry[]> {
   return results;
 }
 
-async function emitDirectoryHints(baseDir: string): Promise<void> {
-  for (const [dir, section] of [
-    ["files", "files"],
-    ["configs", "configs"],
+async function loadFilesManifest(baseDir: string): Promise<FileEntry[]> {
+  const filePath = path.join(baseDir, "files-manifest.json");
+  let raw: string;
+  try {
+    raw = await readFile(filePath, "utf-8");
+  } catch {
+    return [];
+  }
+
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    logger.warn("init", "files-manifest.json: invalid JSON, skipping");
+    return [];
+  }
+
+  if (!Array.isArray(parsed)) {
+    logger.warn("init", "files-manifest.json: expected a JSON array, skipping");
+    return [];
+  }
+
+  const results: FileEntry[] = [];
+  for (let i = 0; i < parsed.length; i++) {
+    const result = FileEntrySchema.safeParse(parsed[i]);
+    if (result.success) {
+      results.push(result.data);
+    } else {
+      logger.warn("init", `files-manifest.json: entry[${i}] invalid, skipping`);
+    }
+  }
+  return results;
+}
+
+async function loadConfigsManifest(baseDir: string): Promise<ConfigEntry[]> {
+  const filePath = path.join(baseDir, "configs-manifest.json");
+  let raw: string;
+  try {
+    raw = await readFile(filePath, "utf-8");
+  } catch {
+    return [];
+  }
+
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    logger.warn("init", "configs-manifest.json: invalid JSON, skipping");
+    return [];
+  }
+
+  if (!Array.isArray(parsed)) {
+    logger.warn(
+      "init",
+      "configs-manifest.json: expected a JSON array, skipping",
+    );
+    return [];
+  }
+
+  const results: ConfigEntry[] = [];
+  for (let i = 0; i < parsed.length; i++) {
+    const result = ConfigEntrySchema.safeParse(parsed[i]);
+    if (result.success) {
+      results.push(result.data);
+    } else {
+      logger.warn(
+        "init",
+        `configs-manifest.json: entry[${i}] invalid, skipping`,
+      );
+    }
+  }
+  return results;
+}
+
+async function emitDirectoryHints(
+  baseDir: string,
+  filesLoaded: number,
+  configsLoaded: number,
+): Promise<void> {
+  for (const [dir, section, loaded, sidecar] of [
+    ["files", "files", filesLoaded, "files-manifest.json"],
+    ["configs", "configs", configsLoaded, "configs-manifest.json"],
   ] as const) {
     try {
       await access(path.join(baseDir, dir));
-      logger.info(
-        `Detected ${dir}/ directory — add ${section} entries manually to the generated manifest with target paths.`,
-      );
+      if ((loaded as number) === 0) {
+        logger.info(
+          `Detected ${dir}/ directory — create ${sidecar} at the repo root to have init populate ${section} entries automatically.`,
+        );
+      }
     } catch {
       // directory does not exist — silent
     }
@@ -320,6 +407,8 @@ function logVerboseManifest(
   skills: SkillEntry[],
   agentRules: AgentRuleEntry[],
   mcpServers: McpServerEntry[],
+  files: FileEntry[],
+  configs: ConfigEntry[],
 ): void {
   for (const s of skills) {
     logger.detail(`${s.name}  →  ${s.path}`);
@@ -334,6 +423,18 @@ function logVerboseManifest(
     logger.detail("mcpServers:");
     for (const m of mcpServers) {
       logger.detail(`  ${m.name}  [${m.agents.join(", ")}]`);
+    }
+  }
+  if (files.length > 0) {
+    logger.detail("files:");
+    for (const f of files) {
+      logger.detail(`  ${f.name}  →  ${f.target}  [${f.agents.join(", ")}]`);
+    }
+  }
+  if (configs.length > 0) {
+    logger.detail("configs:");
+    for (const c of configs) {
+      logger.detail(`  ${c.name}  →  ${c.target}  [${c.agents.join(", ")}]`);
     }
   }
 }
@@ -387,34 +488,45 @@ export async function runInit(options: InitOptions): Promise<number> {
   );
 
   const mcpServers = await loadMcpServers(directory);
+  const files = await loadFilesManifest(directory);
+  const configs = await loadConfigsManifest(directory);
 
   const manifest = {
     skills,
-    files: [],
-    configs: [],
+    files,
+    configs,
     mcpServers,
     agentRules,
   };
   const json = `${JSON.stringify(manifest, null, 2)}\n`;
 
+  function summarize(): string {
+    const parts = [
+      `${skills.length} skill(s)`,
+      `${agentRules.length} agentRule(s)`,
+      `${mcpServers.length} mcpServer(s)`,
+      `${files.length} file(s)`,
+      `${configs.length} config(s)`,
+    ];
+    return parts.join(", ");
+  }
+
   if (dryRun) {
     logger.info(
-      `${dryRunPrefix(true)}Would write ${manifestPath} with ${skills.length} skill(s), ${agentRules.length} agentRule(s), and ${mcpServers.length} mcpServer(s):`,
+      `${dryRunPrefix(true)}Would write ${manifestPath} with ${summarize()}:`,
     );
     logger.info("");
     logger.info(json);
-    await emitDirectoryHints(directory);
+    await emitDirectoryHints(directory, files.length, configs.length);
     return 0;
   }
 
   await writeFile(manifestPath, json, "utf-8");
 
-  logger.info(
-    `Generated ${manifestPath} with ${skills.length} skill(s), ${agentRules.length} agentRule(s), and ${mcpServers.length} mcpServer(s).`,
-  );
+  logger.info(`Generated ${manifestPath} with ${summarize()}.`);
   if (verbose) {
-    logVerboseManifest(skills, agentRules, mcpServers);
+    logVerboseManifest(skills, agentRules, mcpServers, files, configs);
   }
-  await emitDirectoryHints(directory);
+  await emitDirectoryHints(directory, files.length, configs.length);
   return 0;
 }
