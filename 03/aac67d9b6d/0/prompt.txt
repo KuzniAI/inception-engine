@@ -1,0 +1,19 @@
+commit your changes
+
+---
+
+There are problems still 
+
+test at test\unit\adapters.test.ts:185:3
+✖ returns a file-write action for claude-code with correct source and target (3.7745ms)
+  AssertionError [ERR_ASSERTION]: expected target under .claude/CLAUDE.md, got: /home/test/.claude/CLAUDE.md
+      at TestContext.<anonymous> (file:///D:/a/inception-engine/inception-engine/test/unit/adapters.test.ts:207:14)
+      at async Test.run (node:internal/test_runner/test:1125:7)
+      at async Suite.processPendingSubtests (node:internal/test_runner/test:787:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
