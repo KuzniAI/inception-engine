@@ -870,4 +870,316 @@ describe("init command", () => {
       await rm(dir, { recursive: true });
     }
   });
+
+  // --- files-manifest.json discovery ---
+
+  it("valid files-manifest.json populates files", async () => {
+    const dir = await makeTmpDir();
+    try {
+      await writeFile(path.join(dir, "source.txt"), "hello");
+      await writeFile(
+        path.join(dir, "files-manifest.json"),
+        JSON.stringify([
+          {
+            name: "my-file",
+            path: "source.txt",
+            target: "{home}/.myconfig",
+            agents: ["claude-code"],
+          },
+        ]),
+      );
+      const { code } = await run(["init", dir]);
+      assert.equal(code, 0);
+      const manifest = JSON.parse(
+        (
+          await import("node:fs/promises").then((m) =>
+            m.readFile(path.join(dir, "inception.json"), "utf-8"),
+          )
+        ).toString(),
+      ) as {
+        files: Array<{
+          name: string;
+          path: string;
+          target: string;
+          agents: string[];
+        }>;
+      };
+      assert.equal(manifest.files.length, 1);
+      assert.equal(manifest.files[0].name, "my-file");
+      assert.equal(manifest.files[0].target, "{home}/.myconfig");
+      assert.deepEqual(manifest.files[0].agents, ["claude-code"]);
+    } finally {
+      await rm(dir, { recursive: true });
+    }
+  });
+
+  it("invalid JSON in files-manifest.json produces files: [] and a warning", async () => {
+    const dir = await makeTmpDir();
+    try {
+      await writeFile(path.join(dir, "files-manifest.json"), "{not json}");
+      const { code, stdout } = await run(["init", dir]);
+      assert.equal(code, 0);
+      const manifest = JSON.parse(
+        (
+          await import("node:fs/promises").then((m) =>
+            m.readFile(path.join(dir, "inception.json"), "utf-8"),
+          )
+        ).toString(),
+      ) as { files: unknown[] };
+      assert.deepEqual(manifest.files, []);
+      assert.ok(
+        stdout.includes("files-manifest.json"),
+        "stdout should mention files-manifest.json warning",
+      );
+    } finally {
+      await rm(dir, { recursive: true });
+    }
+  });
+
+  it("non-array files-manifest.json produces files: [] and a warning", async () => {
+    const dir = await makeTmpDir();
+    try {
+      await writeFile(
+        path.join(dir, "files-manifest.json"),
+        JSON.stringify({ name: "not-an-array" }),
+      );
+      const { code, stdout } = await run(["init", dir]);
+      assert.equal(code, 0);
+      const manifest = JSON.parse(
+        (
+          await import("node:fs/promises").then((m) =>
+            m.readFile(path.join(dir, "inception.json"), "utf-8"),
+          )
+        ).toString(),
+      ) as { files: unknown[] };
+      assert.deepEqual(manifest.files, []);
+      assert.ok(
+        stdout.includes("files-manifest.json"),
+        "stdout should mention files-manifest.json warning",
+      );
+    } finally {
+      await rm(dir, { recursive: true });
+    }
+  });
+
+  it("files-manifest.json with mixed valid/invalid entries only keeps valid ones", async () => {
+    const dir = await makeTmpDir();
+    try {
+      await writeFile(
+        path.join(dir, "files-manifest.json"),
+        JSON.stringify([
+          {
+            name: "valid-file",
+            path: "source.txt",
+            target: "{home}/.myconfig",
+            agents: ["claude-code"],
+          },
+          { name: "missing-required-fields" },
+        ]),
+      );
+      const { code } = await run(["init", dir]);
+      assert.equal(code, 0);
+      const manifest = JSON.parse(
+        (
+          await import("node:fs/promises").then((m) =>
+            m.readFile(path.join(dir, "inception.json"), "utf-8"),
+          )
+        ).toString(),
+      ) as { files: Array<{ name: string }> };
+      assert.equal(manifest.files.length, 1);
+      assert.equal(manifest.files[0].name, "valid-file");
+    } finally {
+      await rm(dir, { recursive: true });
+    }
+  });
+
+  it("files/ dir with valid files-manifest.json suppresses the hint", async () => {
+    const dir = await makeTmpDir();
+    try {
+      await mkdir(path.join(dir, "files"), { recursive: true });
+      await writeFile(path.join(dir, "files", "settings.json"), "{}");
+      await writeFile(
+        path.join(dir, "files-manifest.json"),
+        JSON.stringify([
+          {
+            name: "my-settings",
+            path: "files/settings.json",
+            target: "{home}/.claude/settings.json",
+            agents: ["claude-code"],
+          },
+        ]),
+      );
+      const { code, stdout } = await run(["init", dir]);
+      assert.equal(code, 0);
+      const manifest = JSON.parse(
+        (
+          await import("node:fs/promises").then((m) =>
+            m.readFile(path.join(dir, "inception.json"), "utf-8"),
+          )
+        ).toString(),
+      ) as { files: Array<{ name: string }> };
+      assert.equal(manifest.files.length, 1);
+      assert.ok(
+        !stdout.includes("create files-manifest.json"),
+        "hint should not appear when files were loaded from files-manifest.json",
+      );
+    } finally {
+      await rm(dir, { recursive: true });
+    }
+  });
+
+  // --- configs-manifest.json discovery ---
+
+  it("valid configs-manifest.json populates configs", async () => {
+    const dir = await makeTmpDir();
+    try {
+      await writeFile(
+        path.join(dir, "configs-manifest.json"),
+        JSON.stringify([
+          {
+            name: "enable-feature",
+            target: "{home}/.claude/settings.json",
+            patch: { someFeature: true },
+            agents: ["claude-code"],
+          },
+        ]),
+      );
+      const { code } = await run(["init", dir]);
+      assert.equal(code, 0);
+      const manifest = JSON.parse(
+        (
+          await import("node:fs/promises").then((m) =>
+            m.readFile(path.join(dir, "inception.json"), "utf-8"),
+          )
+        ).toString(),
+      ) as {
+        configs: Array<{
+          name: string;
+          target: string;
+          patch: Record<string, unknown>;
+          agents: string[];
+        }>;
+      };
+      assert.equal(manifest.configs.length, 1);
+      assert.equal(manifest.configs[0].name, "enable-feature");
+      assert.equal(manifest.configs[0].target, "{home}/.claude/settings.json");
+      assert.deepEqual(manifest.configs[0].patch, { someFeature: true });
+    } finally {
+      await rm(dir, { recursive: true });
+    }
+  });
+
+  it("invalid JSON in configs-manifest.json produces configs: [] and a warning", async () => {
+    const dir = await makeTmpDir();
+    try {
+      await writeFile(path.join(dir, "configs-manifest.json"), "{not json}");
+      const { code, stdout } = await run(["init", dir]);
+      assert.equal(code, 0);
+      const manifest = JSON.parse(
+        (
+          await import("node:fs/promises").then((m) =>
+            m.readFile(path.join(dir, "inception.json"), "utf-8"),
+          )
+        ).toString(),
+      ) as { configs: unknown[] };
+      assert.deepEqual(manifest.configs, []);
+      assert.ok(
+        stdout.includes("configs-manifest.json"),
+        "stdout should mention configs-manifest.json warning",
+      );
+    } finally {
+      await rm(dir, { recursive: true });
+    }
+  });
+
+  it("non-array configs-manifest.json produces configs: [] and a warning", async () => {
+    const dir = await makeTmpDir();
+    try {
+      await writeFile(
+        path.join(dir, "configs-manifest.json"),
+        JSON.stringify({ name: "not-an-array" }),
+      );
+      const { code, stdout } = await run(["init", dir]);
+      assert.equal(code, 0);
+      const manifest = JSON.parse(
+        (
+          await import("node:fs/promises").then((m) =>
+            m.readFile(path.join(dir, "inception.json"), "utf-8"),
+          )
+        ).toString(),
+      ) as { configs: unknown[] };
+      assert.deepEqual(manifest.configs, []);
+      assert.ok(
+        stdout.includes("configs-manifest.json"),
+        "stdout should mention configs-manifest.json warning",
+      );
+    } finally {
+      await rm(dir, { recursive: true });
+    }
+  });
+
+  it("configs-manifest.json with mixed valid/invalid entries only keeps valid ones", async () => {
+    const dir = await makeTmpDir();
+    try {
+      await writeFile(
+        path.join(dir, "configs-manifest.json"),
+        JSON.stringify([
+          {
+            name: "valid-config",
+            target: "{home}/.claude/settings.json",
+            patch: { key: "value" },
+            agents: ["claude-code"],
+          },
+          { name: "missing-required-fields" },
+        ]),
+      );
+      const { code } = await run(["init", dir]);
+      assert.equal(code, 0);
+      const manifest = JSON.parse(
+        (
+          await import("node:fs/promises").then((m) =>
+            m.readFile(path.join(dir, "inception.json"), "utf-8"),
+          )
+        ).toString(),
+      ) as { configs: Array<{ name: string }> };
+      assert.equal(manifest.configs.length, 1);
+      assert.equal(manifest.configs[0].name, "valid-config");
+    } finally {
+      await rm(dir, { recursive: true });
+    }
+  });
+
+  it("configs/ dir with valid configs-manifest.json suppresses the hint", async () => {
+    const dir = await makeTmpDir();
+    try {
+      await mkdir(path.join(dir, "configs"), { recursive: true });
+      await writeFile(
+        path.join(dir, "configs-manifest.json"),
+        JSON.stringify([
+          {
+            name: "my-patch",
+            target: "{home}/.claude/settings.json",
+            patch: { feature: true },
+            agents: ["claude-code"],
+          },
+        ]),
+      );
+      const { code, stdout } = await run(["init", dir]);
+      assert.equal(code, 0);
+      const manifest = JSON.parse(
+        (
+          await import("node:fs/promises").then((m) =>
+            m.readFile(path.join(dir, "inception.json"), "utf-8"),
+          )
+        ).toString(),
+      ) as { configs: Array<{ name: string }> };
+      assert.equal(manifest.configs.length, 1);
+      assert.ok(
+        !stdout.includes("create configs-manifest.json"),
+        "hint should not appear when configs were loaded from configs-manifest.json",
+      );
+    } finally {
+      await rm(dir, { recursive: true });
+    }
+  });
 });

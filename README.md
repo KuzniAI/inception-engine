@@ -175,12 +175,14 @@ Current `init` behavior:
 - Supports `--dry-run` so you can inspect the generated manifest before writing it
 - Discovers agent-rules Markdown files in the root and conventional subdirectories (`rules/`, `instructions/`, `.github/`, `.agents/rules/`), mapping them to agents using Claude-first portability conventions: `copilot-instructions.md` maps to `claude-code` (Copilot reads `CLAUDE.md` natively), and the fallback for unrecognized files excludes agents whose agentRules surface is unsupported
 - Reads `mcp-servers.json` from the repo root (if present) and generates `mcpServers` entries; invalid entries are warned and skipped
-- Emits guidance when a `files/` or `configs/` directory is detected at the repo root
+- Reads `files-manifest.json` from the repo root (if present) and generates `files` entries; invalid entries are warned and skipped
+- Reads `configs-manifest.json` from the repo root (if present) and generates `configs` entries; invalid entries are warned and skipped
+- Emits guidance to create a sidecar manifest when a `files/` or `configs/` directory is detected but the corresponding sidecar file is absent
 
 Current `init` limitations:
 
 - It does not reconcile generated manifest entries against `SKILL.md` frontmatter values
-- `files` and `configs` entries cannot be inferred automatically since deployment targets are system-specific; add them manually after `init`
+- `files` and `configs` target paths are deployment-system-specific and cannot be inferred; they must be provided explicitly in `files-manifest.json` and `configs-manifest.json`
 
 ### Repo Conventions Recognized by `init`
 
@@ -192,6 +194,32 @@ Place a `mcp-servers.json` file at the repo root to have `init` populate the `mc
     "name": "my-server",
     "agents": ["claude-code", "gemini-cli"],
     "config": { "command": "npx", "args": ["-y", "my-mcp-server"] }
+  }
+]
+```
+
+Place a `files-manifest.json` file at the repo root to have `init` populate the `files` section automatically. The file must be a JSON array of file entries using the same schema as the `files` field in `inception.json`:
+
+```json
+[
+  {
+    "name": "my-settings",
+    "path": "files/settings.json",
+    "target": "{home}/.claude/settings.json",
+    "agents": ["claude-code"]
+  }
+]
+```
+
+Place a `configs-manifest.json` file at the repo root to have `init` populate the `configs` section automatically. The file must be a JSON array of config entries using the same schema as the `configs` field in `inception.json`:
+
+```json
+[
+  {
+    "name": "enable-feature",
+    "target": "{home}/.claude/settings.json",
+    "patch": { "someFeature": true },
+    "agents": ["claude-code"]
   }
 ]
 ```
