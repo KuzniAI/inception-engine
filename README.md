@@ -50,6 +50,7 @@ Managed skills overwrite their previous version. If a target exists but was not 
 | Config patch (JSON merge) | All agents via manifest and CLI | All agents |
 | MCP Servers | claude-code, gemini-cli, codex, antigravity, opencode; github-copilot repo-scoped surfaces are warned and skipped | claude-code, gemini-cli, codex, antigravity, opencode |
 | Global/Repo Rules Files | All agents (antigravity uses repo-local `.agents/rules/`); github-copilot reads CLAUDE.md natively (deploy via claude-code) | All agents |
+| Permissions / Approval Config | claude-code (`~/.claude/settings.json`), codex (`~/.codex/config.toml`); other agents are warned and skipped | claude-code, codex |
 | `init` manifest generation | Scans `SKILL.md` directories (`skills`), `.md` files with Claude-first agent mapping (`agentRules`), and `mcp-servers.json` (`mcpServers`); emits hints for `files/` and `configs/` directories | N/A |
 
 Features that depend on agent-specific config surfaces are intentionally conservative: if a target path or schema is not implemented with enough confidence, inception-engine warns and skips it rather than guessing.
@@ -98,6 +99,18 @@ Create an `inception.json` file at the root of your skills directory:
       "path": "rules/CLAUDE.md",
       "agents": ["claude-code"]
     }
+  ],
+  "permissions": [
+    {
+      "name": "safety-defaults",
+      "agents": ["claude-code"],
+      "config": {
+        "permissions": {
+          "allow": ["Read", "Glob"],
+          "deny": ["Bash(rm:*)"]
+        }
+      }
+    }
   ]
 }
 ```
@@ -144,6 +157,47 @@ Each **agentRules** entry deploys a Markdown instruction file to an agent's supp
 - **agents** - Array of agent IDs to deploy this file to
 
 Instruction rule deployment is supported for all agents. For most agents, this targets a single global rules file (e.g., `~/.claude/CLAUDE.md` for `claude-code`, `~/.codex/AGENTS.md` for `codex`, `~/.gemini/GEMINI.md` for `gemini-cli`, and `~/.config/opencode/AGENTS.md` for `opencode`). For `antigravity`, inception-engine deploys to repo-local instruction surfaces at `{repo}/.agents/rules/{name}.md`. For `github-copilot`, no separate deployment is needed because Copilot reads `CLAUDE.md` natively — target it via the `claude-code` agentRules entry and it reaches Copilot automatically. Revert removes the deployed rules file.
+
+Each **permissions** entry deploys execution and safety-oriented configuration to an agent's permission or approval surface:
+
+- **name** - Unique identifier (same format as skill names)
+- **agents** - Array of agent IDs to deploy this entry to
+- **config** - Permission config payload; shape is validated per agent (see below)
+
+Permission deployment is currently supported for `claude-code` and `codex`. Other agents emit a warning and are skipped.
+
+For `claude-code`, the config is merged into `~/.claude/settings.json`. Only the `permissions` key is accepted:
+
+```json
+{
+  "name": "safety-defaults",
+  "agents": ["claude-code"],
+  "config": {
+    "permissions": {
+      "allow": ["Read", "Glob", "Bash(git:*)"],
+      "deny": ["Bash(rm:*)"]
+    }
+  }
+}
+```
+
+Both `allow` and `deny` are optional string arrays. Tool patterns follow Claude Code's permission glob syntax (e.g., `Bash(git:*)` to allow all git commands).
+
+For `codex`, the config is merged into `~/.codex/config.toml`. Only the `approval_policy` key is accepted:
+
+```json
+{
+  "name": "codex-approval",
+  "agents": ["codex"],
+  "config": {
+    "approval_policy": "suggest"
+  }
+}
+```
+
+Valid `approval_policy` values are `"auto"`, `"manual"`, `"suggest"`, and `"on-failure"`.
+
+Revert restores the previous config values using the undo patch recorded at deploy time.
 
 ## Creating Skills
 

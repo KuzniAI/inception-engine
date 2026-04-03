@@ -3,10 +3,12 @@ import { realpath, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { describe, it } from "node:test";
 import { compileMcpServerActions } from "../../src/core/adapters/mcp.ts";
+import { compilePermissionsActions } from "../../src/core/adapters/permissions.ts";
 import { compileAgentRuleActions } from "../../src/core/adapters/rules.ts";
 import type {
   ConfigPatchDeployAction,
   FileWriteDeployAction,
+  TomlPatchDeployAction,
 } from "../../src/types.ts";
 import { makeTmpDir } from "../helpers/fs.ts";
 
@@ -344,5 +346,170 @@ describe("compileAgentRuleActions", () => {
     } finally {
       await rm(dir, { recursive: true });
     }
+  });
+});
+
+describe("compilePermissionsActions", () => {
+  it("returns zero actions and warnings when no detected agents overlap", () => {
+    const { actions, warnings } = compilePermissionsActions(
+      {
+        name: "safety",
+        agents: ["claude-code"],
+        config: { permissions: { allow: ["Read"] } },
+      },
+      ["codex"],
+      "/home/test",
+    );
+    assert.equal(actions.length, 0);
+    assert.equal(warnings.length, 0);
+  });
+
+  it("returns a config-patch action for claude-code targeting settings.json", () => {
+    const home = "/home/test";
+    const { actions, warnings } = compilePermissionsActions(
+      {
+        name: "safety",
+        agents: ["claude-code"],
+        config: {
+          permissions: { allow: ["Read", "Glob"], deny: ["Bash(rm:*)"] },
+        },
+      },
+      ["claude-code"],
+      home,
+    );
+    assert.equal(actions.length, 1);
+    assert.equal(warnings.length, 0);
+    const action = actions[0] as ConfigPatchDeployAction;
+    assert.equal(action.kind, "config-patch");
+    assert.equal(action.skill, "safety");
+    assert.equal(action.agent, "claude-code");
+    assert.ok(
+      action.target.endsWith(posixJoin(".claude", "settings.json")),
+      `expected target to end with .claude/settings.json, got: ${action.target}`,
+    );
+    assert.deepEqual(action.patch, {
+      permissions: { allow: ["Read", "Glob"], deny: ["Bash(rm:*)"] },
+    });
+    assert.equal(action.confidence, "documented");
+  });
+
+  it("returns a toml-patch action for codex targeting config.toml", () => {
+    const home = "/home/test";
+    const { actions, warnings } = compilePermissionsActions(
+      {
+        name: "codex-approval",
+        agents: ["codex"],
+        config: { approval_policy: "suggest" },
+      },
+      ["codex"],
+      home,
+    );
+    assert.equal(actions.length, 1);
+    assert.equal(warnings.length, 0);
+    const action = actions[0] as TomlPatchDeployAction;
+    assert.equal(action.kind, "toml-patch");
+    assert.equal(action.skill, "codex-approval");
+    assert.equal(action.agent, "codex");
+    assert.ok(
+      action.target.endsWith(posixJoin(".codex", "config.toml")),
+      `expected target to end with .codex/config.toml, got: ${action.target}`,
+    );
+    assert.deepEqual(action.config, { approval_policy: "suggest" });
+    assert.equal(action.confidence, "documented");
+  });
+
+  it("emits a warning and skips for agents without a permissions surface", () => {
+    for (const agentId of ["gemini-cli", "opencode", "antigravity"] as const) {
+      const { actions, warnings } = compilePermissionsActions(
+        { name: "safety", agents: [agentId], config: {} },
+        [agentId],
+        "/home/test",
+      );
+      assert.equal(actions.length, 0, `expected no actions for ${agentId}`);
+      assert.equal(warnings.length, 1, `expected one warning for ${agentId}`);
+      assert.equal(warnings[0]?.kind, "confidence");
+    }
+  });
+
+  it("throws for claude-code config with unrecognized top-level keys", () => {
+    assert.throws(
+      () =>
+        compilePermissionsActions(
+          {
+            name: "bad",
+            agents: ["claude-code"],
+            config: { unknown_key: true },
+          },
+          ["claude-code"],
+          "/home/test",
+        ),
+      /unrecognized keys/,
+    );
+  });
+
+  it("throws for claude-code config with non-array allow field", () => {
+    assert.throws(
+      () =>
+        compilePermissionsActions(
+          {
+            name: "bad",
+            agents: ["claude-code"],
+            config: { permissions: { allow: "Read" } },
+          },
+          ["claude-code"],
+          "/home/test",
+        ),
+      /array of strings/,
+    );
+  });
+
+  it("throws for codex config with unrecognized keys", () => {
+    assert.throws(
+      () =>
+        compilePermissionsActions(
+          {
+            name: "bad",
+            agents: ["codex"],
+            config: { unknown_policy: "auto" },
+          },
+          ["codex"],
+          "/home/test",
+        ),
+      /unrecognized keys/,
+    );
+  });
+
+  it("throws for codex config with invalid approval_policy value", () => {
+    assert.throws(
+      () =>
+        compilePermissionsActions(
+          {
+            name: "bad",
+            agents: ["codex"],
+            config: { approval_policy: "always" },
+          },
+          ["codex"],
+          "/home/test",
+        ),
+      /approval_policy/,
+    );
+  });
+
+  it("produces actions for both claude-code and codex when both are detected", () => {
+    const home = "/home/test";
+    const { actions, warnings } = compilePermissionsActions(
+      {
+        name: "multi",
+        agents: ["claude-code", "codex"],
+        config: {},
+      },
+      ["claude-code", "codex"],
+      home,
+    );
+    assert.equal(warnings.length, 0);
+    assert.equal(actions.length, 2);
+    const agents = actions.map((a) => a.agent);
+    assert.ok(agents.includes("claude-code"));
+    assert.ok(agents.includes("codex"));
   });
 });

@@ -42,6 +42,7 @@ export interface AgentProvenance {
   detectBinary: Confidence;
   mcpConfig?: Confidence;
   agentRules?: Confidence;
+  permissions?: Confidence;
 }
 
 export interface AgentConfig {
@@ -57,6 +58,8 @@ export interface AgentConfig {
   mcpSupport?: AgentSurfaceSupport;
   // Agent-specific persistent instruction/rules surface support.
   agentRulesSupport?: AgentSurfaceSupport;
+  // Agent-specific execution/safety permission and approval surface support.
+  permissionsSupport?: AgentSurfaceSupport;
   policyNote?: string;
 }
 

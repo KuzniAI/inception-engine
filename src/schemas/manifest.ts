@@ -109,6 +109,15 @@ export const AgentRuleEntrySchema = z.object({
   path: sourcePathField,
 });
 
+export const PermissionsEntrySchema = z.object({
+  name: nameField,
+  agents: agentsField,
+  // Raw permission config payload validated per agent by the permissions adapter.
+  // For claude-code: { permissions: { allow?: string[], deny?: string[] } }
+  // For codex: { approval_policy?: "auto" | "manual" | "suggest" | "on-failure" }
+  config: z.record(z.string(), z.unknown()),
+});
+
 export const ManifestSchema = z.object({
   skills: z.array(SkillEntrySchema).superRefine((skills, ctx) => {
     const seen = new Set<string>();
@@ -127,6 +136,7 @@ export const ManifestSchema = z.object({
   configs: z.array(ConfigEntrySchema).default([]),
   mcpServers: z.array(McpServerEntrySchema).default([]),
   agentRules: z.array(AgentRuleEntrySchema).default([]),
+  permissions: z.array(PermissionsEntrySchema).default([]),
 });
 
 export type SkillEntry = z.infer<typeof SkillEntrySchema>;
@@ -134,6 +144,7 @@ export type FileEntry = z.infer<typeof FileEntrySchema>;
 export type ConfigEntry = z.infer<typeof ConfigEntrySchema>;
 export type McpServerEntry = z.infer<typeof McpServerEntrySchema>;
 export type AgentRuleEntry = z.infer<typeof AgentRuleEntrySchema>;
+export type PermissionsEntry = z.infer<typeof PermissionsEntrySchema>;
 export type Manifest = z.infer<typeof ManifestSchema>;
 
 // Parses the --agents CLI flag: comma-separated agent IDs → AgentId[]

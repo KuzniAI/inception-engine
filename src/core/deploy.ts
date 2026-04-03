@@ -305,6 +305,7 @@ export async function planDeploy(
   const adapterResult = await compileAdapterActions(
     manifest.mcpServers,
     manifest.agentRules,
+    manifest.permissions ?? [],
     sourceDir,
     resolvedSourceDir,
     realRoot,

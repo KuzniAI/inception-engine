@@ -19,6 +19,7 @@ export const AGENT_REGISTRY: readonly AgentConfig[] = [
       detectBinary: "documented",
       mcpConfig: "documented",
       agentRules: "documented",
+      permissions: "documented",
     },
     mcpSupport: {
       status: "supported",
@@ -34,6 +35,14 @@ export const AGENT_REGISTRY: readonly AgentConfig[] = [
       path: {
         posix: ["{home}", ".claude", "CLAUDE.md"],
         windows: ["{home}", ".claude", "CLAUDE.md"],
+      },
+    },
+    permissionsSupport: {
+      status: "supported",
+      schemaLabel: "JSON permissions config",
+      path: {
+        posix: ["{home}", ".claude", "settings.json"],
+        windows: ["{home}", ".claude", "settings.json"],
       },
     },
   },
@@ -54,6 +63,7 @@ export const AGENT_REGISTRY: readonly AgentConfig[] = [
       detectPaths: "documented",
       detectBinary: "documented",
       agentRules: "documented",
+      permissions: "documented",
     },
     mcpSupport: {
       status: "supported",
@@ -69,6 +79,14 @@ export const AGENT_REGISTRY: readonly AgentConfig[] = [
       path: {
         posix: ["{home}", ".codex", "AGENTS.md"],
         windows: ["{home}", ".codex", "AGENTS.md"],
+      },
+    },
+    permissionsSupport: {
+      status: "supported",
+      schemaLabel: "TOML approval policy config",
+      path: {
+        posix: ["{home}", ".codex", "config.toml"],
+        windows: ["{home}", ".codex", "config.toml"],
       },
     },
   },
@@ -107,6 +125,12 @@ export const AGENT_REGISTRY: readonly AgentConfig[] = [
         windows: ["{home}", ".gemini", "GEMINI.md"],
       },
     },
+    permissionsSupport: {
+      status: "unsupported",
+      schemaLabel: "global permissions surface",
+      reason:
+        "Gemini CLI does not expose a documented global per-user permission or approval config surface",
+    },
   },
   {
     id: "antigravity",
@@ -140,6 +164,12 @@ export const AGENT_REGISTRY: readonly AgentConfig[] = [
         posix: ["{repo}", ".agents", "rules", "{name}.md"],
         windows: ["{repo}", ".agents", "rules", "{name}.md"],
       },
+    },
+    permissionsSupport: {
+      status: "unsupported",
+      schemaLabel: "global permissions surface",
+      reason:
+        "Antigravity does not expose a documented global per-user permission or approval config surface",
     },
   },
   {
@@ -177,6 +207,12 @@ export const AGENT_REGISTRY: readonly AgentConfig[] = [
         windows: ["{appdata}", "opencode", "AGENTS.md"],
       },
     },
+    permissionsSupport: {
+      status: "unsupported",
+      schemaLabel: "global permissions surface",
+      reason:
+        "OpenCode does not expose a documented global per-user permission or approval config surface",
+    },
   },
   {
     id: "github-copilot",
@@ -206,6 +242,12 @@ export const AGENT_REGISTRY: readonly AgentConfig[] = [
       schemaLabel: "Claude-native shared instructions",
       reason:
         'GitHub Copilot reads CLAUDE.md natively, so deploy via the "claude-code" agentRules target instead of a separate rules surface',
+    },
+    permissionsSupport: {
+      status: "unsupported",
+      schemaLabel: "global permissions surface",
+      reason:
+        "GitHub Copilot permissions are managed via organization policy, not a deployable per-user config surface",
     },
     policyNote:
       "Organization policies may override locally deployed skills. Verify with your GitHub org admin if deployed skills are not active.",

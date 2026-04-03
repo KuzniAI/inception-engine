@@ -15,6 +15,7 @@ import type {
 import {
   compileAgentRuleReverts,
   compileMcpServerReverts,
+  compilePermissionsReverts,
 } from "./adapters/index.ts";
 import { revertTomlMcpPatch } from "./adapters/toml.ts";
 import {
@@ -107,6 +108,9 @@ export function planRevert(
     ...(manifest.agentRules ?? []).flatMap((e) =>
       compileAgentRuleReverts(e, detectedAgents, home, repo),
     ),
+    ...(manifest.permissions ?? []).flatMap((e) =>
+      compilePermissionsReverts(e, detectedAgents, home),
+    ),
   ];
 }
 
@@ -124,6 +128,9 @@ export function planRevertAll(
     ),
     ...(manifest.agentRules ?? []).flatMap((e) =>
       compileAgentRuleReverts(e, null, home, repo),
+    ),
+    ...(manifest.permissions ?? []).flatMap((e) =>
+      compilePermissionsReverts(e, null, home),
     ),
   ];
 }

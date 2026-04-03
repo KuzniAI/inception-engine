@@ -1,4 +1,8 @@
-import type { AgentRuleEntry, McpServerEntry } from "../../schemas/manifest.ts";
+import type {
+  AgentRuleEntry,
+  McpServerEntry,
+  PermissionsEntry,
+} from "../../schemas/manifest.ts";
 import type {
   AgentId,
   ConfigPatchDeployAction,
@@ -8,9 +12,17 @@ import type {
   TomlPatchDeployAction,
 } from "../../types.ts";
 import { compileMcpServerActions, compileMcpServerReverts } from "./mcp.ts";
+import {
+  compilePermissionsActions,
+  compilePermissionsReverts,
+} from "./permissions.ts";
 import { compileAgentRuleActions, compileAgentRuleReverts } from "./rules.ts";
 
-export { compileAgentRuleReverts, compileMcpServerReverts };
+export {
+  compileAgentRuleReverts,
+  compileMcpServerReverts,
+  compilePermissionsReverts,
+};
 
 export type AdapterAction =
   | ConfigPatchDeployAction
@@ -26,6 +38,7 @@ export interface AdapterResult {
 export async function compileAdapterActions(
   mcpServers: McpServerEntry[],
   agentRules: AgentRuleEntry[],
+  permissions: PermissionsEntry[],
   sourceDir: string,
   resolvedSourceDir: string,
   realRoot: string,
@@ -52,6 +65,12 @@ export async function compileAdapterActions(
       home,
       repo,
     );
+    actions.push(...r.actions);
+    warnings.push(...r.warnings);
+  }
+
+  for (const entry of permissions) {
+    const r = compilePermissionsActions(entry, detectedAgents, home);
     actions.push(...r.actions);
     warnings.push(...r.warnings);
   }
