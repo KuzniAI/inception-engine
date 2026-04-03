@@ -12,6 +12,10 @@ import type {
 } from "../../src/types.ts";
 import { makeTmpDir } from "../helpers/fs.ts";
 
+function normalizeSlashes(value: string): string {
+  return value.replaceAll("\\", "/");
+}
+
 describe("compileMcpServerActions", () => {
   it("returns zero actions and warnings when no detectedAgents overlap", () => {
     const { actions, warnings } = compileMcpServerActions(
@@ -60,7 +64,7 @@ describe("compileMcpServerActions", () => {
     assert.equal(actions.length, 1);
     const action = actions[0] as ConfigPatchDeployAction;
     assert.ok(
-      action.target.endsWith(path.join(".gemini", "settings.json")),
+      normalizeSlashes(action.target).endsWith(".gemini/settings.json"),
       `expected target under .gemini/settings.json, got: ${action.target}`,
     );
   });
@@ -95,7 +99,9 @@ describe("compileMcpServerActions", () => {
     assert.equal(actions[0]?.kind, "frontmatter-emit");
     assert.equal(actions[0]?.agent, "antigravity");
     assert.ok(
-      actions[0]?.target.endsWith(path.join(".agents", "rules", "my-mcp.md")),
+      normalizeSlashes(actions[0]?.target ?? "").endsWith(
+        ".agents/rules/my-mcp.md",
+      ),
       `expected target to end with .agents/rules/my-mcp.md, got ${actions[0]?.target}`,
     );
   });
@@ -205,7 +211,7 @@ describe("compileAgentRuleActions", () => {
       assert.equal(action.agent, "claude-code");
       assert.equal(action.source, rulesFile);
       assert.ok(
-        action.target.endsWith(path.join(".claude", "CLAUDE.md")),
+        normalizeSlashes(action.target).endsWith(".claude/CLAUDE.md"),
         `expected target under .claude/CLAUDE.md, got: ${action.target}`,
       );
       assert.equal(action.confidence, "documented");
@@ -382,7 +388,7 @@ describe("compilePermissionsActions", () => {
     assert.equal(action.skill, "safety");
     assert.equal(action.agent, "claude-code");
     assert.ok(
-      action.target.endsWith(path.join(".claude", "settings.json")),
+      normalizeSlashes(action.target).endsWith(".claude/settings.json"),
       `expected target to end with .claude/settings.json, got: ${action.target}`,
     );
     assert.deepEqual(action.patch, {
@@ -409,7 +415,7 @@ describe("compilePermissionsActions", () => {
     assert.equal(action.skill, "codex-approval");
     assert.equal(action.agent, "codex");
     assert.ok(
-      action.target.endsWith(path.join(".codex", "config.toml")),
+      normalizeSlashes(action.target).endsWith(".codex/config.toml"),
       `expected target to end with .codex/config.toml, got: ${action.target}`,
     );
     assert.deepEqual(action.config, { approval_policy: "suggest" });
