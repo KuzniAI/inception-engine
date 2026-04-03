@@ -1,9 +1,1 @@
-Review the codebase after recent changes on docs/roadmap.md Verify if crossed out items are implemented. Remove them or update them
-
----
-
-stop, do the pull from origin
-
----
-
-finish the review now and update docs/roadmap.md
+commit your changes
