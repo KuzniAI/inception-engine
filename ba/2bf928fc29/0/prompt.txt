@@ -1,0 +1,39 @@
+Fix those failing tests on windows-latest
+
+est at test\unit\adapters.test.ts:367:3
+✖ returns a config-patch action for claude-code targeting settings.json (0.8355ms)
+  AssertionError [ERR_ASSERTION]: expected target to end with .claude/settings.json, got: D:\home\test\.claude\settings.json
+      at TestContext.<anonymous> (file:///D:/a/inception-engine/inception-engine/test/unit/adapters.test.ts:386:12)
+      at Test.runInAsyncScope (node:async_hooks:228:14)
+      at Test.run (node:internal/test_runner/test:1118:25)
+      at Suite.processPendingSubtests (node:internal/test_runner/test:787:18)
+      at Test.postRun (node:internal/test_runner/test:1247:19)
+      at Test.run (node:internal/test_runner/test:1175:12)
+      at async Promise.all (index 0)
+      at async Suite.run (node:internal/test_runner/test:1533:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:787:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+
+test at test\unit\adapters.test.ts:396:3
+✖ returns a toml-patch action for codex targeting config.toml (0.26ms)
+  AssertionError [ERR_ASSERTION]: expected target to end with .codex/config.toml, got: D:\home\test\.codex\config.toml
+      at TestContext.<anonymous> (file:///D:/a/inception-engine/inception-engine/test/unit/adapters.test.ts:413:12)
+      at Test.runInAsyncScope (node:async_hooks:228:14)
+      at Test.run (node:internal/test_runner/test:1118:25)
+      at Suite.processPendingSubtests (node:internal/test_runner/test:787:18)
+      at Test.postRun (node:internal/test_runner/test:1247:19)
+      at Test.run (node:internal/test_runner/test:1175:12)
+      at async Suite.processPendingSubtests (node:internal/test_runner/test:787:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
