@@ -35,18 +35,6 @@ Ordered from highest to lowest.
 5. Add stronger detection and warnings for enterprise or policy-managed environments where local configuration may be ignored or overridden. Score: `3/8` (`Architecture 0`, `Agents 1`, `OS 0`, `Confidence 2`)
 6. Add fixture-based `init` coverage against `limbo/` so the sample bundle, generated manifest, and README examples do not drift. Score: `4/8` (`Architecture 1`, `Agents 1`, `OS 0`, `Confidence 2`)
 
-## Completed
-
-1. ~~Infer or scaffold `files` and `configs` manifest entries from repo conventions without guessing unsafe target paths, so `init` covers more than skills, `agentRules`, and `mcpServers`. Score: `4/8` (`Architecture 1`, `Agents 1`, `OS 0`, `Confidence 2`)~~
-   Implemented via explicit repo-sidecar conventions: `init` reads `files-manifest.json` and `configs-manifest.json` to populate those sections, while still avoiding unsafe target-path guessing.
-2. ~~Add execution and safety-oriented config support for agent-specific permission and approval surfaces where safe patching and revert semantics can be implemented cleanly. Score: `6/8` (`Architecture 2`, `Agents 2`, `OS 0`, `Confidence 2`)~~
-   Implemented via a dedicated `permissions` manifest section. Claude Code deploys a JSON merge patch to `~/.claude/settings.json` under the `permissions` key (`allow`/`deny` string arrays). Codex deploys a TOML patch to `~/.codex/config.toml` (`approval_policy`). Agents without a documented global permission surface (Gemini CLI, OpenCode, Antigravity, GitHub Copilot) emit a warning and are skipped.
-3. ~~Add Codex MCP deployment via `config.toml`. Score: `5/8` (`Architecture 1`, `Agents 2`, `OS 0`, `Confidence 2`)~~
-   Implemented via the TOML MCP adapter targeting `~/.codex/config.toml`, with deploy/revert coverage and schema validation for MCP server descriptors.
-4. ~~Add OpenCode MCP deployment via `opencode.json` under `mcp`. Score: `5/8` (`Architecture 1`, `Agents 2`, `OS 0`, `Confidence 2`)~~
-   Implemented via the JSON MCP adapter targeting `opencode.json` and patching under the `mcp` key rather than `mcpServers`.
-5. ~~Add Antigravity MCP deployment via `.agents/rules/` frontmatter or `mcp-servers` properties. Score: `5/8` (`Architecture 1`, `Agents 2`, `OS 0`, `Confidence 2`)~~
-   Implemented via frontmatter-emitted `.agents/rules/{name}.md` files using the `mcp-servers` property, with corresponding revert support.
 
 ## Additional Dimensions To Consider
 
