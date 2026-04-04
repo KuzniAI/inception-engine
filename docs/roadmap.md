@@ -17,7 +17,7 @@ No active items.
 
 Ordered from highest to lowest after the fixed first step and architecture enablers.
 
-1. Add support for agent definition deployment for agents that expose dedicated agent directories or frontmatter-based agent files. Score: `6/8` (`Architecture 2`, `Agents 2`, `OS 1`, `Confidence 1`)
+1. ~~Add support for agent definition deployment for agents that expose dedicated agent directories or frontmatter-based agent files. Score: `6/8` (`Architecture 2`, `Agents 2`, `OS 1`, `Confidence 1`)~~
 2. ~~Remove legacy GitHub Copilot skill-target assumptions and related docs/tests/manifests where Copilot can execute Claude-style skills directly. Score: `6/8` (`Architecture 2`, `Agents 2`, `OS 0`, `Confidence 2`)~~
 3. Finish Antigravity instruction deployment coverage by reconciling today's repo-local `.agents/rules/*.md` support with any remaining shared `GEMINI.md` behavior and documented precedence semantics. Score: `5/8` (`Architecture 1`, `Agents 2`, `OS 0`, `Confidence 2`)
 4. ~~Retain dedicated GitHub Copilot MCP deployment only for the surfaces that are genuinely Copilot-specific, such as devcontainer or agent-frontmatter mappings. Score: `5/8` (`Architecture 1`, `Agents 2`, `OS 0`, `Confidence 2`)~~

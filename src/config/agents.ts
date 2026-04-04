@@ -20,6 +20,7 @@ export const AGENT_REGISTRY: readonly AgentConfig[] = [
       mcpConfig: "documented",
       agentRules: "documented",
       permissions: "documented",
+      agentDefinitions: "documented",
     },
     mcpSupport: {
       status: "supported",
@@ -43,6 +44,14 @@ export const AGENT_REGISTRY: readonly AgentConfig[] = [
       path: {
         posix: ["{home}", ".claude", "settings.json"],
         windows: ["{home}", ".claude", "settings.json"],
+      },
+    },
+    agentDefinitionsSupport: {
+      status: "supported",
+      schemaLabel: "repo-local agent definition Markdown file",
+      path: {
+        posix: ["{repo}", ".claude", "agents", "{name}.md"],
+        windows: ["{repo}", ".claude", "agents", "{name}.md"],
       },
     },
   },
@@ -89,6 +98,12 @@ export const AGENT_REGISTRY: readonly AgentConfig[] = [
         windows: ["{home}", ".codex", "config.toml"],
       },
     },
+    agentDefinitionsSupport: {
+      status: "unsupported",
+      schemaLabel: "dedicated agent definition directory",
+      reason:
+        "OpenAI Codex does not expose a documented dedicated per-agent definition directory surface separate from AGENTS.md and config.toml — use agentRules to deploy persona instructions instead",
+    },
   },
   {
     id: "gemini-cli",
@@ -108,6 +123,7 @@ export const AGENT_REGISTRY: readonly AgentConfig[] = [
       detectBinary: "documented",
       mcpConfig: "documented",
       agentRules: "documented",
+      agentDefinitions: "implementation-only",
     },
     mcpSupport: {
       status: "supported",
@@ -131,6 +147,14 @@ export const AGENT_REGISTRY: readonly AgentConfig[] = [
       reason:
         "Gemini CLI does not expose a documented global per-user permission or approval config surface",
     },
+    agentDefinitionsSupport: {
+      status: "supported",
+      schemaLabel: "repo-local agent definition Markdown file",
+      path: {
+        posix: ["{repo}", ".gemini", "agents", "{name}.md"],
+        windows: ["{repo}", ".gemini", "agents", "{name}.md"],
+      },
+    },
   },
   {
     id: "antigravity",
@@ -148,6 +172,7 @@ export const AGENT_REGISTRY: readonly AgentConfig[] = [
       skills: "implementation-only",
       detectPaths: "implementation-only",
       detectBinary: "provisional",
+      agentDefinitions: "documented",
     },
     mcpSupport: {
       status: "supported",
@@ -171,6 +196,14 @@ export const AGENT_REGISTRY: readonly AgentConfig[] = [
       reason:
         "Antigravity does not expose a documented global per-user permission or approval config surface",
     },
+    agentDefinitionsSupport: {
+      status: "supported",
+      schemaLabel: "repo-local agent definition Markdown file",
+      path: {
+        posix: ["{repo}", ".agents", "rules", "{name}.md"],
+        windows: ["{repo}", ".agents", "rules", "{name}.md"],
+      },
+    },
   },
   {
     id: "opencode",
@@ -189,6 +222,7 @@ export const AGENT_REGISTRY: readonly AgentConfig[] = [
       detectPaths: "documented",
       detectBinary: "documented",
       agentRules: "documented",
+      agentDefinitions: "documented",
     },
     mcpSupport: {
       status: "supported",
@@ -213,6 +247,14 @@ export const AGENT_REGISTRY: readonly AgentConfig[] = [
       reason:
         "OpenCode does not expose a documented global per-user permission or approval config surface",
     },
+    agentDefinitionsSupport: {
+      status: "supported",
+      schemaLabel: "repo-local agent definition Markdown file",
+      path: {
+        posix: ["{repo}", ".opencode", "agents", "{name}.md"],
+        windows: ["{repo}", ".opencode", "agents", "{name}.md"],
+      },
+    },
   },
   {
     id: "github-copilot",
@@ -229,6 +271,7 @@ export const AGENT_REGISTRY: readonly AgentConfig[] = [
     provenance: {
       detectPaths: "documented",
       detectBinary: "documented",
+      agentDefinitions: "documented",
     },
     mcpSupport: {
       status: "planned",
@@ -249,6 +292,14 @@ export const AGENT_REGISTRY: readonly AgentConfig[] = [
       schemaLabel: "global permissions surface",
       reason:
         "GitHub Copilot permissions are managed via organization policy, not a deployable per-user config surface",
+    },
+    agentDefinitionsSupport: {
+      status: "supported",
+      schemaLabel: "repo-local agent definition Markdown file",
+      path: {
+        posix: ["{repo}", ".github", "agents", "{name}.agent.md"],
+        windows: ["{repo}", ".github", "agents", "{name}.agent.md"],
+      },
     },
     policyNote:
       "Organization policies may override locally deployed configuration. Verify with your GitHub org admin if deployed skills or rules are not active.",

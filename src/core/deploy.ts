@@ -312,6 +312,8 @@ export async function planDeploy(
     realRoot,
     detectedAgents,
     home,
+    undefined,
+    manifest.agentDefinitions ?? [],
   );
   actions.push(...adapterResult.actions);
 

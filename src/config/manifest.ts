@@ -62,6 +62,8 @@ function validateManifest(data: unknown, filePath: string): Manifest {
       issuePath.length === 1 &&
       (issuePath[0] === "mcpServers" ||
         issuePath[0] === "agentRules" ||
+        issuePath[0] === "agentDefinitions" ||
+        issuePath[0] === "permissions" ||
         issuePath[0] === "files" ||
         issuePath[0] === "configs")
     ) {

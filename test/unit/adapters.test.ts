@@ -518,3 +518,288 @@ describe("compilePermissionsActions", () => {
     assert.ok(agents.includes("codex"));
   });
 });
+
+describe("compileAgentDefinitionActions", () => {
+  // Import is added inline to avoid modifying the top-level imports block
+  // (the function is async so we do a dynamic import once and reuse).
+  async function getAdapter() {
+    const { compileAgentDefinitionActions } = await import(
+      "../../src/core/adapters/agent-definitions.ts"
+    );
+    return compileAgentDefinitionActions;
+  }
+
+  it("returns zero actions and warnings when no detectedAgents overlap", async () => {
+    const compile = await getAdapter();
+    const dir = await makeTmpDir();
+    try {
+      await writeFile(path.join(dir, "agent.md"), "# Agent");
+      const realRoot = await realpath(dir);
+      const { actions, warnings } = await compile(
+        { name: "my-agent", agents: ["claude-code"], path: "agent.md" },
+        dir,
+        dir,
+        realRoot,
+        ["codex"],
+        "/home/test",
+        "/repo/test",
+      );
+      assert.equal(actions.length, 0);
+      assert.equal(warnings.length, 0);
+    } finally {
+      await rm(dir, { recursive: true });
+    }
+  });
+
+  it("does not validate source when no targeted agents overlap", async () => {
+    const compile = await getAdapter();
+    const dir = await makeTmpDir();
+    try {
+      // No file created — validation must not run
+      const { actions, warnings } = await compile(
+        { name: "my-agent", agents: ["claude-code"], path: "missing.md" },
+        dir,
+        dir,
+        dir,
+        ["codex"],
+        "/home/test",
+        "/repo/test",
+      );
+      assert.equal(actions.length, 0);
+      assert.equal(warnings.length, 0);
+    } finally {
+      await rm(dir, { recursive: true });
+    }
+  });
+
+  it("returns a file-write action for claude-code with correct target", async () => {
+    const compile = await getAdapter();
+    const dir = await makeTmpDir();
+    try {
+      await writeFile(path.join(dir, "my-agent.md"), "# Agent");
+      const realRoot = await realpath(dir);
+      const { actions, warnings } = await compile(
+        { name: "my-agent", agents: ["claude-code"], path: "my-agent.md" },
+        dir,
+        dir,
+        realRoot,
+        ["claude-code"],
+        "/home/test",
+        "/repo/test",
+      );
+      assert.equal(warnings.length, 0);
+      assert.equal(actions.length, 1);
+      const action = actions[0] as FileWriteDeployAction;
+      assert.equal(action.kind, "file-write");
+      assert.equal(action.skill, "my-agent");
+      assert.equal(action.agent, "claude-code");
+      assert.ok(
+        normalizeSlashes(action.target).endsWith(".claude/agents/my-agent.md"),
+        `expected target under .claude/agents/my-agent.md, got: ${action.target}`,
+      );
+      assert.equal(action.confidence, "documented");
+    } finally {
+      await rm(dir, { recursive: true });
+    }
+  });
+
+  it("returns a file-write action for opencode with correct target", async () => {
+    const compile = await getAdapter();
+    const dir = await makeTmpDir();
+    try {
+      await writeFile(path.join(dir, "my-agent.md"), "# Agent");
+      const realRoot = await realpath(dir);
+      const { actions, warnings } = await compile(
+        { name: "my-agent", agents: ["opencode"], path: "my-agent.md" },
+        dir,
+        dir,
+        realRoot,
+        ["opencode"],
+        "/home/test",
+        "/repo/test",
+      );
+      assert.equal(warnings.length, 0);
+      assert.equal(actions.length, 1);
+      const action = actions[0] as FileWriteDeployAction;
+      assert.equal(action.kind, "file-write");
+      assert.equal(action.agent, "opencode");
+      assert.ok(
+        normalizeSlashes(action.target).endsWith(
+          ".opencode/agents/my-agent.md",
+        ),
+        `expected target under .opencode/agents/my-agent.md, got: ${action.target}`,
+      );
+      assert.equal(action.confidence, "documented");
+    } finally {
+      await rm(dir, { recursive: true });
+    }
+  });
+
+  it("returns a file-write action for github-copilot with .agent.md suffix", async () => {
+    const compile = await getAdapter();
+    const dir = await makeTmpDir();
+    try {
+      await writeFile(path.join(dir, "my-agent.md"), "# Agent");
+      const realRoot = await realpath(dir);
+      const { actions, warnings } = await compile(
+        { name: "my-agent", agents: ["github-copilot"], path: "my-agent.md" },
+        dir,
+        dir,
+        realRoot,
+        ["github-copilot"],
+        "/home/test",
+        "/repo/test",
+      );
+      assert.equal(warnings.length, 0);
+      assert.equal(actions.length, 1);
+      const action = actions[0] as FileWriteDeployAction;
+      assert.equal(action.kind, "file-write");
+      assert.equal(action.agent, "github-copilot");
+      assert.ok(
+        normalizeSlashes(action.target).endsWith(
+          ".github/agents/my-agent.agent.md",
+        ),
+        `expected target under .github/agents/my-agent.agent.md, got: ${action.target}`,
+      );
+      assert.equal(action.confidence, "documented");
+    } finally {
+      await rm(dir, { recursive: true });
+    }
+  });
+
+  it("returns a file-write action for antigravity with correct target", async () => {
+    const compile = await getAdapter();
+    const dir = await makeTmpDir();
+    try {
+      await writeFile(path.join(dir, "my-agent.md"), "# Agent");
+      const realRoot = await realpath(dir);
+      const { actions, warnings } = await compile(
+        { name: "my-agent", agents: ["antigravity"], path: "my-agent.md" },
+        dir,
+        dir,
+        realRoot,
+        ["antigravity"],
+        "/home/test",
+        "/repo/test",
+      );
+      assert.equal(warnings.length, 0);
+      assert.equal(actions.length, 1);
+      const action = actions[0] as FileWriteDeployAction;
+      assert.equal(action.kind, "file-write");
+      assert.equal(action.agent, "antigravity");
+      assert.ok(
+        normalizeSlashes(action.target).endsWith(".agents/rules/my-agent.md"),
+        `expected target under .agents/rules/my-agent.md, got: ${action.target}`,
+      );
+      assert.equal(action.confidence, "documented");
+    } finally {
+      await rm(dir, { recursive: true });
+    }
+  });
+
+  it("emits a warning and no action for codex (unsupported)", async () => {
+    const compile = await getAdapter();
+    const dir = await makeTmpDir();
+    try {
+      await writeFile(path.join(dir, "my-agent.md"), "# Agent");
+      const realRoot = await realpath(dir);
+      const { actions, warnings } = await compile(
+        { name: "my-agent", agents: ["codex"], path: "my-agent.md" },
+        dir,
+        dir,
+        realRoot,
+        ["codex"],
+        "/home/test",
+        "/repo/test",
+      );
+      assert.equal(actions.length, 0);
+      assert.equal(warnings.length, 1);
+      assert.equal(warnings[0]?.kind, "confidence");
+      assert.match(warnings[0]?.message ?? "", /codex/);
+    } finally {
+      await rm(dir, { recursive: true });
+    }
+  });
+
+  it("throws when source is a non-Markdown path", async () => {
+    const compile = await getAdapter();
+    const dir = await makeTmpDir();
+    try {
+      await writeFile(path.join(dir, "agent.txt"), "plain text");
+      const realRoot = await realpath(dir);
+      await assert.rejects(
+        compile(
+          { name: "my-agent", agents: ["claude-code"], path: "agent.txt" },
+          dir,
+          dir,
+          realRoot,
+          ["claude-code"],
+          "/home/test",
+          "/repo/test",
+        ),
+        /must point to a Markdown source file/,
+      );
+    } finally {
+      await rm(dir, { recursive: true });
+    }
+  });
+
+  it("throws when source file does not exist", async () => {
+    const compile = await getAdapter();
+    const dir = await makeTmpDir();
+    try {
+      await assert.rejects(
+        compile(
+          {
+            name: "my-agent",
+            agents: ["claude-code"],
+            path: "nonexistent.md",
+          },
+          dir,
+          dir,
+          dir,
+          ["claude-code"],
+          "/home/test",
+          "/repo/test",
+        ),
+        (err: unknown) => {
+          assert.ok(err instanceof Error);
+          assert.match(err.message, /nonexistent\.md/);
+          return true;
+        },
+      );
+    } finally {
+      await rm(dir, { recursive: true });
+    }
+  });
+
+  it("produces actions for multiple detected agents", async () => {
+    const compile = await getAdapter();
+    const dir = await makeTmpDir();
+    try {
+      await writeFile(path.join(dir, "my-agent.md"), "# Agent");
+      const realRoot = await realpath(dir);
+      const { actions, warnings } = await compile(
+        {
+          name: "my-agent",
+          agents: ["claude-code", "opencode", "github-copilot"],
+          path: "my-agent.md",
+        },
+        dir,
+        dir,
+        realRoot,
+        ["claude-code", "opencode", "github-copilot"],
+        "/home/test",
+        "/repo/test",
+      );
+      assert.equal(warnings.length, 0);
+      assert.equal(actions.length, 3);
+      const agentIds = actions.map((a) => a.agent);
+      assert.ok(agentIds.includes("claude-code"));
+      assert.ok(agentIds.includes("opencode"));
+      assert.ok(agentIds.includes("github-copilot"));
+    } finally {
+      await rm(dir, { recursive: true });
+    }
+  });
+});

@@ -118,6 +118,15 @@ export const PermissionsEntrySchema = z.object({
   config: z.record(z.string(), z.unknown()),
 });
 
+export const AgentDefinitionEntrySchema = z.object({
+  name: nameField,
+  agents: agentsField,
+  // Relative path to the agent definition Markdown file within the source bundle.
+  // Must be a .md or .markdown file containing YAML frontmatter that describes
+  // the agent's persona, instructions, and any tool configuration.
+  path: sourcePathField,
+});
+
 export const ManifestSchema = z.object({
   skills: z.array(SkillEntrySchema).superRefine((skills, ctx) => {
     const seen = new Set<string>();
@@ -137,6 +146,7 @@ export const ManifestSchema = z.object({
   mcpServers: z.array(McpServerEntrySchema).default([]),
   agentRules: z.array(AgentRuleEntrySchema).default([]),
   permissions: z.array(PermissionsEntrySchema).default([]),
+  agentDefinitions: z.array(AgentDefinitionEntrySchema).default([]),
 });
 
 export type SkillEntry = z.infer<typeof SkillEntrySchema>;
@@ -145,6 +155,7 @@ export type ConfigEntry = z.infer<typeof ConfigEntrySchema>;
 export type McpServerEntry = z.infer<typeof McpServerEntrySchema>;
 export type AgentRuleEntry = z.infer<typeof AgentRuleEntrySchema>;
 export type PermissionsEntry = z.infer<typeof PermissionsEntrySchema>;
+export type AgentDefinitionEntry = z.infer<typeof AgentDefinitionEntrySchema>;
 export type Manifest = z.infer<typeof ManifestSchema>;
 
 // Parses the --agents CLI flag: comma-separated agent IDs → AgentId[]

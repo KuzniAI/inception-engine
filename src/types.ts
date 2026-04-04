@@ -1,6 +1,7 @@
 import type { AgentId } from "./schemas/manifest.ts";
 
 export type {
+  AgentDefinitionEntry,
   AgentId,
   ConfigEntry,
   FileEntry,
@@ -60,6 +61,7 @@ export interface AgentProvenance {
   mcpConfig?: Confidence;
   agentRules?: Confidence;
   permissions?: Confidence;
+  agentDefinitions?: Confidence;
 }
 
 export interface AgentConfig {
@@ -82,6 +84,8 @@ export interface AgentConfig {
   agentRulesSupport?: AgentSurfaceSupport;
   // Agent-specific execution/safety permission and approval surface support.
   permissionsSupport?: AgentSurfaceSupport;
+  // Agent-specific agent/subagent definition file surface support.
+  agentDefinitionsSupport?: AgentSurfaceSupport;
   policyNote?: string;
 }
 

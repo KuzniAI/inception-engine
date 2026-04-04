@@ -620,4 +620,154 @@ describe("loadManifest", () => {
       await rm(dir, { recursive: true });
     }
   });
+
+  it("throws when agentDefinitions is not an array", async () => {
+    const dir = await makeTmpDir();
+    try {
+      await writeFile(
+        path.join(dir, "inception.json"),
+        JSON.stringify({ skills: [], agentDefinitions: 42 }),
+      );
+      await assert.rejects(loadManifest(dir), (err: unknown) => {
+        assert.ok(err instanceof UserError);
+        assert.equal(err.code, "MANIFEST_INVALID");
+        assert.match(err.message, /"agentDefinitions" must be an array/);
+        return true;
+      });
+    } finally {
+      await rm(dir, { recursive: true });
+    }
+  });
+
+  it("accepts a valid agentDefinitions entry", async () => {
+    const dir = await makeTmpDir();
+    try {
+      await writeFile(
+        path.join(dir, "inception.json"),
+        JSON.stringify({
+          skills: [],
+          agentDefinitions: [
+            {
+              name: "my-agent",
+              agents: ["claude-code"],
+              path: "agents/my-agent.md",
+            },
+          ],
+        }),
+      );
+      const manifest = await loadManifest(dir);
+      assert.equal(manifest.agentDefinitions.length, 1);
+      assert.equal(manifest.agentDefinitions[0]?.name, "my-agent");
+      assert.deepEqual(manifest.agentDefinitions[0]?.agents, ["claude-code"]);
+      assert.equal(manifest.agentDefinitions[0]?.path, "agents/my-agent.md");
+    } finally {
+      await rm(dir, { recursive: true });
+    }
+  });
+
+  it("defaults agentDefinitions to [] when omitted", async () => {
+    const dir = await makeTmpDir();
+    try {
+      await writeFile(
+        path.join(dir, "inception.json"),
+        JSON.stringify({ skills: [] }),
+      );
+      const manifest = await loadManifest(dir);
+      assert.deepEqual(manifest.agentDefinitions, []);
+    } finally {
+      await rm(dir, { recursive: true });
+    }
+  });
+
+  it("throws when agentDefinitions entry is missing 'name'", async () => {
+    const dir = await makeTmpDir();
+    try {
+      await writeFile(
+        path.join(dir, "inception.json"),
+        JSON.stringify({
+          skills: [],
+          agentDefinitions: [
+            { agents: ["claude-code"], path: "agents/my-agent.md" },
+          ],
+        }),
+      );
+      await assert.rejects(loadManifest(dir), (err: unknown) => {
+        assert.ok(err instanceof UserError);
+        assert.equal(err.code, "MANIFEST_INVALID");
+        assert.match(err.message, /name must be a non-empty string/);
+        return true;
+      });
+    } finally {
+      await rm(dir, { recursive: true });
+    }
+  });
+
+  it("throws when agentDefinitions entry is missing 'path'", async () => {
+    const dir = await makeTmpDir();
+    try {
+      await writeFile(
+        path.join(dir, "inception.json"),
+        JSON.stringify({
+          skills: [],
+          agentDefinitions: [{ name: "my-agent", agents: ["claude-code"] }],
+        }),
+      );
+      await assert.rejects(loadManifest(dir), (err: unknown) => {
+        assert.ok(err instanceof UserError);
+        assert.equal(err.code, "MANIFEST_INVALID");
+        assert.match(err.message, /agentDefinitions\[0\]/);
+        return true;
+      });
+    } finally {
+      await rm(dir, { recursive: true });
+    }
+  });
+
+  it("throws when agentDefinitions entry has an escaping 'path'", async () => {
+    const dir = await makeTmpDir();
+    try {
+      await writeFile(
+        path.join(dir, "inception.json"),
+        JSON.stringify({
+          skills: [],
+          agentDefinitions: [
+            {
+              name: "my-agent",
+              agents: ["claude-code"],
+              path: "../../../etc/passwd",
+            },
+          ],
+        }),
+      );
+      await assert.rejects(loadManifest(dir), (err: unknown) => {
+        assert.ok(err instanceof UserError);
+        assert.equal(err.code, "MANIFEST_INVALID");
+        assert.match(err.message, /must not escape the repository root/);
+        return true;
+      });
+    } finally {
+      await rm(dir, { recursive: true });
+    }
+  });
+
+  it("throws when agentDefinitions entry is missing 'agents'", async () => {
+    const dir = await makeTmpDir();
+    try {
+      await writeFile(
+        path.join(dir, "inception.json"),
+        JSON.stringify({
+          skills: [],
+          agentDefinitions: [{ name: "my-agent", path: "agents/my-agent.md" }],
+        }),
+      );
+      await assert.rejects(loadManifest(dir), (err: unknown) => {
+        assert.ok(err instanceof UserError);
+        assert.equal(err.code, "MANIFEST_INVALID");
+        assert.match(err.message, /agents must be a non-empty array/);
+        return true;
+      });
+    } finally {
+      await rm(dir, { recursive: true });
+    }
+  });
 });

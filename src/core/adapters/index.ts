@@ -1,4 +1,5 @@
 import type {
+  AgentDefinitionEntry,
   AgentRuleEntry,
   McpServerEntry,
   PermissionsEntry,
@@ -11,6 +12,10 @@ import type {
   PlanWarning,
   TomlPatchDeployAction,
 } from "../../types.ts";
+import {
+  compileAgentDefinitionActions,
+  compileAgentDefinitionReverts,
+} from "./agent-definitions.ts";
 import { compileMcpServerActions, compileMcpServerReverts } from "./mcp.ts";
 import {
   compilePermissionsActions,
@@ -19,6 +24,7 @@ import {
 import { compileAgentRuleActions, compileAgentRuleReverts } from "./rules.ts";
 
 export {
+  compileAgentDefinitionReverts,
   compileAgentRuleReverts,
   compileMcpServerReverts,
   compilePermissionsReverts,
@@ -45,6 +51,7 @@ export async function compileAdapterActions(
   detectedAgents: AgentId[],
   home: string,
   repo?: string,
+  agentDefinitions?: AgentDefinitionEntry[],
 ): Promise<AdapterResult> {
   const actions: AdapterAction[] = [];
   const warnings: PlanWarning[] = [];
@@ -71,6 +78,20 @@ export async function compileAdapterActions(
 
   for (const entry of permissions) {
     const r = compilePermissionsActions(entry, detectedAgents, home);
+    actions.push(...r.actions);
+    warnings.push(...r.warnings);
+  }
+
+  for (const entry of agentDefinitions ?? []) {
+    const r = await compileAgentDefinitionActions(
+      entry,
+      sourceDir,
+      resolvedSourceDir,
+      realRoot,
+      detectedAgents,
+      home,
+      repo,
+    );
     actions.push(...r.actions);
     warnings.push(...r.warnings);
   }

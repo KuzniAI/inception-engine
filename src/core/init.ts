@@ -3,6 +3,7 @@ import path from "node:path";
 import { AGENT_REGISTRY_BY_ID } from "../config/agents.ts";
 import { dryRunPrefix, logger } from "../logger.ts";
 import type {
+  AgentDefinitionEntry,
   AgentId,
   AgentRuleEntry,
   ConfigEntry,
@@ -12,6 +13,7 @@ import type {
 } from "../schemas/manifest.ts";
 import {
   AGENT_IDS,
+  AgentDefinitionEntrySchema,
   ConfigEntrySchema,
   FileEntrySchema,
   McpServerEntrySchema,
@@ -45,6 +47,17 @@ const AGENT_RULES_SUBDIRS = [
   "instructions",
   ".github",
   ".agents/rules",
+];
+
+// Conventional subdirectories that contain agent definition files.
+// These are the agent-specific directories that each agent scans for
+// subagent/persona definitions at runtime.
+const AGENT_DEFINITION_SUBDIRS = [
+  ".claude/agents",
+  ".gemini/agents",
+  ".agents/rules",
+  ".opencode/agents",
+  ".github/agents",
 ];
 
 async function findSkillDirs(
@@ -264,6 +277,178 @@ function buildAgentRules(
   return rules;
 }
 
+/**
+ * Derives the name for an agent definition entry from its file name.
+ * For GitHub Copilot's `{name}.agent.md` naming convention, strips the
+ * `.agent` infix in addition to the `.md` extension.
+ */
+function deriveAgentDefinitionName(
+  relPath: string,
+  fileName: string,
+): string | null {
+  const ext = path.extname(fileName).toLowerCase();
+  // Strip the extension to get the base name, then strip any trailing ".agent"
+  // suffix (GitHub Copilot convention: foo.agent.md → foo).
+  let baseName = path.basename(fileName, ext);
+  if (baseName.endsWith(".agent")) {
+    baseName = baseName.slice(0, -".agent".length);
+  }
+  const rawName = baseName.toLowerCase().replace(/[^a-zA-Z0-9._-]/g, "-");
+  if (!SAFE_NAME_RE.test(rawName)) {
+    logger.warn(
+      "init",
+      `Skipping "${relPath}": could not derive a valid agentDefinitions name`,
+    );
+    return null;
+  }
+  return rawName;
+}
+
+/**
+ * Maps a known agent-definition subdirectory to the agent IDs that own it.
+ * Returns null when the subdir is not agent-specific (fall back to all agents
+ * that support agentDefinitions).
+ */
+function agentsForDefinitionSubdir(subdir: string): AgentId[] | null {
+  switch (subdir) {
+    case ".claude/agents":
+      return ["claude-code"];
+    case ".gemini/agents":
+      return ["gemini-cli"];
+    case ".agents/rules":
+      return ["antigravity"];
+    case ".opencode/agents":
+      return ["opencode"];
+    case ".github/agents":
+      return ["github-copilot"];
+    default:
+      return null;
+  }
+}
+
+async function scanDefinitionSubdir(
+  subdir: string,
+  baseDir: string,
+  seen: Set<string>,
+  skillDirRelPaths: Set<string>,
+  agentRulesRelPaths: Set<string>,
+  candidates: Array<{
+    relPath: string;
+    name: string;
+    suggestedAgents: AgentId[];
+  }>,
+): Promise<void> {
+  const suggestedAgents = agentsForDefinitionSubdir(subdir) ?? [];
+  const dir = path.join(baseDir, subdir);
+  let entries: import("node:fs").Dirent<string>[];
+  try {
+    entries = await readdir(dir, { withFileTypes: true, encoding: "utf-8" });
+  } catch {
+    return;
+  }
+  for (const entry of entries) {
+    if (!entry.isFile()) continue;
+    const ext = path.extname(entry.name).toLowerCase();
+    if (ext !== ".md" && ext !== ".markdown") continue;
+    const absPath = path.join(dir, entry.name);
+    const relPath = path.relative(baseDir, absPath).split(path.sep).join("/");
+    if (
+      seen.has(relPath) ||
+      isInsideSkillDir(relPath, skillDirRelPaths) ||
+      agentRulesRelPaths.has(relPath)
+    )
+      continue;
+    const name = deriveAgentDefinitionName(relPath, entry.name);
+    if (name === null) continue;
+    seen.add(relPath);
+    candidates.push({ relPath, name, suggestedAgents });
+  }
+}
+
+async function findAgentDefinitionCandidates(
+  baseDir: string,
+  skillDirRelPaths: Set<string>,
+  agentRulesRelPaths: Set<string>,
+): Promise<
+  Array<{ relPath: string; name: string; suggestedAgents: AgentId[] }>
+> {
+  const candidates: Array<{
+    relPath: string;
+    name: string;
+    suggestedAgents: AgentId[];
+  }> = [];
+  const seen = new Set<string>();
+
+  for (const subdir of AGENT_DEFINITION_SUBDIRS) {
+    await scanDefinitionSubdir(
+      subdir,
+      baseDir,
+      seen,
+      skillDirRelPaths,
+      agentRulesRelPaths,
+      candidates,
+    );
+  }
+
+  return candidates;
+}
+
+function buildAgentDefinitions(
+  candidates: Array<{
+    relPath: string;
+    name: string;
+    suggestedAgents: AgentId[];
+  }>,
+  activeAgents: AgentId[],
+  namesSeen: Set<string>,
+): AgentDefinitionEntry[] {
+  const definitions: AgentDefinitionEntry[] = [];
+  const localNamesSeen = new Set<string>(namesSeen);
+  const definitionsCapableAgents = activeAgents.filter(
+    (id) =>
+      AGENT_REGISTRY_BY_ID[id].agentDefinitionsSupport?.status !==
+      "unsupported",
+  );
+
+  for (const { relPath, name: rawName, suggestedAgents } of candidates) {
+    // Use suggested agents (from the dir that was scanned), intersected with
+    // active agents that support agentDefinitions. Fall back to all capable
+    // agents if the intersection is empty.
+    const intersection =
+      suggestedAgents.length > 0
+        ? suggestedAgents.filter((a) => definitionsCapableAgents.includes(a))
+        : [];
+    const agents =
+      intersection.length > 0 ? intersection : definitionsCapableAgents;
+
+    if (agents.length === 0) continue;
+
+    // Resolve name collision
+    let name = rawName;
+    if (localNamesSeen.has(name)) {
+      const candidate = `${name}-agent`;
+      if (SAFE_NAME_RE.test(candidate)) {
+        logger.warn(
+          "init",
+          `agentDefinitions name "${name}" collides with an existing name; using "${candidate}"`,
+        );
+        name = candidate;
+      } else {
+        logger.warn(
+          "init",
+          `Skipping "${relPath}": name "${name}" collides and fallback is invalid`,
+        );
+        continue;
+      }
+    }
+
+    localNamesSeen.add(name);
+    definitions.push({ name, path: relPath, agents });
+  }
+
+  return definitions;
+}
+
 async function loadMcpServers(baseDir: string): Promise<McpServerEntry[]> {
   const filePath = path.join(baseDir, "mcp-servers.json");
   let raw: string;
@@ -372,6 +557,51 @@ async function loadConfigsManifest(baseDir: string): Promise<ConfigEntry[]> {
   return results;
 }
 
+async function loadAgentDefinitionsManifest(
+  baseDir: string,
+): Promise<AgentDefinitionEntry[]> {
+  const filePath = path.join(baseDir, "agent-definitions-manifest.json");
+  let raw: string;
+  try {
+    raw = await readFile(filePath, "utf-8");
+  } catch {
+    return [];
+  }
+
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    logger.warn(
+      "init",
+      "agent-definitions-manifest.json: invalid JSON, skipping",
+    );
+    return [];
+  }
+
+  if (!Array.isArray(parsed)) {
+    logger.warn(
+      "init",
+      "agent-definitions-manifest.json: expected a JSON array, skipping",
+    );
+    return [];
+  }
+
+  const results: AgentDefinitionEntry[] = [];
+  for (let i = 0; i < parsed.length; i++) {
+    const result = AgentDefinitionEntrySchema.safeParse(parsed[i]);
+    if (result.success) {
+      results.push(result.data);
+    } else {
+      logger.warn(
+        "init",
+        `agent-definitions-manifest.json: entry[${i}] invalid, skipping`,
+      );
+    }
+  }
+  return results;
+}
+
 async function emitDirectoryHints(
   baseDir: string,
   filesLoaded: number,
@@ -403,22 +633,30 @@ async function manifestExists(manifestPath: string): Promise<boolean> {
   }
 }
 
+function logPathAgentEntries(
+  label: string,
+  entries: Array<{ name: string; path: string; agents: AgentId[] }>,
+): void {
+  if (entries.length === 0) return;
+  logger.detail(`${label}:`);
+  for (const e of entries) {
+    logger.detail(`  ${e.name}  →  ${e.path}  [${e.agents.join(", ")}]`);
+  }
+}
+
 function logVerboseManifest(
   skills: SkillEntry[],
   agentRules: AgentRuleEntry[],
   mcpServers: McpServerEntry[],
   files: FileEntry[],
   configs: ConfigEntry[],
+  agentDefinitions: AgentDefinitionEntry[],
 ): void {
   for (const s of skills) {
     logger.detail(`${s.name}  →  ${s.path}`);
   }
-  if (agentRules.length > 0) {
-    logger.detail("agentRules:");
-    for (const r of agentRules) {
-      logger.detail(`  ${r.name}  →  ${r.path}  [${r.agents.join(", ")}]`);
-    }
-  }
+  logPathAgentEntries("agentRules", agentRules);
+  logPathAgentEntries("agentDefinitions", agentDefinitions);
   if (mcpServers.length > 0) {
     logger.detail("mcpServers:");
     for (const m of mcpServers) {
@@ -487,6 +725,28 @@ export async function runInit(options: InitOptions): Promise<number> {
     skillNamesSeen,
   );
 
+  const allNamesSeen = new Set([
+    ...skillNamesSeen,
+    ...agentRules.map((r) => r.name),
+  ]);
+  const agentRulesRelPaths = new Set(agentRules.map((r) => r.path));
+
+  const agentDefinitionCandidates = await findAgentDefinitionCandidates(
+    directory,
+    skillDirRelPaths,
+    agentRulesRelPaths,
+  );
+  const discoveredDefinitions = buildAgentDefinitions(
+    agentDefinitionCandidates,
+    agents,
+    allNamesSeen,
+  );
+
+  // Sidecar file overrides take precedence over auto-discovery
+  const sidecarDefinitions = await loadAgentDefinitionsManifest(directory);
+  const agentDefinitions =
+    sidecarDefinitions.length > 0 ? sidecarDefinitions : discoveredDefinitions;
+
   const mcpServers = await loadMcpServers(directory);
   const files = await loadFilesManifest(directory);
   const configs = await loadConfigsManifest(directory);
@@ -497,6 +757,7 @@ export async function runInit(options: InitOptions): Promise<number> {
     configs,
     mcpServers,
     agentRules,
+    agentDefinitions,
   };
   const json = `${JSON.stringify(manifest, null, 2)}\n`;
 
@@ -504,6 +765,7 @@ export async function runInit(options: InitOptions): Promise<number> {
     const parts = [
       `${skills.length} skill(s)`,
       `${agentRules.length} agentRule(s)`,
+      `${agentDefinitions.length} agentDefinition(s)`,
       `${mcpServers.length} mcpServer(s)`,
       `${files.length} file(s)`,
       `${configs.length} config(s)`,
@@ -525,7 +787,14 @@ export async function runInit(options: InitOptions): Promise<number> {
 
   logger.info(`Generated ${manifestPath} with ${summarize()}.`);
   if (verbose) {
-    logVerboseManifest(skills, agentRules, mcpServers, files, configs);
+    logVerboseManifest(
+      skills,
+      agentRules,
+      mcpServers,
+      files,
+      configs,
+      agentDefinitions,
+    );
   }
   await emitDirectoryHints(directory, files.length, configs.length);
   return 0;

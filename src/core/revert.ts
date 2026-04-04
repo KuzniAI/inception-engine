@@ -13,6 +13,7 @@ import type {
   TomlPatchRevertAction,
 } from "../types.ts";
 import {
+  compileAgentDefinitionReverts,
   compileAgentRuleReverts,
   compileMcpServerReverts,
   compilePermissionsReverts,
@@ -112,6 +113,9 @@ export function planRevert(
     ...(manifest.permissions ?? []).flatMap((e) =>
       compilePermissionsReverts(e, detectedAgents, home),
     ),
+    ...(manifest.agentDefinitions ?? []).flatMap((e) =>
+      compileAgentDefinitionReverts(e, detectedAgents, home, repo),
+    ),
   ];
 }
 
@@ -132,6 +136,9 @@ export function planRevertAll(
     ),
     ...(manifest.permissions ?? []).flatMap((e) =>
       compilePermissionsReverts(e, null, home),
+    ),
+    ...(manifest.agentDefinitions ?? []).flatMap((e) =>
+      compileAgentDefinitionReverts(e, null, home, repo),
     ),
   ];
 }
