@@ -1,0 +1,49 @@
+{
+  "cli_version": "0.5.3",
+  "checkpoint_id": "48764cac5027",
+  "session_id": "ses_2a8224146ffeYJzdfEIZVvLC9V",
+  "strategy": "manual-commit",
+  "created_at": "2026-04-04T09:57:15.563239Z",
+  "branch": "main",
+  "checkpoints_count": 1,
+  "files_touched": [
+    "docs/roadmap.md",
+    "limbo/inception.json",
+    "src/config/agents.ts",
+    "src/core/adapters/mcp.ts",
+    "src/core/adapters/permissions.ts",
+    "src/core/adapters/rules.ts",
+    "src/core/deploy.ts",
+    "src/core/resolve.ts",
+    "src/core/revert.ts",
+    "src/types.ts",
+    "test/os/cross-platform/cross-platform.test.ts",
+    "test/unit/adapters.test.ts",
+    "test/unit/deploy.test.ts"
+  ],
+  "agent": "OpenCode",
+  "model": "claude-sonnet-4.6",
+  "turn_id": "fe9b739dc88f",
+  "token_usage": {
+    "input_tokens": 178393,
+    "cache_creation_tokens": 0,
+    "cache_read_tokens": 2852196,
+    "output_tokens": 19997,
+    "api_call_count": 62
+  },
+  "session_metrics": {
+    "turn_count": 2
+  },
+  "initial_attribution": {
+    "calculated_at": "2026-04-04T09:57:14.832834Z",
+    "agent_lines": 92,
+    "agent_removed": 40,
+    "human_added": 0,
+    "human_modified": 0,
+    "human_removed": 0,
+    "total_committed": 92,
+    "total_lines_changed": 132,
+    "agent_percentage": 100,
+    "metric_version": 2
+  }
+}

@@ -1,0 +1,42 @@
+{
+  "cli_version": "0.5.3",
+  "checkpoint_id": "1d7197161021",
+  "session_id": "ses_2a7fcd21effeIQk9HeijuheaZ2",
+  "strategy": "manual-commit",
+  "created_at": "2026-04-04T10:33:02.345033Z",
+  "branch": "main",
+  "checkpoints_count": 1,
+  "files_touched": [
+    "docs/north-star.md",
+    "docs/roadmap.md",
+    "src/config/agents.ts",
+    "src/core/deploy.ts",
+    "test/unit/adapters.test.ts",
+    "test/unit/deploy.test.ts"
+  ],
+  "agent": "OpenCode",
+  "model": "claude-sonnet-4.6",
+  "turn_id": "02e16d375f03",
+  "token_usage": {
+    "input_tokens": 320334,
+    "cache_creation_tokens": 0,
+    "cache_read_tokens": 3133559,
+    "output_tokens": 15845,
+    "api_call_count": 42
+  },
+  "session_metrics": {
+    "turn_count": 2
+  },
+  "initial_attribution": {
+    "calculated_at": "2026-04-04T10:33:01.513385Z",
+    "agent_lines": 114,
+    "agent_removed": 5,
+    "human_added": 0,
+    "human_modified": 0,
+    "human_removed": 0,
+    "total_committed": 114,
+    "total_lines_changed": 119,
+    "agent_percentage": 100,
+    "metric_version": 2
+  }
+}

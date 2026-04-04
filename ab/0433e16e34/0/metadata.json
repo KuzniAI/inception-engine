@@ -1,0 +1,34 @@
+{
+  "cli_version": "0.5.2",
+  "checkpoint_id": "ab0433e16e34",
+  "session_id": "f1c49af0-8d2a-40aa-af00-7b4f1aeea502",
+  "strategy": "manual-commit",
+  "created_at": "2026-04-01T18:17:37.513114Z",
+  "branch": "main",
+  "checkpoints_count": 1,
+  "files_touched": [
+    "src/core/deploy.ts",
+    "test/unit/adapters.test.ts"
+  ],
+  "agent": "Claude Code",
+  "turn_id": "b5721048ab8e",
+  "token_usage": {
+    "input_tokens": 40,
+    "cache_creation_tokens": 79776,
+    "cache_read_tokens": 1399414,
+    "output_tokens": 11915,
+    "api_call_count": 34
+  },
+  "session_metrics": {
+    "turn_count": 1
+  },
+  "initial_attribution": {
+    "calculated_at": "2026-04-01T18:17:37.440157Z",
+    "agent_lines": 8,
+    "human_added": 0,
+    "human_modified": 0,
+    "human_removed": 0,
+    "total_committed": 8,
+    "agent_percentage": 100
+  }
+}

@@ -1,0 +1,7 @@
+Plan your work on these @docs/roadmap.md Items:
+- Remove legacy GitHub Copilot skill-target assumptions and related docs/tests/manifests where Copilot can execute Claude-style skills directly.
+- Retain dedicated GitHub Copilot MCP deployment only for the surfaces that are genuinely Copilot-specific, such as devcontainer or agent-frontmatter mappings.
+
+---
+
+Looks ok, Start implementing

@@ -1,0 +1,49 @@
+{
+  "cli_version": "0.5.3",
+  "checkpoint_id": "ef666a5251db",
+  "session_id": "ses_2a8115225ffeZrjVMAT1B4lOTL",
+  "strategy": "manual-commit",
+  "created_at": "2026-04-04T10:19:50.763828Z",
+  "branch": "main",
+  "checkpoints_count": 2,
+  "files_touched": [
+    "README.md",
+    "docs/roadmap.md",
+    "src/config/agents.ts",
+    "src/config/manifest.ts",
+    "src/core/adapters/agent-definitions.ts",
+    "src/core/adapters/index.ts",
+    "src/core/deploy.ts",
+    "src/core/init.ts",
+    "src/core/revert.ts",
+    "src/schemas/manifest.ts",
+    "src/types.ts",
+    "test/unit/adapters.test.ts",
+    "test/unit/manifest.test.ts"
+  ],
+  "agent": "OpenCode",
+  "model": "claude-sonnet-4.6",
+  "turn_id": "b283ab4825df",
+  "token_usage": {
+    "input_tokens": 115005,
+    "cache_creation_tokens": 0,
+    "cache_read_tokens": 1079205,
+    "output_tokens": 6414,
+    "api_call_count": 34
+  },
+  "session_metrics": {
+    "turn_count": 2
+  },
+  "initial_attribution": {
+    "calculated_at": "2026-04-04T10:19:50.563661Z",
+    "agent_lines": 999,
+    "agent_removed": 9,
+    "human_added": 0,
+    "human_modified": 0,
+    "human_removed": 0,
+    "total_committed": 999,
+    "total_lines_changed": 1008,
+    "agent_percentage": 100,
+    "metric_version": 2
+  }
+}
