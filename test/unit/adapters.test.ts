@@ -278,6 +278,57 @@ describe("compileAgentRuleActions", () => {
     }
   });
 
+  it("gemini-cli and antigravity in the same agentRules entry produce distinct targets", async () => {
+    const dir = await makeTmpDir();
+    try {
+      await writeFile(path.join(dir, "rules.md"), "# Rules");
+      const realRoot = await realpath(dir);
+      const { actions, warnings } = await compileAgentRuleActions(
+        {
+          name: "my-rule",
+          agents: ["gemini-cli", "antigravity"],
+          path: "rules.md",
+        },
+        dir,
+        dir,
+        realRoot,
+        ["gemini-cli", "antigravity"],
+        "/home/test",
+        "/repo/test",
+      );
+      assert.equal(actions.length, 2);
+      assert.equal(warnings.length, 0);
+      const byAgent = Object.fromEntries(actions.map((a) => [a.agent, a]));
+      const geminiAction = byAgent["gemini-cli"] as FileWriteDeployAction;
+      const antigravityAction = byAgent.antigravity as FileWriteDeployAction;
+      assert.ok(geminiAction, "expected a gemini-cli action");
+      assert.ok(antigravityAction, "expected an antigravity action");
+      // gemini-cli → global ~/.gemini/GEMINI.md
+      assert.ok(
+        normalizeSlashes(geminiAction.target).endsWith(".gemini/GEMINI.md"),
+        `expected gemini-cli target under .gemini/GEMINI.md, got: ${geminiAction.target}`,
+      );
+      // antigravity → repo-local .agents/rules/{name}.md
+      assert.ok(
+        normalizeSlashes(antigravityAction.target).endsWith(
+          ".agents/rules/my-rule.md",
+        ),
+        `expected antigravity target under .agents/rules/my-rule.md, got: ${antigravityAction.target}`,
+      );
+      // targets must be different files
+      assert.notEqual(
+        geminiAction.target,
+        antigravityAction.target,
+        "gemini-cli and antigravity must deploy to distinct target paths",
+      );
+      // confidence: both are documented
+      assert.equal(geminiAction.confidence, "documented");
+      assert.equal(antigravityAction.confidence, "documented");
+    } finally {
+      await rm(dir, { recursive: true });
+    }
+  });
+
   it("throws when a supported rules target is given a non-Markdown source path", async () => {
     const dir = await makeTmpDir();
     try {

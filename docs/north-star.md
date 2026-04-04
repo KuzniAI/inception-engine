@@ -34,7 +34,7 @@ These are durable instruction surfaces loaded outside a single prompt.
 | Claude Code | `CLAUDE.md` (root, folder-level) and `~/.claude/CLAUDE.md` | Confirmed by current official docs | Supports hierarchical loading; folder-specific files override root. |
 | OpenAI Codex | `AGENTS.md` (root, nested) and `~/.codex/AGENTS.md` | Confirmed by current official docs | Concatenates from root down; files closer to CWD override earlier ones. |
 | Gemini CLI | `GEMINI.md` (root, workspace) and `~/.gemini/GEMINI.md` | Confirmed by current official docs | Hierarchical loading with JIT scanning support. |
-| Antigravity | `GEMINI.md` and `.agents/rules/*.md` | Confirmed by current official docs | Uses `GEMINI.md` as an "Agent Blueprint." |
+| Antigravity | `.agents/rules/*.md` (repo-local); `GEMINI.md` used as "Agent Blueprint" (read by Antigravity but not a current deployment target) | Confirmed by current official docs | The engine deploys instructions to `{repo}/.agents/rules/{name}.md`. `GEMINI.md` is the shared Gemini-lineage surface Antigravity also reads, but inception-engine does not write to it for Antigravity — gemini-cli owns that path. |
 | OpenCode | `AGENTS.md` and `opencode.json` | Confirmed by current official docs | Project > Global > Remote precedence. |
 | GitHub Copilot | `CLAUDE.md`, `.github/copilot-instructions.md` | Confirmed by current official docs | **Claude Precedence**: Natively consumes `CLAUDE.md` as the primary instruction surface if present. |
 

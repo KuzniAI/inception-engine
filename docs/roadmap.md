@@ -19,7 +19,7 @@ Ordered from highest to lowest after the fixed first step and architecture enabl
 
 1. ~~Add support for agent definition deployment for agents that expose dedicated agent directories or frontmatter-based agent files. Score: `6/8` (`Architecture 2`, `Agents 2`, `OS 1`, `Confidence 1`)~~
 2. ~~Remove legacy GitHub Copilot skill-target assumptions and related docs/tests/manifests where Copilot can execute Claude-style skills directly. Score: `6/8` (`Architecture 2`, `Agents 2`, `OS 0`, `Confidence 2`)~~
-3. Finish Antigravity instruction deployment coverage by reconciling today's repo-local `.agents/rules/*.md` support with any remaining shared `GEMINI.md` behavior and documented precedence semantics. Score: `5/8` (`Architecture 1`, `Agents 2`, `OS 0`, `Confidence 2`)
+3. ~~Finish Antigravity instruction deployment coverage by reconciling today's repo-local `.agents/rules/*.md` support with any remaining shared `GEMINI.md` behavior and documented precedence semantics. Score: `5/8` (`Architecture 1`, `Agents 2`, `OS 0`, `Confidence 2`)~~
 4. ~~Retain dedicated GitHub Copilot MCP deployment only for the surfaces that are genuinely Copilot-specific, such as devcontainer or agent-frontmatter mappings. Score: `5/8` (`Architecture 1`, `Agents 2`, `OS 0`, `Confidence 2`)~~
 5. Expand instruction-file support beyond today's global rules-file deployment to cover repo-local and workspace-local instruction surfaces for agents with documented behavior. Score: `4/8` (`Architecture 1`, `Agents 1`, `OS 0`, `Confidence 2`)
 6. Add preflight analysis for instruction precedence, collisions, and instruction-budget risk before deployment. Score: `3/8` (`Architecture 1`, `Agents 0`, `OS 0`, `Confidence 2`)

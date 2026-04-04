@@ -172,6 +172,7 @@ export const AGENT_REGISTRY: readonly AgentConfig[] = [
       skills: "implementation-only",
       detectPaths: "implementation-only",
       detectBinary: "provisional",
+      agentRules: "documented",
       agentDefinitions: "documented",
     },
     mcpSupport: {

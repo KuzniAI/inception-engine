@@ -152,7 +152,7 @@ function detectAmbiguities(
     if (bothAgents(entry.agents)) {
       warnings.push({
         kind: "ambiguity",
-        message: `Both "gemini-cli" and "antigravity" are listed in agentRules entry "${entry.name}". They share a GEMINI.md-backed instruction shared surface — verify that deploying to both does not create conflicting behavior.`,
+        message: `Both "gemini-cli" and "antigravity" are listed in agentRules entry "${entry.name}". They write to distinct surfaces ("gemini-cli" → ~/.gemini/GEMINI.md, "antigravity" → {repo}/.agents/rules/${entry.name}.md) from the same source file — verify that deploying to both produces the intended behavior on each agent.`,
       });
     }
   }
