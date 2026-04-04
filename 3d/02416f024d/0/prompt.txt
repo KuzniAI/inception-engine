@@ -1,5 +1,1 @@
-Review docs/roadmap.md against current codebase. Decide if crossed out items are implemented and documented properly
-
----
-
-Update the docs/roadmap.md accoring to your findings
+commit your changes
