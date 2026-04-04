@@ -122,8 +122,8 @@ export const AgentDefinitionEntrySchema = z.object({
   name: nameField,
   agents: agentsField,
   // Relative path to the agent definition Markdown file within the source bundle.
-  // Must be a .md or .markdown file containing YAML frontmatter that describes
-  // the agent's persona, instructions, and any tool configuration.
+  // Must be a .md or .markdown file. Content and frontmatter structure are not
+  // validated by inception-engine — format requirements are agent-specific.
   path: sourcePathField,
 });
 
