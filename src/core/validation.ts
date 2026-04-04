@@ -105,6 +105,8 @@ function isRecordOfStrings(value: unknown): value is Record<string, string> {
   );
 }
 
+import { parseFrontmatterDocument } from "./adapters/frontmatter.ts";
+
 function validateNonEmptyStringField(
   value: unknown,
   field: string,
@@ -252,37 +254,6 @@ export function validateAgentRuleMarkdownPath(
   }
 }
 
-function trimMatchingQuotes(value: string): string {
-  if (
-    (value.startsWith('"') && value.endsWith('"')) ||
-    (value.startsWith("'") && value.endsWith("'"))
-  ) {
-    return value.slice(1, -1).trim();
-  }
-  return value;
-}
-
-function parseSimpleFrontmatterValue(
-  field: string,
-  rawValue: string,
-  manifestPath: string,
-): string {
-  const value = trimMatchingQuotes(rawValue.trim());
-  if (value.length === 0) {
-    throw new UserError(
-      "DEPLOY_FAILED",
-      `Skill "${manifestPath}" SKILL.md frontmatter field "${field}" must be a non-empty string`,
-    );
-  }
-  if (rawValue.trim() === "|" || rawValue.trim() === ">") {
-    throw new UserError(
-      "DEPLOY_FAILED",
-      `Skill "${manifestPath}" SKILL.md frontmatter field "${field}" must be a single-line string`,
-    );
-  }
-  return value;
-}
-
 export async function validateSkillDefinitionFile(
   sourcePath: string,
   manifestPath: string,
@@ -317,37 +288,39 @@ export async function validateSkillDefinitionFile(
     );
   }
 
-  let name: string | null = null;
-  let description: string | null = null;
-  for (const line of lines.slice(1, closingIndex)) {
-    const trimmed = line.trim();
-    if (trimmed.length === 0 || trimmed.startsWith("#")) continue;
+  let attributes: Record<string, unknown>;
+  try {
+    const parsed = parseFrontmatterDocument(raw);
+    attributes = parsed.attributes;
+  } catch (err) {
+    throw new UserError(
+      "DEPLOY_FAILED",
+      `Skill "${manifestPath}" SKILL.md has malformed YAML frontmatter: ${err instanceof Error ? err.message : String(err)}`,
+    );
+  }
 
-    const match = /^([A-Za-z0-9_-]+)\s*:\s*(.*)$/.exec(line);
-    if (!match) continue;
-
-    const [, key, rawValue] = match;
-    if (key === "name") {
-      name = parseSimpleFrontmatterValue("name", rawValue, manifestPath);
-    } else if (key === "description") {
-      description = parseSimpleFrontmatterValue(
-        "description",
-        rawValue,
-        manifestPath,
+  const validateField = (field: "name" | "description") => {
+    const value = attributes[field];
+    if (value === undefined || value === null) {
+      throw new UserError(
+        "DEPLOY_FAILED",
+        `Skill "${manifestPath}" SKILL.md frontmatter must include a non-empty "${field}" field`,
       );
     }
-  }
+    if (typeof value !== "string" || value.trim().length === 0) {
+      throw new UserError(
+        "DEPLOY_FAILED",
+        `Skill "${manifestPath}" SKILL.md frontmatter field "${field}" must be a non-empty string`,
+      );
+    }
+    if (value.includes("\n") || value.includes("\r")) {
+      throw new UserError(
+        "DEPLOY_FAILED",
+        `Skill "${manifestPath}" SKILL.md frontmatter field "${field}" must be a single-line string`,
+      );
+    }
+  };
 
-  if (name === null) {
-    throw new UserError(
-      "DEPLOY_FAILED",
-      `Skill "${manifestPath}" SKILL.md frontmatter must include a non-empty "name" field`,
-    );
-  }
-  if (description === null) {
-    throw new UserError(
-      "DEPLOY_FAILED",
-      `Skill "${manifestPath}" SKILL.md frontmatter must include a non-empty "description" field`,
-    );
-  }
+  validateField("name");
+  validateField("description");
 }

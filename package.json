@@ -47,8 +47,8 @@
     "test:posix": "node --test --test-isolation=none test/unit/*.test.ts test/os/cross-platform/*.test.ts test/os/posix/*.test.ts"
   },
   "dependencies": {
-    "front-matter": "^4.0.2",
     "smol-toml": "^1.6.1",
+    "yaml": "^2.8.3",
     "zod": "^4.0.0"
   },
   "devDependencies": {

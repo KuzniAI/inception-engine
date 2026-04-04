@@ -33,13 +33,14 @@ Ordered from highest to lowest.
 
 ## Format Handling Simplification
 
-This is the concrete cleanup needed around YAML frontmatter and TOML handling:
+This is the concrete cleanup around YAML frontmatter and TOML handling:
 
-1. Replace `front-matter` with a lower-dependency YAML implementation and stop relying on the current hand-rolled frontmatter serializer. The preferred direction is a tiny local frontmatter delimiter splitter plus `yaml.parse` / `yaml.stringify`, while keeping Jon Schlinkert packages out of the dependency graph.
-2. Keep `smol-toml` unless a demonstrably smaller and equally capable TOML option appears. The current TOML library is already low-cost; the main maintenance burden is the duplicated logic around frontmatter parsing, serialization, and validation.
-3. Unify frontmatter parsing across deploy-time reads and `SKILL.md` validation so there is one implementation path for extracting the YAML block, parsing it, and surfacing errors.
-4. Preserve the current behavior contract while simplifying the internals: atomic writes, Markdown body preservation, and validation that `SKILL.md` begins with YAML frontmatter and contains non-empty single-line `name` and `description` fields.
-5. Expand tests to cover malformed YAML, nested objects and arrays in emitted frontmatter, quoted scalars and special characters, body preservation, and rejection of multiline/block-scalar values for required `SKILL.md` fields.
+1. ~~Replace `front-matter` with a lower-dependency YAML implementation and stop relying on the current hand-rolled frontmatter serializer. The preferred direction is a tiny local frontmatter delimiter splitter plus `yaml.parse` / `yaml.stringify`, while keeping Jon Schlinkert packages out of the dependency graph.~~
+2. ~~Keep `smol-toml` unless a demonstrably smaller and equally capable TOML option appears. The current TOML library is already low-cost; the main maintenance burden is the duplicated logic around frontmatter parsing, serialization, and validation.~~
+3. ~~Unify frontmatter parsing across deploy-time reads and `SKILL.md` validation so there is one implementation path for extracting the YAML block, parsing it, and surfacing errors.~~
+4. ~~Preserve the current behavior contract while simplifying the internals: atomic writes, Markdown body preservation, and validation that `SKILL.md` begins with YAML frontmatter and contains non-empty single-line `name` and `description` fields.~~
+5. ~~Expand tests to cover malformed YAML, nested objects and arrays in emitted frontmatter, quoted scalars and special characters, body preservation, and rejection of multiline/block-scalar values for required `SKILL.md` fields.~~
+
 
 
 ## Additional Dimensions To Consider

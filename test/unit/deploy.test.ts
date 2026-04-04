@@ -57,6 +57,8 @@ const testManifest: Manifest = {
   configs: [],
   mcpServers: [],
   agentRules: [],
+  permissions: [],
+  agentDefinitions: [],
 };
 
 describe("planDeploy", () => {
@@ -238,6 +240,73 @@ describe("planDeploy", () => {
     }
   });
 
+  it("throws when SKILL.md has malformed YAML frontmatter", async () => {
+    const sourceDir = await makeTmpDir();
+    try {
+      const skillDir = path.join(sourceDir, "skills", "test-skill");
+      await mkdir(skillDir, { recursive: true });
+      await writeFile(
+        path.join(skillDir, "SKILL.md"),
+        "---\nname: : bad\n---\n# Test",
+      );
+      await assert.rejects(
+        planDeploy(testManifest, sourceDir, ["claude-code"], "/home/test"),
+        (err: unknown) => {
+          assert.ok(err instanceof UserError);
+          assert.equal(err.code, "DEPLOY_FAILED");
+          assert.match(err.message, /malformed YAML frontmatter/);
+          return true;
+        },
+      );
+    } finally {
+      await rm(sourceDir, { recursive: true });
+    }
+  });
+
+  it("throws when SKILL.md frontmatter name is multiline", async () => {
+    const sourceDir = await makeTmpDir();
+    try {
+      const skillDir = path.join(sourceDir, "skills", "test-skill");
+      await mkdir(skillDir, { recursive: true });
+      await writeFile(
+        path.join(skillDir, "SKILL.md"),
+        "---\nname: |\n  multiline\n  name\ndescription: test\n---\n# Test",
+      );
+      await assert.rejects(
+        planDeploy(testManifest, sourceDir, ["claude-code"], "/home/test"),
+        (err: unknown) => {
+          assert.ok(err instanceof UserError);
+          assert.match(err.message, /must be a single-line string/);
+          return true;
+        },
+      );
+    } finally {
+      await rm(sourceDir, { recursive: true });
+    }
+  });
+
+  it("throws when SKILL.md frontmatter description is multiline", async () => {
+    const sourceDir = await makeTmpDir();
+    try {
+      const skillDir = path.join(sourceDir, "skills", "test-skill");
+      await mkdir(skillDir, { recursive: true });
+      await writeFile(
+        path.join(skillDir, "SKILL.md"),
+        "---\nname: test\ndescription: >\n  multiline\n  description\n---\n# Test",
+      );
+      await assert.rejects(
+        planDeploy(testManifest, sourceDir, ["claude-code"], "/home/test"),
+        (err: unknown) => {
+          assert.ok(err instanceof UserError);
+          assert.match(err.message, /must be a single-line string/);
+          return true;
+        },
+      );
+    } finally {
+      await rm(sourceDir, { recursive: true });
+    }
+  });
+
   it("attaches documented confidence to actions for claude-code", async () => {
     const sourceDir = await makeTmpDir();
     try {
@@ -270,6 +339,8 @@ describe("planDeploy", () => {
       configs: [],
       mcpServers: [],
       agentRules: [],
+      permissions: [],
+      agentDefinitions: [],
     };
     try {
       await createSkillSource(sourceDir, "skills/test-skill");
@@ -315,8 +386,11 @@ describe("planDeploy", () => {
           name: "shared-rules",
           path: "GEMINI.md",
           agents: ["gemini-cli", "antigravity"],
+          scope: "global",
         },
       ],
+      permissions: [],
+      agentDefinitions: [],
     };
     try {
       await writeFile(path.join(sourceDir, "GEMINI.md"), "# Shared Rules");
@@ -353,6 +427,8 @@ describe("planDeploy", () => {
         },
       ],
       agentRules: [],
+      permissions: [],
+      agentDefinitions: [],
     };
     try {
       const { warnings } = await planDeploy(
@@ -384,6 +460,8 @@ describe("planDeploy", () => {
       configs: [],
       mcpServers: [],
       agentRules: [],
+      permissions: [],
+      agentDefinitions: [],
     };
     try {
       await createSkillSource(sourceDir, "skills/test-skill");
@@ -412,8 +490,11 @@ describe("planDeploy", () => {
           name: "my-rules",
           path: "GEMINI.md",
           agents: ["gemini-cli", "antigravity"],
+          scope: "global",
         },
       ],
+      permissions: [],
+      agentDefinitions: [],
     };
     try {
       await writeFile(path.join(sourceDir, "GEMINI.md"), "# Rules");
@@ -468,6 +549,8 @@ describe("planDeploy", () => {
           },
         ],
         agentRules: [],
+        permissions: [],
+        agentDefinitions: [],
       };
       const { actions, warnings } = await planDeploy(
         manifest,
@@ -508,6 +591,8 @@ describe("planDeploy", () => {
           },
         ],
         agentRules: [],
+        permissions: [],
+        agentDefinitions: [],
       };
       const { actions, warnings } = await planDeploy(
         manifest,
@@ -561,6 +646,8 @@ describe("planDeploy", () => {
       configs: [],
       mcpServers: [],
       agentRules: [],
+      permissions: [],
+      agentDefinitions: [],
     };
     try {
       await createSkillSource(sourceDir, "skills/claude-only");
@@ -598,6 +685,8 @@ describe("planDeploy", () => {
       configs: [],
       mcpServers: [],
       agentRules: [],
+      permissions: [],
+      agentDefinitions: [],
     };
     try {
       await writeFile(path.join(sourceDir, "present.txt"), "present");
@@ -626,13 +715,17 @@ describe("planDeploy", () => {
           name: "codex-rules",
           path: "missing.md",
           agents: ["codex"],
+          scope: "global",
         },
         {
           name: "claude-rules",
           path: "CLAUDE.md",
           agents: ["claude-code"],
+          scope: "global",
         },
       ],
+      permissions: [],
+      agentDefinitions: [],
     };
     try {
       await writeFile(path.join(sourceDir, "CLAUDE.md"), "# Rules");
@@ -1271,6 +1364,8 @@ describe("planDeploy path traversal", () => {
         configs: [],
         mcpServers: [],
         agentRules: [],
+        permissions: [],
+        agentDefinitions: [],
       };
       await assert.rejects(
         () =>
@@ -1298,6 +1393,8 @@ describe("planDeploy path traversal", () => {
         configs: [],
         mcpServers: [],
         agentRules: [],
+        permissions: [],
+        agentDefinitions: [],
       };
       await assert.rejects(
         () =>
@@ -1340,6 +1437,8 @@ describe("planDeploy path traversal", () => {
         configs: [],
         mcpServers: [],
         agentRules: [],
+        permissions: [],
+        agentDefinitions: [],
       };
       await assert.rejects(
         () =>
