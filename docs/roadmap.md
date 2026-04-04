@@ -18,7 +18,7 @@ No active items.
 Ordered from highest to lowest after the fixed first step and architecture enablers.
 
 1. ~~Add support for agent definition deployment for agents that expose dedicated agent directories or frontmatter-based agent files. Implementation exists, but the docs/schema still overstate the required frontmatter contract and validation. Score: `6/8` (`Architecture 2`, `Agents 2`, `OS 1`, `Confidence 1`)~~
-2. Expand instruction-file support beyond today's global rules-file deployment to cover repo-local and workspace-local instruction surfaces for agents with documented behavior. Score: `4/8` (`Architecture 1`, `Agents 1`, `OS 0`, `Confidence 2`)
+2. ~~Expand instruction-file support beyond today's global rules-file deployment to cover repo-local and workspace-local instruction surfaces for agents with documented behavior. Score: `4/8` (`Architecture 1`, `Agents 1`, `OS 0`, `Confidence 2`)~~
 3. Add preflight analysis for instruction precedence, collisions, and instruction-budget risk before deployment. Score: `3/8` (`Architecture 1`, `Agents 0`, `OS 0`, `Confidence 2`)
 
 ## Quality And Maintenance

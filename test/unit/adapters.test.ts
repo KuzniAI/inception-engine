@@ -153,6 +153,7 @@ describe("compileAgentRuleActions", () => {
           name: "my-rule",
           agents: ["claude-code"],
           path: "CLAUDE.md",
+          scope: "global",
         },
         dir,
         dir,
@@ -175,6 +176,7 @@ describe("compileAgentRuleActions", () => {
           name: "my-rule",
           agents: ["claude-code"],
           path: "missing.md",
+          scope: "global",
         },
         dir,
         dir,
@@ -197,7 +199,12 @@ describe("compileAgentRuleActions", () => {
       const home = "/home/test";
       const realRoot = await realpath(dir);
       const { actions, warnings } = await compileAgentRuleActions(
-        { name: "my-rule", agents: ["claude-code"], path: "CLAUDE.md" },
+        {
+          name: "my-rule",
+          agents: ["claude-code"],
+          path: "CLAUDE.md",
+          scope: "global",
+        },
         dir,
         dir,
         realRoot,
@@ -231,6 +238,7 @@ describe("compileAgentRuleActions", () => {
           name: "my-rule",
           agents: ["github-copilot"],
           path: "rules.md",
+          scope: "global",
         },
         dir,
         dir,
@@ -260,7 +268,12 @@ describe("compileAgentRuleActions", () => {
       await writeFile(path.join(dir, "rules.md"), "# Rules");
       const realRoot = await realpath(dir);
       const { actions, warnings } = await compileAgentRuleActions(
-        { name: "my-rule", agents: ["antigravity"], path: "rules.md" },
+        {
+          name: "my-rule",
+          agents: ["antigravity"],
+          path: "rules.md",
+          scope: "global",
+        },
         dir,
         dir,
         realRoot,
@@ -288,6 +301,7 @@ describe("compileAgentRuleActions", () => {
           name: "my-rule",
           agents: ["gemini-cli", "antigravity"],
           path: "rules.md",
+          scope: "global",
         },
         dir,
         dir,
@@ -336,7 +350,12 @@ describe("compileAgentRuleActions", () => {
       const realRoot = await realpath(dir);
       await assert.rejects(
         compileAgentRuleActions(
-          { name: "my-rule", agents: ["codex"], path: "rules.txt" },
+          {
+            name: "my-rule",
+            agents: ["codex"],
+            path: "rules.txt",
+            scope: "global",
+          },
           dir,
           dir,
           realRoot,
@@ -359,6 +378,7 @@ describe("compileAgentRuleActions", () => {
             name: "my-rule",
             agents: ["claude-code"],
             path: "nonexistent.md",
+            scope: "global",
           },
           dir,
           dir,
@@ -387,6 +407,7 @@ describe("compileAgentRuleActions", () => {
           name: "my-rule",
           agents: ["claude-code", "codex"],
           path: "rules.md",
+          scope: "global",
         },
         dir,
         dir,
@@ -399,6 +420,193 @@ describe("compileAgentRuleActions", () => {
       const agents = actions.map((a) => a.agent);
       assert.ok(agents.includes("claude-code"));
       assert.ok(agents.includes("codex"));
+    } finally {
+      await rm(dir, { recursive: true });
+    }
+  });
+
+  it("scope repo: returns a file-write action targeting {repo}/CLAUDE.md for claude-code", async () => {
+    const dir = await makeTmpDir();
+    try {
+      const rulesFile = path.join(dir, "CLAUDE.md");
+      await writeFile(rulesFile, "# Rules");
+      const repo = "/repo/myproject";
+      const realRoot = await realpath(dir);
+      const { actions, warnings } = await compileAgentRuleActions(
+        {
+          name: "my-rule",
+          agents: ["claude-code"],
+          path: "CLAUDE.md",
+          scope: "repo",
+        },
+        dir,
+        dir,
+        realRoot,
+        ["claude-code"],
+        "/home/test",
+        repo,
+      );
+      assert.equal(actions.length, 1);
+      assert.equal(warnings.length, 0);
+      const action = actions[0] as FileWriteDeployAction;
+      assert.equal(action.kind, "file-write");
+      assert.equal(action.agent, "claude-code");
+      assert.equal(
+        normalizeSlashes(action.target),
+        `${repo}/CLAUDE.md`,
+        `expected target at {repo}/CLAUDE.md, got: ${action.target}`,
+      );
+    } finally {
+      await rm(dir, { recursive: true });
+    }
+  });
+
+  it("scope repo: target differs from scope global for claude-code", async () => {
+    const dir = await makeTmpDir();
+    try {
+      const rulesFile = path.join(dir, "CLAUDE.md");
+      await writeFile(rulesFile, "# Rules");
+      const home = "/home/test";
+      const repo = "/repo/myproject";
+      const realRoot = await realpath(dir);
+      const [globalResult, repoResult] = await Promise.all([
+        compileAgentRuleActions(
+          {
+            name: "my-rule",
+            agents: ["claude-code"],
+            path: "CLAUDE.md",
+            scope: "global",
+          },
+          dir,
+          dir,
+          realRoot,
+          ["claude-code"],
+          home,
+          repo,
+        ),
+        compileAgentRuleActions(
+          {
+            name: "my-rule",
+            agents: ["claude-code"],
+            path: "CLAUDE.md",
+            scope: "repo",
+          },
+          dir,
+          dir,
+          realRoot,
+          ["claude-code"],
+          home,
+          repo,
+        ),
+      ]);
+      assert.equal(globalResult.actions.length, 1);
+      assert.equal(repoResult.actions.length, 1);
+      assert.notEqual(
+        globalResult.actions[0]?.target,
+        repoResult.actions[0]?.target,
+        "global and repo scopes must produce distinct targets",
+      );
+      assert.ok(
+        normalizeSlashes(globalResult.actions[0]?.target ?? "").includes(
+          ".claude/CLAUDE.md",
+        ),
+        "global scope must target ~/.claude/CLAUDE.md",
+      );
+      assert.equal(
+        normalizeSlashes(repoResult.actions[0]?.target ?? ""),
+        `${repo}/CLAUDE.md`,
+        "repo scope must target {repo}/CLAUDE.md",
+      );
+    } finally {
+      await rm(dir, { recursive: true });
+    }
+  });
+
+  it("scope repo: antigravity still targets .agents/rules/{name}.md", async () => {
+    const dir = await makeTmpDir();
+    try {
+      await writeFile(path.join(dir, "rules.md"), "# Rules");
+      const repo = "/repo/myproject";
+      const realRoot = await realpath(dir);
+      const { actions, warnings } = await compileAgentRuleActions(
+        {
+          name: "my-rule",
+          agents: ["antigravity"],
+          path: "rules.md",
+          scope: "repo",
+        },
+        dir,
+        dir,
+        realRoot,
+        ["antigravity"],
+        "/home/test",
+        repo,
+      );
+      assert.equal(actions.length, 1);
+      assert.equal(warnings.length, 0);
+      assert.match(
+        normalizeSlashes(actions[0]?.target ?? ""),
+        /\.agents\/rules\/my-rule\.md$/,
+      );
+    } finally {
+      await rm(dir, { recursive: true });
+    }
+  });
+
+  it("scope repo: emits a warning and skips when repo path is not provided", async () => {
+    const dir = await makeTmpDir();
+    try {
+      await writeFile(path.join(dir, "rules.md"), "# Rules");
+      const realRoot = await realpath(dir);
+      const { actions, warnings } = await compileAgentRuleActions(
+        {
+          name: "my-rule",
+          agents: ["claude-code"],
+          path: "rules.md",
+          scope: "repo",
+        },
+        dir,
+        dir,
+        realRoot,
+        ["claude-code"],
+        "/home/test",
+        // no repo arg
+      );
+      assert.equal(actions.length, 0);
+      assert.equal(warnings.length, 1);
+      assert.equal(warnings[0]?.kind, "confidence");
+      assert.match(
+        warnings[0]?.message ?? "",
+        /scope "repo" requires a repository path/,
+      );
+    } finally {
+      await rm(dir, { recursive: true });
+    }
+  });
+
+  it("scope repo: github-copilot emits unsupported warning", async () => {
+    const dir = await makeTmpDir();
+    try {
+      await writeFile(path.join(dir, "rules.md"), "# Rules");
+      const realRoot = await realpath(dir);
+      const { actions, warnings } = await compileAgentRuleActions(
+        {
+          name: "my-rule",
+          agents: ["github-copilot"],
+          path: "rules.md",
+          scope: "repo",
+        },
+        dir,
+        dir,
+        realRoot,
+        ["github-copilot"],
+        "/home/test",
+        "/repo/myproject",
+      );
+      assert.equal(actions.length, 0);
+      assert.equal(warnings.length, 1);
+      assert.equal(warnings[0]?.kind, "confidence");
+      assert.match(warnings[0]?.message ?? "", /claude-code/);
     } finally {
       await rm(dir, { recursive: true });
     }

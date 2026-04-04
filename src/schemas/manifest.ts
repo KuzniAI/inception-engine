@@ -107,6 +107,10 @@ export const AgentRuleEntrySchema = z.object({
   agents: agentsField,
   // Relative path to the rules/instruction file within the source bundle.
   path: sourcePathField,
+  // Deployment scope: "global" targets the agent's home-directory instruction
+  // file (default), "repo" targets the project-root instruction file within the
+  // deployed repository (e.g. {repo}/CLAUDE.md for claude-code).
+  scope: z.enum(["global", "repo"]).default("global"),
 });
 
 export const PermissionsEntrySchema = z.object({

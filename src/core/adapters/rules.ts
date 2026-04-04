@@ -3,6 +3,7 @@ import { AGENT_REGISTRY_BY_ID } from "../../config/agents.ts";
 import type { AgentRuleEntry } from "../../schemas/manifest.ts";
 import type {
   AgentId,
+  AgentSurfaceSupport,
   FileWriteDeployAction,
   FileWriteRevertAction,
   PlanWarning,
@@ -17,6 +18,57 @@ import {
 export interface RulesAdapterResult {
   actions: FileWriteDeployAction[];
   warnings: PlanWarning[];
+}
+
+function resolveRulesSupport(
+  agentId: AgentId,
+  scope: AgentRuleEntry["scope"],
+): AgentSurfaceSupport | undefined {
+  const agent = AGENT_REGISTRY_BY_ID[agentId];
+  if (scope === "repo") {
+    return agent?.agentRulesRepoSupport ?? agent?.agentRulesSupport;
+  }
+  return agent?.agentRulesSupport;
+}
+
+type ResolvedTarget = {
+  agentId: AgentId;
+  confidence: FileWriteDeployAction["confidence"];
+  target: string;
+};
+
+function resolveAgentTarget(
+  agentId: AgentId,
+  entry: AgentRuleEntry,
+  home: string,
+  repo: string | undefined,
+  platform: "posix" | "windows",
+): ResolvedTarget | PlanWarning {
+  const support = resolveRulesSupport(agentId, entry.scope);
+  if (!support || support.status === "unsupported") {
+    return {
+      kind: "confidence",
+      message: `agentRules: agent "${agentId}" uses ${support?.schemaLabel ?? "an unsupported instruction schema"} and ${support?.status === "unsupported" ? support.reason : "does not expose a supported rules adapter"} — skipping "${entry.name}"`,
+    };
+  }
+  if (support.status === "planned") {
+    return {
+      kind: "confidence",
+      message: `agentRules: agent "${agentId}" rules support is planned via ${support.plannedSurface} — skipping "${entry.name}" until that surface is implemented`,
+    };
+  }
+  if (entry.scope === "repo" && !repo) {
+    return {
+      kind: "confidence",
+      message: `agentRules: scope "repo" requires a repository path but none was resolved — skipping "${entry.name}" for agent "${agentId}"`,
+    };
+  }
+  const agent = AGENT_REGISTRY_BY_ID[agentId];
+  return {
+    agentId,
+    confidence: agent?.provenance.agentRules ?? "provisional",
+    target: resolvePlaceholders(support.path[platform], entry.name, home, repo),
+  };
 }
 
 export async function compileAgentRuleActions(
@@ -34,44 +86,19 @@ export async function compileAgentRuleActions(
   const targetAgents = entry.agents.filter((agentId) =>
     detectedAgents.includes(agentId),
   );
-  const supportedTargets: Array<{
-    agentId: AgentId;
-    confidence: FileWriteDeployAction["confidence"];
-    target: string;
-  }> = [];
+  const supportedTargets: ResolvedTarget[] = [];
 
   if (targetAgents.length === 0) {
     return { actions, warnings };
   }
 
   for (const agentId of targetAgents) {
-    const agent = AGENT_REGISTRY_BY_ID[agentId];
-    const support = agent?.agentRulesSupport;
-    if (!support || support.status === "unsupported") {
-      warnings.push({
-        kind: "confidence",
-        message: `agentRules: agent "${agentId}" uses ${support?.schemaLabel ?? "an unsupported instruction schema"} and ${support?.status === "unsupported" ? support.reason : "does not expose a supported rules adapter"} — skipping "${entry.name}"`,
-      });
-      continue;
+    const result = resolveAgentTarget(agentId, entry, home, repo, platform);
+    if ("kind" in result) {
+      warnings.push(result);
+    } else {
+      supportedTargets.push(result);
     }
-    if (support.status === "planned") {
-      warnings.push({
-        kind: "confidence",
-        message: `agentRules: agent "${agentId}" rules support is planned via ${support.plannedSurface} — skipping "${entry.name}" until that surface is implemented`,
-      });
-      continue;
-    }
-
-    supportedTargets.push({
-      agentId,
-      confidence: agent.provenance.agentRules ?? "provisional",
-      target: resolvePlaceholders(
-        support.path[platform],
-        entry.name,
-        home,
-        repo,
-      ),
-    });
   }
 
   if (supportedTargets.length === 0) {
@@ -79,7 +106,7 @@ export async function compileAgentRuleActions(
   }
 
   // Validate the shared source file only when at least one target uses the
-  // current global-Markdown adapter surface.
+  // current rules adapter surface.
   const source = path.resolve(sourceDir, entry.path);
   await validateSourcePath(source, entry.path, resolvedSourceDir, realRoot);
   await validateSourceFile(source, entry.path);
@@ -111,13 +138,17 @@ export function compileAgentRuleReverts(
   for (const agentId of entry.agents) {
     if (agentFilter && !agentFilter.includes(agentId)) continue;
     const agent = AGENT_REGISTRY_BY_ID[agentId];
-    const support = agent?.agentRulesSupport;
+    const support =
+      entry.scope === "repo"
+        ? (agent?.agentRulesRepoSupport ?? agent?.agentRulesSupport)
+        : agent?.agentRulesSupport;
     if (
       !support ||
       support.status === "unsupported" ||
       support.status === "planned"
     )
       continue;
+    if (entry.scope === "repo" && !repo) continue;
     const target = resolvePlaceholders(
       support.path[platform],
       entry.name,

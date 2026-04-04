@@ -561,6 +561,80 @@ describe("loadManifest", () => {
     }
   });
 
+  it("agentRules scope defaults to 'global' when omitted", async () => {
+    const dir = await makeTmpDir();
+    try {
+      await writeFile(
+        path.join(dir, "inception.json"),
+        JSON.stringify({
+          skills: [],
+          agentRules: [
+            {
+              name: "my-rule",
+              agents: ["claude-code"],
+              path: "rules/CLAUDE.md",
+            },
+          ],
+        }),
+      );
+      const manifest = await loadManifest(dir);
+      assert.equal(manifest.agentRules[0]?.scope, "global");
+    } finally {
+      await rm(dir, { recursive: true });
+    }
+  });
+
+  it("agentRules accepts scope: 'repo'", async () => {
+    const dir = await makeTmpDir();
+    try {
+      await writeFile(
+        path.join(dir, "inception.json"),
+        JSON.stringify({
+          skills: [],
+          agentRules: [
+            {
+              name: "my-rule",
+              agents: ["claude-code"],
+              path: "rules/CLAUDE.md",
+              scope: "repo",
+            },
+          ],
+        }),
+      );
+      const manifest = await loadManifest(dir);
+      assert.equal(manifest.agentRules[0]?.scope, "repo");
+    } finally {
+      await rm(dir, { recursive: true });
+    }
+  });
+
+  it("agentRules rejects an invalid scope value", async () => {
+    const dir = await makeTmpDir();
+    try {
+      await writeFile(
+        path.join(dir, "inception.json"),
+        JSON.stringify({
+          skills: [],
+          agentRules: [
+            {
+              name: "my-rule",
+              agents: ["claude-code"],
+              path: "rules/CLAUDE.md",
+              scope: "workspace",
+            },
+          ],
+        }),
+      );
+      await assert.rejects(loadManifest(dir), (err: unknown) => {
+        assert.ok(err instanceof Error);
+        assert.match(err.message, /agentRules\[0\]/);
+        return true;
+      });
+    } finally {
+      await rm(dir, { recursive: true });
+    }
+  });
+
   it("defaults mcpServers and agentRules to [] when omitted", async () => {
     const dir = await makeTmpDir();
     try {

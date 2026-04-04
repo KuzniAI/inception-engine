@@ -271,7 +271,7 @@ function buildAgentRules(
     }
 
     namesSeen.add(name);
-    rules.push({ name, path: relPath, agents });
+    rules.push({ name, path: relPath, agents, scope: "global" });
   }
 
   return rules;

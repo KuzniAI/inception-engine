@@ -38,6 +38,14 @@ export const AGENT_REGISTRY: readonly AgentConfig[] = [
         windows: ["{home}", ".claude", "CLAUDE.md"],
       },
     },
+    agentRulesRepoSupport: {
+      status: "supported",
+      schemaLabel: "repo-local CLAUDE.md",
+      path: {
+        posix: ["{repo}", "CLAUDE.md"],
+        windows: ["{repo}", "CLAUDE.md"],
+      },
+    },
     permissionsSupport: {
       status: "supported",
       schemaLabel: "JSON permissions config",
@@ -88,6 +96,14 @@ export const AGENT_REGISTRY: readonly AgentConfig[] = [
       path: {
         posix: ["{home}", ".codex", "AGENTS.md"],
         windows: ["{home}", ".codex", "AGENTS.md"],
+      },
+    },
+    agentRulesRepoSupport: {
+      status: "supported",
+      schemaLabel: "repo-local AGENTS.md",
+      path: {
+        posix: ["{repo}", "AGENTS.md"],
+        windows: ["{repo}", "AGENTS.md"],
       },
     },
     permissionsSupport: {
@@ -141,6 +157,14 @@ export const AGENT_REGISTRY: readonly AgentConfig[] = [
         windows: ["{home}", ".gemini", "GEMINI.md"],
       },
     },
+    agentRulesRepoSupport: {
+      status: "supported",
+      schemaLabel: "repo-local GEMINI.md",
+      path: {
+        posix: ["{repo}", "GEMINI.md"],
+        windows: ["{repo}", "GEMINI.md"],
+      },
+    },
     permissionsSupport: {
       status: "unsupported",
       schemaLabel: "global permissions surface",
@@ -184,6 +208,14 @@ export const AGENT_REGISTRY: readonly AgentConfig[] = [
       },
     },
     agentRulesSupport: {
+      status: "supported",
+      schemaLabel: "repo-local Markdown rules file",
+      path: {
+        posix: ["{repo}", ".agents", "rules", "{name}.md"],
+        windows: ["{repo}", ".agents", "rules", "{name}.md"],
+      },
+    },
+    agentRulesRepoSupport: {
       status: "supported",
       schemaLabel: "repo-local Markdown rules file",
       path: {
@@ -242,6 +274,14 @@ export const AGENT_REGISTRY: readonly AgentConfig[] = [
         windows: ["{appdata}", "opencode", "AGENTS.md"],
       },
     },
+    agentRulesRepoSupport: {
+      status: "supported",
+      schemaLabel: "repo-local AGENTS.md",
+      path: {
+        posix: ["{repo}", "AGENTS.md"],
+        windows: ["{repo}", "AGENTS.md"],
+      },
+    },
     permissionsSupport: {
       status: "unsupported",
       schemaLabel: "global permissions surface",
@@ -287,6 +327,12 @@ export const AGENT_REGISTRY: readonly AgentConfig[] = [
       schemaLabel: "Claude-native shared instructions",
       reason:
         'GitHub Copilot reads CLAUDE.md natively, so deploy via the "claude-code" agentRules target instead of a separate rules surface',
+    },
+    agentRulesRepoSupport: {
+      status: "unsupported",
+      schemaLabel: "repo-local CLAUDE.md",
+      reason:
+        'GitHub Copilot reads CLAUDE.md natively, so deploy via the "claude-code" agentRules target with scope: "repo" instead of a separate rules surface',
     },
     permissionsSupport: {
       status: "unsupported",

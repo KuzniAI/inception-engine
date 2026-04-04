@@ -82,6 +82,10 @@ export interface AgentConfig {
   mcpSupport?: AgentSurfaceSupport;
   // Agent-specific persistent instruction/rules surface support.
   agentRulesSupport?: AgentSurfaceSupport;
+  // Repo-local instruction/rules surface (scope: "repo"). When absent, the
+  // adapter falls back to agentRulesSupport (covers antigravity, which is
+  // already repo-local).
+  agentRulesRepoSupport?: AgentSurfaceSupport;
   // Agent-specific execution/safety permission and approval surface support.
   permissionsSupport?: AgentSurfaceSupport;
   // Agent-specific agent/subagent definition file surface support.
