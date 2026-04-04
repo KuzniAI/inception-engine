@@ -51,6 +51,8 @@
         "useConst": "error",
         "useDefaultParameterLast": "warn",
         "useExplicitLengthCheck": "warn",
+        "useImportType": "error",
+        "useExportType": "error",
         "useForOf": "warn",
         "useNodejsImportProtocol": "error",
         "useThrowNewError": "error",

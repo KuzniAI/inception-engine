@@ -1,6 +1,7 @@
 import { lstat, readFile, realpath, stat } from "node:fs/promises";
 import path from "node:path";
 import { UserError } from "../errors.ts";
+import { parseFrontmatterDocument } from "./adapters/frontmatter.ts";
 
 export function sourceAccessError(err: unknown, sourcePath: string): string {
   const code = (err as NodeJS.ErrnoException).code;
@@ -104,8 +105,6 @@ function isRecordOfStrings(value: unknown): value is Record<string, string> {
     Object.values(value).every((entry) => typeof entry === "string")
   );
 }
-
-import { parseFrontmatterDocument } from "./adapters/frontmatter.ts";
 
 function validateNonEmptyStringField(
   value: unknown,
