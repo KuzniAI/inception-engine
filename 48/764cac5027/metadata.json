@@ -1,0 +1,37 @@
+{
+  "cli_version": "0.5.3",
+  "checkpoint_id": "48764cac5027",
+  "strategy": "manual-commit",
+  "branch": "main",
+  "checkpoints_count": 1,
+  "files_touched": [
+    "docs/roadmap.md",
+    "limbo/inception.json",
+    "src/config/agents.ts",
+    "src/core/adapters/mcp.ts",
+    "src/core/adapters/permissions.ts",
+    "src/core/adapters/rules.ts",
+    "src/core/deploy.ts",
+    "src/core/resolve.ts",
+    "src/core/revert.ts",
+    "src/types.ts",
+    "test/os/cross-platform/cross-platform.test.ts",
+    "test/unit/adapters.test.ts",
+    "test/unit/deploy.test.ts"
+  ],
+  "sessions": [
+    {
+      "metadata": "/48/764cac5027/0/metadata.json",
+      "transcript": "/48/764cac5027/0/full.jsonl",
+      "content_hash": "/48/764cac5027/0/content_hash.txt",
+      "prompt": "/48/764cac5027/0/prompt.txt"
+    }
+  ],
+  "token_usage": {
+    "input_tokens": 178393,
+    "cache_creation_tokens": 0,
+    "cache_read_tokens": 2852196,
+    "output_tokens": 19997,
+    "api_call_count": 62
+  }
+}
