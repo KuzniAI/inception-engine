@@ -86,6 +86,9 @@ export interface AgentConfig {
   // adapter falls back to agentRulesSupport (covers antigravity, which is
   // already repo-local).
   agentRulesRepoSupport?: AgentSurfaceSupport;
+  // Workspace-local instruction/rules surface (scope: "workspace"). When absent,
+  // the adapter handles it by failing or reporting unsupported.
+  agentRulesWorkspaceSupport?: AgentSurfaceSupport;
   // Agent-specific execution/safety permission and approval surface support.
   permissionsSupport?: AgentSurfaceSupport;
   // Agent-specific agent/subagent definition file surface support.

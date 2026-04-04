@@ -620,7 +620,7 @@ describe("loadManifest", () => {
               name: "my-rule",
               agents: ["claude-code"],
               path: "rules/CLAUDE.md",
-              scope: "workspace",
+              scope: "invalid-scope",
             },
           ],
         }),

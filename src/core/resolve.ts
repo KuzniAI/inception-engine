@@ -159,6 +159,7 @@ export function resolvePlaceholders(
   skillName: string,
   home: string,
   repo?: string,
+  workspace?: string,
 ): string {
   const { appdata, xdgConfig } = resolveRuntimePaths(home);
   const resolved = segments.map((seg) =>
@@ -167,7 +168,8 @@ export function resolvePlaceholders(
       .replace("{name}", skillName)
       .replace("{appdata}", appdata)
       .replace("{xdg_config}", xdgConfig)
-      .replace("{repo}", repo ?? ""),
+      .replace("{repo}", repo ?? "")
+      .replace("{workspace}", workspace ?? repo ?? ""),
   );
   const root = resolved.find((segment) => segment.length > 0) ?? home;
   return getPathApi(root).join(...resolved);

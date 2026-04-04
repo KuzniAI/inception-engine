@@ -10,6 +10,71 @@ export interface PreflightWarning {
 
 const BUDGET_WARN_BYTES = 50 * 1024; // 50 KB
 
+function groupRulesByPath(rulesForAgent: Manifest["agentRules"]) {
+  const entriesByPath = new Map<
+    string,
+    Array<{ name: string; scope: string }>
+  >();
+  for (const entry of rulesForAgent ?? []) {
+    const list = entriesByPath.get(entry.path) ?? [];
+    list.push({ name: entry.name, scope: entry.scope });
+    entriesByPath.set(entry.path, list);
+  }
+  return entriesByPath;
+}
+
+function detectScopeOverlaps(
+  agentId: AgentId,
+  rulesForAgent: Manifest["agentRules"],
+): PreflightWarning[] {
+  const warnings: PreflightWarning[] = [];
+  const entriesByPath = groupRulesByPath(rulesForAgent);
+
+  for (const [path, list] of entriesByPath) {
+    const scopes = new Set(list.map((l) => l.scope));
+    if (scopes.size < 2) continue;
+
+    const scopeList = Array.from(scopes).sort();
+    for (let i = 0; i < scopeList.length; i++) {
+      for (let j = i + 1; j < scopeList.length; j++) {
+        const entryB = list.find((l) => l.scope === scopeList[j]);
+        if (entryB) {
+          warnings.push({
+            kind: "precedence",
+            message: `Agent "${agentId}" has agentRules entry "${entryB.name}" deployed to both ${scopeList[i]} and ${scopeList[j]} scope from the same source path "${path}". The file will be written to two distinct targets — verify this is intentional and not a copy-paste mistake.`,
+          });
+        }
+      }
+    }
+  }
+  return warnings;
+}
+
+function detectMultipleActiveInstructionScopes(
+  agentId: AgentId,
+  rulesForAgent: Manifest["agentRules"],
+): PreflightWarning[] {
+  const activeScopes = Array.from(
+    new Set((rulesForAgent ?? []).map((e) => e.scope)),
+  ).sort();
+
+  if (activeScopes.length <= 1) return [];
+
+  const scopeDescriptions = activeScopes
+    .map((s) => {
+      const entries = (rulesForAgent ?? []).filter((e) => e.scope === s);
+      return `${s} [${entries.map((e) => `"${e.name}"`).join(", ")}]`;
+    })
+    .join(" and ");
+
+  return [
+    {
+      kind: "precedence",
+      message: `Agent "${agentId}" will have multiple instruction files active simultaneously across ${activeScopes.length} scopes: ${scopeDescriptions}. All will be loaded by the agent — ensure the content is intended to stack and does not conflict.`,
+    },
+  ];
+}
+
 function detectInstructionPrecedence(
   detectedAgents: AgentId[],
   manifest: Manifest,
@@ -21,33 +86,10 @@ function detectInstructionPrecedence(
       e.agents.includes(agentId),
     );
 
-    const globalEntries = rulesForAgent.filter(
-      (e) => (e.scope ?? "global") === "global",
+    warnings.push(...detectScopeOverlaps(agentId, rulesForAgent));
+    warnings.push(
+      ...detectMultipleActiveInstructionScopes(agentId, rulesForAgent),
     );
-    const repoEntries = rulesForAgent.filter((e) => e.scope === "repo");
-
-    if (globalEntries.length === 0 || repoEntries.length === 0) continue;
-
-    const globalPaths = new Set(globalEntries.map((e) => e.path));
-
-    for (const entry of repoEntries) {
-      if (globalPaths.has(entry.path)) {
-        warnings.push({
-          kind: "precedence",
-          message: `Agent "${agentId}" has agentRules entry "${entry.name}" deployed to both global and repo scope from the same source path "${entry.path}". The file will be written to two distinct targets — verify this is intentional and not a copy-paste mistake.`,
-        });
-      }
-    }
-
-    const nonOverlapRepo = repoEntries.filter((e) => !globalPaths.has(e.path));
-    if (nonOverlapRepo.length > 0) {
-      const globalNames = globalEntries.map((e) => `"${e.name}"`).join(", ");
-      const repoNames = nonOverlapRepo.map((e) => `"${e.name}"`).join(", ");
-      warnings.push({
-        kind: "precedence",
-        message: `Agent "${agentId}" will have both global and repo instruction files active simultaneously: global [${globalNames}] and repo [${repoNames}]. Both will be loaded by the agent — ensure the content is intended to stack and does not conflict.`,
-      });
-    }
   }
 
   return warnings;

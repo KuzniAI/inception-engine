@@ -86,6 +86,7 @@ export function compileMcpServerActions(
   detectedAgents: AgentId[],
   home: string,
   repo?: string,
+  workspace?: string,
 ): McpAdapterResult {
   const actions: McpAdapterResult["actions"] = [];
   const warnings: PlanWarning[] = [];
@@ -117,6 +118,7 @@ export function compileMcpServerActions(
       entry.name,
       home,
       repo,
+      workspace,
     );
     const resolvedTarget = path.resolve(rawTarget);
     const confidence = agent.provenance.mcpConfig ?? "provisional";
@@ -141,6 +143,7 @@ export function compileMcpServerReverts(
   agentFilter: AgentId[] | null,
   home: string,
   repo?: string,
+  workspace?: string,
 ): Array<
   ConfigPatchRevertAction | TomlPatchRevertAction | FrontmatterEmitRevertAction
 > {
@@ -167,6 +170,7 @@ export function compileMcpServerReverts(
       entry.name,
       home,
       repo,
+      workspace,
     );
     const target = path.resolve(rawTarget);
 

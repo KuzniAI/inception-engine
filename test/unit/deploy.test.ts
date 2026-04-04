@@ -26,6 +26,7 @@ import type {
   ConfigPatchDeployAction,
   DeployAction,
   FileWriteDeployAction,
+  FrontmatterEmitDeployAction,
   Manifest,
 } from "../../src/types.ts";
 import { exists, makeTmpDir } from "../helpers/fs.ts";
@@ -737,6 +738,203 @@ describe("planDeploy", () => {
       );
       assert.equal(actions.length, 1);
       assert.equal(actions[0]?.skill, "claude-rules");
+    } finally {
+      await rm(sourceDir, { recursive: true });
+    }
+  });
+
+  it("mcpServers entry with gemini-cli and antigravity produces actions at distinct targets", async () => {
+    const sourceDir = await makeTmpDir();
+    const manifest: Manifest = {
+      skills: [],
+      files: [],
+      configs: [],
+      mcpServers: [
+        {
+          name: "my-mcp",
+          agents: ["gemini-cli", "antigravity"],
+          config: { command: "my-server" },
+        },
+      ],
+      agentRules: [],
+      permissions: [],
+      agentDefinitions: [],
+    };
+    try {
+      const { actions, warnings } = await planDeploy(
+        manifest,
+        sourceDir,
+        ["gemini-cli", "antigravity"],
+        "/home/test",
+        "/repo",
+      );
+      const ambiguity = warnings.find((w) => w.kind === "ambiguity");
+      assert.ok(ambiguity, "expected an ambiguity warning");
+
+      const geminiAction = actions.find(
+        (a) => a.agent === "gemini-cli",
+      ) as ConfigPatchDeployAction;
+      const antigravityAction = actions.find(
+        (a) => a.agent === "antigravity",
+      ) as FrontmatterEmitDeployAction;
+
+      assert.ok(geminiAction, "expected a gemini-cli action");
+      assert.match(geminiAction.target, /\.gemini\/settings\.json$/);
+
+      assert.ok(antigravityAction, "expected an antigravity action");
+      // Antigravity's target for mcpServer is .agents/rules/{name}.md
+      assert.match(antigravityAction.target, /\.agents\/rules\/my-mcp\.md$/);
+    } finally {
+      await rm(sourceDir, { recursive: true });
+    }
+  });
+
+  it("agentRules with scope: repo and workspace emits scope-aware ambiguity warnings for Gemini CLI", async () => {
+    const sourceDir = await makeTmpDir();
+    const manifest: Manifest = {
+      skills: [],
+      files: [],
+      configs: [],
+      mcpServers: [],
+      agentRules: [
+        {
+          name: "repo-rules",
+          path: "repo.md",
+          agents: ["gemini-cli", "antigravity"],
+          scope: "repo",
+        },
+        {
+          name: "workspace-rules",
+          path: "workspace.md",
+          agents: ["gemini-cli", "antigravity"],
+          scope: "workspace",
+        },
+      ],
+      permissions: [],
+      agentDefinitions: [],
+    };
+    try {
+      await writeFile(path.join(sourceDir, "repo.md"), "# Repo");
+      await writeFile(path.join(sourceDir, "workspace.md"), "# Workspace");
+
+      const { warnings } = await planDeploy(
+        manifest,
+        sourceDir,
+        ["gemini-cli", "antigravity"],
+        "/home/test",
+        "/repo",
+        "/workspace",
+      );
+
+      const repoWarning = warnings.find(
+        (w) => w.kind === "ambiguity" && w.message.includes("repo-rules"),
+      );
+      const workspaceWarning = warnings.find(
+        (w) => w.kind === "ambiguity" && w.message.includes("workspace-rules"),
+      );
+
+      assert.ok(repoWarning, "expected ambiguity warning for repo-rules");
+      assert.match(repoWarning.message, /\{repo\}\/GEMINI\.md/);
+
+      assert.ok(
+        workspaceWarning,
+        "expected ambiguity warning for workspace-rules",
+      );
+      assert.match(workspaceWarning.message, /\{workspace\}\/GEMINI\.md/);
+    } finally {
+      await rm(sourceDir, { recursive: true });
+    }
+  });
+
+  it("agentDefinitions entry with gemini-cli and antigravity emits ambiguity warning for behavioral divergence", async () => {
+    const sourceDir = await makeTmpDir();
+    const manifest: Manifest = {
+      skills: [],
+      files: [],
+      configs: [],
+      mcpServers: [],
+      agentRules: [],
+      permissions: [],
+      agentDefinitions: [
+        {
+          name: "my-agent",
+          path: "agents/my-agent.md",
+          agents: ["gemini-cli", "antigravity"],
+        },
+      ],
+    };
+    try {
+      await mkdir(path.join(sourceDir, "agents"), { recursive: true });
+      await writeFile(path.join(sourceDir, "agents", "my-agent.md"), "# Agent");
+      const { actions, warnings } = await planDeploy(
+        manifest,
+        sourceDir,
+        ["gemini-cli", "antigravity"],
+        "/home/test",
+        "/repo",
+      );
+
+      const ambiguity = warnings.find(
+        (w) => w.kind === "ambiguity" && w.message.includes("agentDefinitions"),
+      );
+      assert.ok(
+        ambiguity,
+        "expected an ambiguity warning for agentDefinitions",
+      );
+      assert.match(ambiguity.message, /behavioral divergence/);
+
+      const geminiAction = actions.find((a) => a.agent === "gemini-cli");
+      const antigravityAction = actions.find((a) => a.agent === "antigravity");
+
+      assert.ok(geminiAction, "expected a geminiAction");
+      assert.ok(antigravityAction, "expected an antigravityAction");
+
+      assert.match(geminiAction.target, /\.gemini\/agents\/my-agent\.md$/);
+      assert.match(antigravityAction.target, /\.agents\/rules\/my-agent\.md$/);
+    } finally {
+      await rm(sourceDir, { recursive: true });
+    }
+  });
+
+  it("agentRules support scope: workspace even if unsupported by agent (emits confidence warning)", async () => {
+    const sourceDir = await makeTmpDir();
+    const manifest: Manifest = {
+      skills: [],
+      files: [],
+      configs: [],
+      mcpServers: [],
+      agentRules: [
+        {
+          name: "workspace-rules",
+          path: "workspace.md",
+          agents: ["claude-code"],
+          scope: "workspace",
+        },
+      ],
+      permissions: [],
+      agentDefinitions: [],
+    };
+    try {
+      await writeFile(path.join(sourceDir, "workspace.md"), "# Workspace");
+      const { warnings } = await planDeploy(
+        manifest,
+        sourceDir,
+        ["claude-code"],
+        "/home/test",
+        "/repo",
+        "/workspace",
+      );
+
+      const confidence = warnings.find(
+        (w) =>
+          w.kind === "confidence" &&
+          w.message.includes("workspace") &&
+          w.message.includes("unsupported"),
+      );
+      assert.ok(
+        confidence,
+        "expected an unsupported confidence warning for workspace scope on claude-code",
+      );
     } finally {
       await rm(sourceDir, { recursive: true });
     }

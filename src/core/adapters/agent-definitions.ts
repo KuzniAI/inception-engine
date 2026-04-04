@@ -39,6 +39,7 @@ export async function compileAgentDefinitionActions(
   detectedAgents: AgentId[],
   home: string,
   repo?: string,
+  workspace?: string,
 ): Promise<AgentDefinitionsAdapterResult> {
   const actions: FileWriteDeployAction[] = [];
   const warnings: PlanWarning[] = [];
@@ -82,6 +83,7 @@ export async function compileAgentDefinitionActions(
         entry.name,
         home,
         repo,
+        workspace,
       ),
     });
   }
@@ -115,6 +117,7 @@ export function compileAgentDefinitionReverts(
   agentFilter: AgentId[] | null,
   home: string,
   repo?: string,
+  workspace?: string,
 ): FileWriteRevertAction[] {
   const actions: FileWriteRevertAction[] = [];
   const platform = getPlatformKey();
@@ -134,6 +137,7 @@ export function compileAgentDefinitionReverts(
       entry.name,
       home,
       repo,
+      workspace,
     );
     actions.push({
       kind: "file-write",

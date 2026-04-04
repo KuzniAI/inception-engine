@@ -62,6 +62,12 @@ export const AGENT_REGISTRY: readonly AgentConfig[] = [
         windows: ["{repo}", ".claude", "agents", "{name}.md"],
       },
     },
+    agentRulesWorkspaceSupport: {
+      status: "unsupported",
+      schemaLabel: "workspace-local CLAUDE.md",
+      reason:
+        "Claude Code does not expose a documented workspace-local instruction surface distinct from repo-local CLAUDE.md",
+    },
   },
   {
     id: "codex",
@@ -119,6 +125,12 @@ export const AGENT_REGISTRY: readonly AgentConfig[] = [
       schemaLabel: "dedicated agent definition directory",
       reason:
         "OpenAI Codex does not expose a documented dedicated per-agent definition directory surface separate from AGENTS.md and config.toml — use agentRules to deploy persona instructions instead",
+    },
+    agentRulesWorkspaceSupport: {
+      status: "unsupported",
+      schemaLabel: "workspace-local AGENTS.md",
+      reason:
+        "OpenAI Codex does not expose a documented workspace-local instruction surface distinct from repo-local AGENTS.md",
     },
   },
   {
@@ -179,6 +191,12 @@ export const AGENT_REGISTRY: readonly AgentConfig[] = [
         windows: ["{repo}", ".gemini", "agents", "{name}.md"],
       },
     },
+    agentRulesWorkspaceSupport: {
+      status: "unsupported",
+      schemaLabel: "workspace-local GEMINI.md",
+      reason:
+        "Gemini CLI does not expose a documented workspace-local instruction surface distinct from repo-local GEMINI.md",
+    },
   },
   {
     id: "antigravity",
@@ -236,6 +254,12 @@ export const AGENT_REGISTRY: readonly AgentConfig[] = [
         posix: ["{repo}", ".agents", "rules", "{name}.md"],
         windows: ["{repo}", ".agents", "rules", "{name}.md"],
       },
+    },
+    agentRulesWorkspaceSupport: {
+      status: "unsupported",
+      schemaLabel: "workspace-local instruction surface",
+      reason:
+        "Antigravity is natively repo-local and does not expose a separate workspace-local instruction surface",
     },
   },
   {
@@ -296,6 +320,12 @@ export const AGENT_REGISTRY: readonly AgentConfig[] = [
         windows: ["{repo}", ".opencode", "agents", "{name}.md"],
       },
     },
+    agentRulesWorkspaceSupport: {
+      status: "unsupported",
+      schemaLabel: "workspace-local AGENTS.md",
+      reason:
+        "OpenCode does not expose a documented workspace-local instruction surface distinct from repo-local AGENTS.md",
+    },
   },
   {
     id: "github-copilot",
@@ -347,6 +377,12 @@ export const AGENT_REGISTRY: readonly AgentConfig[] = [
         posix: ["{repo}", ".github", "agents", "{name}.agent.md"],
         windows: ["{repo}", ".github", "agents", "{name}.agent.md"],
       },
+    },
+    agentRulesWorkspaceSupport: {
+      status: "unsupported",
+      schemaLabel: "workspace-local instruction surface",
+      reason:
+        "GitHub Copilot instruction surfaces are managed at the repo, devcontainer, or organization level",
     },
     policyNote:
       "Organization policies may override locally deployed configuration. Verify with your GitHub org admin if deployed skills or rules are not active.",

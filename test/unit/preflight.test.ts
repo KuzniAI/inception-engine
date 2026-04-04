@@ -16,12 +16,17 @@ const baseOptions: CliOptions = {
   agents: null,
   verbose: false,
   debug: false,
+  force: false,
 };
 
 const emptyManifest: Manifest = {
   skills: [],
+  files: [],
+  configs: [],
   mcpServers: [],
   agentRules: [],
+  permissions: [],
+  agentDefinitions: [],
 };
 
 describe("runPreflight", () => {
@@ -90,10 +95,7 @@ describe("instruction precedence warnings", () => {
     try {
       await writeFile(path.join(sourceDir, "CLAUDE.md"), "# Rules");
       const manifest: Manifest = {
-        skills: [],
-        files: [],
-        configs: [],
-        mcpServers: [],
+        ...emptyManifest,
         agentRules: [
           {
             name: "global-rules",
@@ -137,10 +139,7 @@ describe("instruction precedence warnings", () => {
       await writeFile(path.join(sourceDir, "global.md"), "# Global");
       await writeFile(path.join(sourceDir, "repo.md"), "# Repo");
       const manifest: Manifest = {
-        skills: [],
-        files: [],
-        configs: [],
-        mcpServers: [],
+        ...emptyManifest,
         agentRules: [
           {
             name: "global-rules",
@@ -183,10 +182,7 @@ describe("instruction precedence warnings", () => {
     try {
       await writeFile(path.join(sourceDir, "CLAUDE.md"), "# Rules");
       const manifest: Manifest = {
-        skills: [],
-        files: [],
-        configs: [],
-        mcpServers: [],
+        ...emptyManifest,
         agentRules: [
           {
             name: "global-rules",
@@ -213,10 +209,7 @@ describe("instruction precedence warnings", () => {
     try {
       await writeFile(path.join(sourceDir, "CLAUDE.md"), "# Rules");
       const manifest: Manifest = {
-        skills: [],
-        files: [],
-        configs: [],
-        mcpServers: [],
+        ...emptyManifest,
         agentRules: [
           {
             name: "repo-rules",
@@ -324,11 +317,7 @@ describe("instruction budget warnings", () => {
         Buffer.alloc(51 * 1024, "x"),
       );
       const manifest: Manifest = {
-        skills: [],
-        files: [],
-        configs: [],
-        mcpServers: [],
-        agentRules: [],
+        ...emptyManifest,
         agentDefinitions: [
           {
             name: "big-agent",
@@ -462,10 +451,7 @@ describe("instruction budget warnings", () => {
     const sourceDir = await makeTmpDir();
     try {
       const manifest: Manifest = {
-        skills: [],
-        files: [],
-        configs: [],
-        mcpServers: [],
+        ...emptyManifest,
         agentRules: [
           {
             name: "missing-rules",
@@ -482,6 +468,108 @@ describe("instruction budget warnings", () => {
         ["claude-code"],
       );
       assert.equal(warnings.filter((w) => w.kind === "budget").length, 0);
+    } finally {
+      await rm(sourceDir, { recursive: true });
+    }
+  });
+
+  it("emits precedence warnings for triple overlap (global, repo, workspace) for an agent", async () => {
+    const sourceDir = await makeTmpDir();
+    try {
+      const manifest: Manifest = {
+        ...emptyManifest,
+        agentRules: [
+          { name: "g", path: "g.md", agents: ["claude-code"], scope: "global" },
+          { name: "r", path: "r.md", agents: ["claude-code"], scope: "repo" },
+          {
+            name: "w",
+            path: "w.md",
+            agents: ["claude-code"],
+            scope: "workspace",
+          },
+        ],
+      };
+      await writeFile(path.join(sourceDir, "g.md"), "# G");
+      await writeFile(path.join(sourceDir, "r.md"), "# R");
+      await writeFile(path.join(sourceDir, "w.md"), "# W");
+
+      const warnings = await runPreflight(baseOptions, manifest, "/home/test", [
+        "claude-code",
+      ]);
+
+      const precedence = warnings.filter((w) => w.kind === "precedence");
+      assert.equal(precedence.length, 1);
+      const msg = precedence[0]?.message ?? "";
+      assert.match(msg, /global/);
+      assert.match(msg, /repo/);
+      assert.match(msg, /workspace/);
+      assert.match(msg, /active simultaneously/);
+    } finally {
+      await rm(sourceDir, { recursive: true });
+    }
+  });
+
+  it("emits duplicate-content warning for workspace overlap (global vs workspace)", async () => {
+    const sourceDir = await makeTmpDir();
+    try {
+      const manifest: Manifest = {
+        ...emptyManifest,
+        agentRules: [
+          {
+            name: "global",
+            path: "SHARED.md",
+            agents: ["claude-code"],
+            scope: "global",
+          },
+          {
+            name: "workspace",
+            path: "SHARED.md",
+            agents: ["claude-code"],
+            scope: "workspace",
+          },
+        ],
+      };
+      await writeFile(path.join(sourceDir, "SHARED.md"), "# Shared");
+
+      const warnings = await runPreflight(baseOptions, manifest, "/home/test", [
+        "claude-code",
+      ]);
+
+      const duplicate = warnings.find(
+        (w) =>
+          w.kind === "precedence" && w.message.includes("distinct targets"),
+      );
+      assert.ok(duplicate, "expected duplicate target warning");
+      assert.match(duplicate.message, /global and workspace/);
+    } finally {
+      await rm(sourceDir, { recursive: true });
+    }
+  });
+
+  it("detects precedence overlaps for Gemini CLI combinations", async () => {
+    const sourceDir = await makeTmpDir();
+    try {
+      const manifest: Manifest = {
+        skills: [],
+        files: [],
+        configs: [],
+        mcpServers: [],
+        agentRules: [
+          { name: "g", path: "r1.md", agents: ["gemini-cli"], scope: "global" },
+          { name: "r", path: "r1.md", agents: ["gemini-cli"], scope: "repo" },
+        ],
+        permissions: [],
+        agentDefinitions: [],
+      };
+      await writeFile(path.join(sourceDir, "r1.md"), "# R1");
+
+      const warnings = await runPreflight(baseOptions, manifest, "/home/test", [
+        "gemini-cli",
+      ]);
+
+      const precedence = warnings.filter((w) => w.kind === "precedence");
+      // Expect 2: one for duplicate path, one for simultaneous load
+      assert.equal(precedence.length, 2);
     } finally {
       await rm(sourceDir, { recursive: true });
     }

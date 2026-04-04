@@ -19,7 +19,8 @@ const SAFE_NAME_RE = /^[a-zA-Z0-9][a-zA-Z0-9._-]*$/;
 // is valid, while "{home}/../.ssh/config" is rejected.
 // {repo} resolves to the manifest directory at deploy time, enabling repo-local
 // targets (e.g. Antigravity's .agents/rules/ surface).
-const TARGET_TEMPLATE_RE = /^\{(home|appdata|xdg_config|repo)\}(?:[\\/].*)?$/;
+const TARGET_TEMPLATE_RE =
+  /^\{(home|appdata|xdg_config|repo|workspace)\}(?:[\\/].*)?$/;
 
 // Standalone schema used for type derivation and single-ID validation (e.g. index.ts).
 export const AgentIdSchema = z.enum(AGENT_IDS);
@@ -109,8 +110,9 @@ export const AgentRuleEntrySchema = z.object({
   path: sourcePathField,
   // Deployment scope: "global" targets the agent's home-directory instruction
   // file (default), "repo" targets the project-root instruction file within the
-  // deployed repository (e.g. {repo}/CLAUDE.md for claude-code).
-  scope: z.enum(["global", "repo"]).default("global"),
+  // deployed repository (e.g. {repo}/CLAUDE.md for claude-code), and "workspace"
+  // targets the agent's workspace-local instruction surface.
+  scope: z.enum(["global", "repo", "workspace"]).default("global"),
 });
 
 export const PermissionsEntrySchema = z.object({

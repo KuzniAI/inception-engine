@@ -17,7 +17,7 @@ No active items.
 
 Ordered from highest to lowest after the fixed first step and architecture enablers.
 
-1. Expand instruction-file support beyond today's global and repo-local rules-file deployment to cover workspace-local instruction surfaces for agents with documented behavior. Repo-local support exists today; workspace-local support does not. Score: `4/8` (`Architecture 1`, `Agents 1`, `OS 0`, `Confidence 2`)
+1. ~~Expand instruction-file support beyond today's global and repo-local rules-file deployment to cover workspace-local instruction surfaces for agents with documented behavior. Repo-local support exists today; workspace-local support does not. Score: `4/8` (`Architecture 1`, `Agents 1`, `OS 0`, `Confidence 2`)~~
 
 ## Quality And Maintenance
 
@@ -26,7 +26,7 @@ Ordered from highest to lowest.
 1. Expand Windows test coverage for additional edge cases. Score: `4/8` (`Architecture 0`, `Agents 0`, `OS 2`, `Confidence 2`)
 2. Add validation for agent instruction files beyond existence/readability checks, including structure required by supported targets. Score: `4/8` (`Architecture 1`, `Agents 1`, `OS 0`, `Confidence 2`)
 3. Improve dry-run visibility so planned changes for file writes, rules files, and config patches are easier to inspect before deployment. Score: `4/8` (`Architecture 1`, `Agents 0`, `OS 1`, `Confidence 2`)
-4. Extend today's Gemini CLI / Antigravity shared-surface ambiguity tests into stronger precedence and behavioral coverage. Score: `4/8` (`Architecture 1`, `Agents 1`, `OS 0`, `Confidence 2`)
+4. ~~Extend today's Gemini CLI / Antigravity shared-surface ambiguity tests into stronger precedence and behavioral coverage. Score: `4/8` (`Architecture 1`, `Agents 1`, `OS 0`, `Confidence 2`)~~
 5. Add stronger detection and warnings for enterprise or policy-managed environments where local configuration may be ignored or overridden. Score: `3/8` (`Architecture 0`, `Agents 1`, `OS 0`, `Confidence 2`)
 6. Add fixture-based `init` coverage against `limbo/` so the sample bundle, generated manifest, and README examples do not drift. Score: `4/8` (`Architecture 1`, `Agents 1`, `OS 0`, `Confidence 2`)
 

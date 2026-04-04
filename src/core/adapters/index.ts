@@ -52,12 +52,19 @@ export async function compileAdapterActions(
   home: string,
   repo?: string,
   agentDefinitions?: AgentDefinitionEntry[],
+  workspace?: string,
 ): Promise<AdapterResult> {
   const actions: AdapterAction[] = [];
   const warnings: PlanWarning[] = [];
 
   for (const entry of mcpServers) {
-    const r = compileMcpServerActions(entry, detectedAgents, home, repo);
+    const r = compileMcpServerActions(
+      entry,
+      detectedAgents,
+      home,
+      repo,
+      workspace,
+    );
     actions.push(...r.actions);
     warnings.push(...r.warnings);
   }
@@ -71,6 +78,7 @@ export async function compileAdapterActions(
       detectedAgents,
       home,
       repo,
+      workspace,
     );
     actions.push(...r.actions);
     warnings.push(...r.warnings);
@@ -91,6 +99,7 @@ export async function compileAdapterActions(
       detectedAgents,
       home,
       repo,
+      workspace,
     );
     actions.push(...r.actions);
     warnings.push(...r.warnings);

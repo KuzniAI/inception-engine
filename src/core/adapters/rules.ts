@@ -28,6 +28,13 @@ function resolveRulesSupport(
   if (scope === "repo") {
     return agent?.agentRulesRepoSupport ?? agent?.agentRulesSupport;
   }
+  if (scope === "workspace") {
+    return (
+      agent?.agentRulesWorkspaceSupport ??
+      agent?.agentRulesRepoSupport ??
+      agent?.agentRulesSupport
+    );
+  }
   return agent?.agentRulesSupport;
 }
 
@@ -43,12 +50,13 @@ function resolveAgentTarget(
   home: string,
   repo: string | undefined,
   platform: "posix" | "windows",
+  workspace?: string,
 ): ResolvedTarget | PlanWarning {
   const support = resolveRulesSupport(agentId, entry.scope);
   if (!support || support.status === "unsupported") {
     return {
       kind: "confidence",
-      message: `agentRules: agent "${agentId}" uses ${support?.schemaLabel ?? "an unsupported instruction schema"} and ${support?.status === "unsupported" ? support.reason : "does not expose a supported rules adapter"} — skipping "${entry.name}"`,
+      message: `agentRules: agent "${agentId}" uses ${support?.schemaLabel ?? "an unsupported instruction schema"} (unsupported) and ${support?.status === "unsupported" ? support.reason : "does not expose a supported rules adapter"} — skipping "${entry.name}"`,
     };
   }
   if (support.status === "planned") {
@@ -63,11 +71,23 @@ function resolveAgentTarget(
       message: `agentRules: scope "repo" requires a repository path but none was resolved — skipping "${entry.name}" for agent "${agentId}"`,
     };
   }
+  if (entry.scope === "workspace" && !workspace && !repo) {
+    return {
+      kind: "confidence",
+      message: `agentRules: scope "workspace" requires a workspace or repository path but none was resolved — skipping "${entry.name}" for agent "${agentId}"`,
+    };
+  }
   const agent = AGENT_REGISTRY_BY_ID[agentId];
   return {
     agentId,
     confidence: agent?.provenance.agentRules ?? "provisional",
-    target: resolvePlaceholders(support.path[platform], entry.name, home, repo),
+    target: resolvePlaceholders(
+      support.path[platform],
+      entry.name,
+      home,
+      repo,
+      workspace,
+    ),
   };
 }
 
@@ -79,6 +99,7 @@ export async function compileAgentRuleActions(
   detectedAgents: AgentId[],
   home: string,
   repo?: string,
+  workspace?: string,
 ): Promise<RulesAdapterResult> {
   const actions: FileWriteDeployAction[] = [];
   const warnings: PlanWarning[] = [];
@@ -93,7 +114,14 @@ export async function compileAgentRuleActions(
   }
 
   for (const agentId of targetAgents) {
-    const result = resolveAgentTarget(agentId, entry, home, repo, platform);
+    const result = resolveAgentTarget(
+      agentId,
+      entry,
+      home,
+      repo,
+      platform,
+      workspace,
+    );
     if ("kind" in result) {
       warnings.push(result);
     } else {
@@ -131,36 +159,39 @@ export function compileAgentRuleReverts(
   agentFilter: AgentId[] | null,
   home: string,
   repo?: string,
+  workspace?: string,
 ): FileWriteRevertAction[] {
   const actions: FileWriteRevertAction[] = [];
   const platform = getPlatformKey();
 
   for (const agentId of entry.agents) {
     if (agentFilter && !agentFilter.includes(agentId)) continue;
-    const agent = AGENT_REGISTRY_BY_ID[agentId];
-    const support =
-      entry.scope === "repo"
-        ? (agent?.agentRulesRepoSupport ?? agent?.agentRulesSupport)
-        : agent?.agentRulesSupport;
+    const support = resolveRulesSupport(agentId, entry.scope);
+
     if (
       !support ||
       support.status === "unsupported" ||
       support.status === "planned"
-    )
+    ) {
       continue;
+    }
+
     if (entry.scope === "repo" && !repo) continue;
-    const target = resolvePlaceholders(
-      support.path[platform],
-      entry.name,
-      home,
-      repo,
-    );
+    if (entry.scope === "workspace" && !workspace && !repo) continue;
+
     actions.push({
       kind: "file-write",
       skill: entry.name,
       agent: agentId,
-      target,
+      target: resolvePlaceholders(
+        support.path[platform],
+        entry.name,
+        home,
+        repo,
+        workspace,
+      ),
     });
   }
+
   return actions;
 }

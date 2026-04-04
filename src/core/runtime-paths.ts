@@ -5,10 +5,10 @@ export interface RuntimePaths {
   xdgConfig: string;
 }
 
-type TargetRoot = "home" | "appdata" | "xdg_config" | "repo";
+type TargetRoot = "home" | "appdata" | "xdg_config" | "repo" | "workspace";
 
 const TARGET_TEMPLATE_RE =
-  /^\{(home|appdata|xdg_config|repo)\}(?<suffix>(?:[\\/].*)?)$/;
+  /^\{(home|appdata|xdg_config|repo|workspace)\}(?<suffix>(?:[\\/].*)?)$/;
 
 export function getPathApi(
   root: string,
@@ -55,10 +55,38 @@ export function resolveRuntimePaths(home: string): RuntimePaths {
   return { appdata, xdgConfig };
 }
 
+function resolveVfsPlaceholder(
+  root: "repo" | "workspace",
+  template: string,
+  suffix: string,
+  repo?: string,
+  workspace?: string,
+): string {
+  const rootPath = root === "repo" ? repo : (workspace ?? repo);
+  if (!rootPath) {
+    throw new Error(
+      `Target template uses {${root}} but no ${root} directory was provided: ${template}`,
+    );
+  }
+
+  const segments = suffix.split(/[\\/]+/).filter(Boolean);
+  const rootPathApi = getPathApi(rootPath);
+  const resolved =
+    segments.length === 0 ? rootPath : rootPathApi.join(rootPath, ...segments);
+
+  if (!isSameOrDescendantPath(resolved, rootPath)) {
+    throw new Error(
+      `Target template resolves outside its placeholder root: ${template}`,
+    );
+  }
+  return suffix === "" ? rootPath : `${rootPath}${suffix}`;
+}
+
 export function resolveTargetTemplate(
   template: string,
   home: string,
   repo?: string,
+  workspace?: string,
 ): string {
   const { appdata, xdgConfig } = resolveRuntimePaths(home);
   const match = TARGET_TEMPLATE_RE.exec(template);
@@ -67,43 +95,30 @@ export function resolveTargetTemplate(
   }
 
   const root = match[1] as TargetRoot;
-  if (root === "repo") {
-    if (!repo) {
-      throw new Error(
-        `Target template uses {repo} but no manifest directory was provided: ${template}`,
-      );
-    }
-    const suffix = match.groups?.suffix ?? "";
-    const segments = suffix.split(/[\\/]+/).filter(Boolean);
-    const repoPathApi = getPathApi(repo);
-    const resolved =
-      segments.length === 0 ? repo : repoPathApi.join(repo, ...segments);
-    if (!isSameOrDescendantPath(resolved, repo)) {
-      throw new Error(
-        `Target template resolves outside its placeholder root: ${template}`,
-      );
-    }
-    return suffix === "" ? repo : `${repo}${suffix}`;
+  const suffix = match.groups?.suffix ?? "";
+
+  if (root === "repo" || root === "workspace") {
+    return resolveVfsPlaceholder(root, template, suffix, repo, workspace);
   }
 
-  const baseByRoot: Record<Exclude<TargetRoot, "repo">, string> = {
+  const baseByRoot: Record<
+    Exclude<TargetRoot, "repo" | "workspace">,
+    string
+  > = {
     home,
     appdata,
     xdg_config: xdgConfig,
   };
-  const suffix = match.groups?.suffix ?? "";
+  const base = baseByRoot[root];
   const segments = suffix.split(/[\\/]+/).filter(Boolean);
-  const pathApi = getPathApi(baseByRoot[root]);
+  const pathApi = getPathApi(base);
   const resolved =
-    segments.length === 0
-      ? baseByRoot[root]
-      : pathApi.join(baseByRoot[root], ...segments);
+    segments.length === 0 ? base : pathApi.join(base, ...segments);
 
-  if (!isSameOrDescendantPath(resolved, baseByRoot[root])) {
+  if (!isSameOrDescendantPath(resolved, base)) {
     throw new Error(
       `Target template resolves outside its placeholder root: ${template}`,
     );
   }
-
-  return suffix === "" ? baseByRoot[root] : `${baseByRoot[root]}${suffix}`;
+  return suffix === "" ? base : `${base}${suffix}`;
 }

@@ -130,33 +130,33 @@ function detectCollisions(actions: DeployAction[]): PlanWarning[] {
   return warnings;
 }
 
-function detectAmbiguities(
-  detectedAgents: AgentId[],
+function checkAgentRuleAmbiguities(
   manifest: Manifest,
+  bothAgents: (agents: AgentId[]) => boolean,
 ): PlanWarning[] {
   const warnings: PlanWarning[] = [];
-
-  if (
-    !(
-      detectedAgents.includes("gemini-cli") &&
-      detectedAgents.includes("antigravity")
-    )
-  ) {
-    return warnings;
-  }
-
-  const bothAgents = (agents: AgentId[]) =>
-    agents.includes("gemini-cli") && agents.includes("antigravity");
-
   for (const entry of manifest.agentRules ?? []) {
     if (bothAgents(entry.agents)) {
+      const geminiPath =
+        entry.scope === "repo"
+          ? "{repo}/GEMINI.md"
+          : entry.scope === "workspace"
+            ? "{workspace}/GEMINI.md"
+            : "~/.gemini/GEMINI.md";
       warnings.push({
         kind: "ambiguity",
-        message: `Both "gemini-cli" and "antigravity" are listed in agentRules entry "${entry.name}". They write to distinct surfaces ("gemini-cli" → ~/.gemini/GEMINI.md, "antigravity" → {repo}/.agents/rules/${entry.name}.md) from the same source file — verify that deploying to both produces the intended behavior on each agent.`,
+        message: `Both "gemini-cli" and "antigravity" are listed in agentRules entry "${entry.name}". They write to distinct surfaces ("gemini-cli" → ${geminiPath}, "antigravity" → {repo}/.agents/rules/${entry.name}.md) from the same source file — verify that deploying to both produces the intended behavior on each agent.`,
       });
     }
   }
+  return warnings;
+}
 
+function checkMcpServerAmbiguities(
+  manifest: Manifest,
+  bothAgents: (agents: AgentId[]) => boolean,
+): PlanWarning[] {
+  const warnings: PlanWarning[] = [];
   for (const entry of manifest.mcpServers ?? []) {
     if (bothAgents(entry.agents)) {
       warnings.push({
@@ -165,8 +165,46 @@ function detectAmbiguities(
       });
     }
   }
-
   return warnings;
+}
+
+function checkAgentDefinitionAmbiguities(
+  manifest: Manifest,
+  bothAgents: (agents: AgentId[]) => boolean,
+): PlanWarning[] {
+  const warnings: PlanWarning[] = [];
+  for (const entry of manifest.agentDefinitions ?? []) {
+    if (bothAgents(entry.agents)) {
+      warnings.push({
+        kind: "ambiguity",
+        message: `Both "gemini-cli" and "antigravity" are listed in agentDefinitions entry "${entry.name}". They write to distinct surfaces ("gemini-cli" → {repo}/.gemini/agents/${entry.name}.md, "antigravity" → {repo}/.agents/rules/${entry.name}.md) — verify that this behavioral divergence is intended.`,
+      });
+    }
+  }
+  return warnings;
+}
+
+function detectAmbiguities(
+  detectedAgents: AgentId[],
+  manifest: Manifest,
+): PlanWarning[] {
+  if (
+    !(
+      detectedAgents.includes("gemini-cli") &&
+      detectedAgents.includes("antigravity")
+    )
+  ) {
+    return [];
+  }
+
+  const bothAgents = (agents: AgentId[]) =>
+    agents.includes("gemini-cli") && agents.includes("antigravity");
+
+  return [
+    ...checkAgentRuleAmbiguities(manifest, bothAgents),
+    ...checkMcpServerAmbiguities(manifest, bothAgents),
+    ...checkAgentDefinitionAmbiguities(manifest, bothAgents),
+  ];
 }
 
 async function planSkillDirActions(
@@ -213,6 +251,8 @@ async function planFileWriteActions(
   realRoot: string,
   detectedAgents: AgentId[],
   home: string,
+  repo: string,
+  workspace?: string,
 ): Promise<FileWriteDeployAction[]> {
   const actions: FileWriteDeployAction[] = [];
   for (const fileEntry of manifest.files ?? []) {
@@ -237,7 +277,7 @@ async function planFileWriteActions(
         skill: fileEntry.name,
         agent: agentId,
         source,
-        target: resolveTargetTemplate(fileEntry.target, home),
+        target: resolveTargetTemplate(fileEntry.target, home, repo, workspace),
         confidence: agent.provenance.skills,
       });
     }
@@ -249,6 +289,8 @@ function planConfigPatchActions(
   manifest: Manifest,
   detectedAgents: AgentId[],
   home: string,
+  repo: string,
+  workspace?: string,
 ): ConfigPatchDeployAction[] {
   const actions: ConfigPatchDeployAction[] = [];
   for (const configEntry of manifest.configs ?? []) {
@@ -260,7 +302,12 @@ function planConfigPatchActions(
         kind: "config-patch",
         skill: configEntry.name,
         agent: agentId,
-        target: resolveTargetTemplate(configEntry.target, home),
+        target: resolveTargetTemplate(
+          configEntry.target,
+          home,
+          repo,
+          workspace,
+        ),
         patch: configEntry.patch,
         confidence: agent.provenance.skills,
       });
@@ -274,6 +321,8 @@ export async function planDeploy(
   sourceDir: string,
   detectedAgents: AgentId[],
   home: string,
+  repo?: string,
+  workspace?: string,
 ): Promise<{ actions: DeployAction[]; warnings: PlanWarning[] }> {
   const resolvedSourceDir = path.resolve(sourceDir);
   let realRoot: string;
@@ -282,6 +331,8 @@ export async function planDeploy(
   } catch {
     realRoot = resolvedSourceDir;
   }
+
+  const repoDir = repo ?? realRoot;
 
   const actions: DeployAction[] = [
     ...(await planSkillDirActions(
@@ -299,8 +350,16 @@ export async function planDeploy(
       realRoot,
       detectedAgents,
       home,
+      repoDir,
+      workspace,
     )),
-    ...planConfigPatchActions(manifest, detectedAgents, home),
+    ...planConfigPatchActions(
+      manifest,
+      detectedAgents,
+      home,
+      repoDir,
+      workspace,
+    ),
   ];
 
   const adapterResult = await compileAdapterActions(
@@ -312,8 +371,9 @@ export async function planDeploy(
     realRoot,
     detectedAgents,
     home,
-    undefined,
+    repoDir,
     manifest.agentDefinitions ?? [],
+    workspace,
   );
   actions.push(...adapterResult.actions);
 
