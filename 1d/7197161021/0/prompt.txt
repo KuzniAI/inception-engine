@@ -1,0 +1,5 @@
+Plan your work on next @docs/roadmap.md Item: 3. Finish Antigravity instruction deployment coverage by reconciling today's repo-local `.agents/rules/*.md` support with any remaining shared `GEMINI.md` behavior and documented precedence semantics.
+
+---
+
+Proceed with implementing
