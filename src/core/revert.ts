@@ -37,6 +37,7 @@ function buildSkillDirReverts(
       if (agentFilter && !agentFilter.includes(agentId)) continue;
       const agent = AGENT_REGISTRY_BY_ID[agentId];
       if (!agent) continue;
+      if (!agent.skills) continue;
       actions.push({
         kind: "skill-dir",
         skill: skill.name,

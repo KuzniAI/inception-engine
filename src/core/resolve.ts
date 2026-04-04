@@ -122,6 +122,12 @@ export function resolveAgentSkillPathFor(
   home: string,
   platform: "posix" | "windows",
 ): string {
+  if (!agent.skills) {
+    throw new Error(
+      `Agent "${agent.id}" does not have a skills deployment path. ` +
+        `Deploy skills via another agent target that covers this agent natively (e.g. claude-code for github-copilot).`,
+    );
+  }
   return resolvePlaceholders(agent.skills[platform], skillName, home);
 }
 

@@ -191,6 +191,7 @@ async function planSkillDirActions(
     for (const agentId of targetAgents) {
       const agent = AGENT_REGISTRY_BY_ID[agentId];
       if (!agent) continue;
+      if (!agent.skills) continue;
       actions.push({
         kind: "skill-dir",
         skill: skill.name,
@@ -198,7 +199,7 @@ async function planSkillDirActions(
         source,
         target: resolveAgentSkillPath(agent, skill.name, home),
         method,
-        confidence: agent.provenance.skills,
+        confidence: agent.provenance.skills ?? "provisional",
       });
     }
   }

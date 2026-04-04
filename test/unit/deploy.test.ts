@@ -461,7 +461,7 @@ describe("planDeploy", () => {
       assert.equal(actions.length, 0);
       assert.equal(warnings.length, 1);
       assert.equal(warnings[0]?.kind, "confidence");
-      assert.match(warnings[0]?.message ?? "", /repo-scoped MCP surfaces/);
+      assert.match(warnings[0]?.message ?? "", /planned/);
     } finally {
       await rm(sourceDir, { recursive: true });
     }

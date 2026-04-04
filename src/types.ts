@@ -32,12 +32,29 @@ export interface UnsupportedAgentSurface {
   reason: string;
 }
 
+/**
+ * A surface that is confirmed as Copilot-specific and genuinely justified for
+ * future dedicated implementation, but not yet supported. Distinct from
+ * "unsupported" (which means the surface is either covered by another target or
+ * will never be added) so adapters can emit a forward-looking "planned" notice
+ * rather than a blocking skip warning.
+ */
+export interface PlannedAgentSurface {
+  status: "planned";
+  schemaLabel: string;
+  /** Short description of the concrete file / config surface to be implemented. */
+  plannedSurface: string;
+  reason: string;
+}
+
 export type AgentSurfaceSupport =
   | SupportedAgentSurface
-  | UnsupportedAgentSurface;
+  | UnsupportedAgentSurface
+  | PlannedAgentSurface;
 
 export interface AgentProvenance {
-  skills: Confidence;
+  /** Omit when the agent has no separate skill deployment path. */
+  skills?: Confidence;
   detectPaths: Confidence;
   detectBinary: Confidence;
   mcpConfig?: Confidence;
@@ -48,7 +65,12 @@ export interface AgentProvenance {
 export interface AgentConfig {
   id: AgentId;
   displayName: string;
-  skills: AgentPaths;
+  /**
+   * The on-disk path template for deploying skills to this agent.
+   * Omit for agents that consume skills from another agent's path natively
+   * (e.g. GitHub Copilot reads `.claude/skills/` directly).
+   */
+  skills?: AgentPaths;
   detectPaths: AgentPaths;
   detectBinary: string | null;
   provenance: AgentProvenance;

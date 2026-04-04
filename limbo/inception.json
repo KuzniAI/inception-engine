@@ -3,22 +3,22 @@
     {
       "name": "the-prestige",
       "path": "skills/the-prestige",
-      "agents": ["claude-code", "codex", "gemini-cli", "antigravity", "opencode", "github-copilot"]
+      "agents": ["claude-code", "codex", "gemini-cli", "antigravity", "opencode"]
     },
     {
       "name": "inception",
       "path": "skills/inception",
-      "agents": ["claude-code", "codex", "gemini-cli", "antigravity", "opencode", "github-copilot"]
+      "agents": ["claude-code", "codex", "gemini-cli", "antigravity", "opencode"]
     },
     {
       "name": "interstellar",
       "path": "skills/interstellar",
-      "agents": ["claude-code", "codex", "gemini-cli", "antigravity", "opencode", "github-copilot"]
+      "agents": ["claude-code", "codex", "gemini-cli", "antigravity", "opencode"]
     },
     {
       "name": "tenet",
       "path": "skills/tenet",
-      "agents": ["claude-code", "codex", "gemini-cli", "antigravity", "opencode", "github-copilot"]
+      "agents": ["claude-code", "codex", "gemini-cli", "antigravity", "opencode"]
     }
   ],
   "files": [],

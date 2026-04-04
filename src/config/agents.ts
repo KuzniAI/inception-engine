@@ -217,25 +217,26 @@ export const AGENT_REGISTRY: readonly AgentConfig[] = [
   {
     id: "github-copilot",
     displayName: "GitHub Copilot",
-    skills: {
-      posix: ["{home}", ".copilot", "skills", "{name}"],
-      windows: ["{home}", ".copilot", "skills", "{name}"],
-    },
+    // No `skills` field: GitHub Copilot natively executes Claude-style skills
+    // from `.claude/skills/` (the same path used by claude-code). Deploying
+    // via the `claude-code` skills target automatically covers Copilot — no
+    // separate `~/.copilot/skills/` path is needed or maintained.
     detectPaths: {
       posix: ["{home}", ".copilot"],
       windows: ["{home}", ".copilot"],
     },
     detectBinary: "github-copilot",
     provenance: {
-      skills: "documented",
       detectPaths: "documented",
       detectBinary: "documented",
     },
     mcpSupport: {
-      status: "unsupported",
+      status: "planned",
       schemaLabel: "repo-scoped MCP surfaces",
+      plannedSurface:
+        "devcontainer (.devcontainer/devcontainer.json) and agent-frontmatter (.github/agents/*.agent.md)",
       reason:
-        "GitHub Copilot MCP support depends on repo-scoped files such as devcontainer or agent-frontmatter mappings, which are not translated here",
+        "GitHub Copilot MCP support will be implemented via repo-scoped devcontainer features and agent-frontmatter mappings — surfaces that are genuinely Copilot-specific and not covered by other agent targets",
     },
     agentRulesSupport: {
       status: "unsupported",
@@ -250,7 +251,7 @@ export const AGENT_REGISTRY: readonly AgentConfig[] = [
         "GitHub Copilot permissions are managed via organization policy, not a deployable per-user config surface",
     },
     policyNote:
-      "Organization policies may override locally deployed skills. Verify with your GitHub org admin if deployed skills are not active.",
+      "Organization policies may override locally deployed configuration. Verify with your GitHub org admin if deployed skills or rules are not active.",
   },
 ] as const;
 

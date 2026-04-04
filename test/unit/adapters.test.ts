@@ -69,7 +69,7 @@ describe("compileMcpServerActions", () => {
     );
   });
 
-  it("returns a schema-aware warning and no action for github-copilot MCP", () => {
+  it("returns a planned-surface warning and no action for github-copilot MCP", () => {
     const { actions, warnings } = compileMcpServerActions(
       {
         name: "my-mcp",
@@ -82,8 +82,9 @@ describe("compileMcpServerActions", () => {
     assert.equal(actions.length, 0);
     assert.equal(warnings.length, 1);
     assert.equal(warnings[0]?.kind, "confidence");
-    assert.match(warnings[0]?.message ?? "", /repo-scoped MCP surfaces/);
     assert.match(warnings[0]?.message ?? "", /github-copilot/);
+    assert.match(warnings[0]?.message ?? "", /planned/);
+    assert.match(warnings[0]?.message ?? "", /devcontainer|agent-frontmatter/);
   });
 
   it("returns a frontmatter-emit action for antigravity MCP", () => {

@@ -54,6 +54,13 @@ export async function compileAgentRuleActions(
       });
       continue;
     }
+    if (support.status === "planned") {
+      warnings.push({
+        kind: "confidence",
+        message: `agentRules: agent "${agentId}" rules support is planned via ${support.plannedSurface} — skipping "${entry.name}" until that surface is implemented`,
+      });
+      continue;
+    }
 
     supportedTargets.push({
       agentId,
@@ -105,7 +112,12 @@ export function compileAgentRuleReverts(
     if (agentFilter && !agentFilter.includes(agentId)) continue;
     const agent = AGENT_REGISTRY_BY_ID[agentId];
     const support = agent?.agentRulesSupport;
-    if (!support || support.status === "unsupported") continue;
+    if (
+      !support ||
+      support.status === "unsupported" ||
+      support.status === "planned"
+    )
+      continue;
     const target = resolvePlaceholders(
       support.path[platform],
       entry.name,

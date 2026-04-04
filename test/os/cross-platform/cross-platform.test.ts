@@ -111,14 +111,6 @@ describe("resolveAgentSkillPathFor — posix", () => {
       else process.env.XDG_CONFIG_HOME = saved;
     }
   });
-
-  it("github-copilot", () => {
-    const agent = getAgent("github-copilot");
-    assert.equal(
-      resolveAgentSkillPathFor(agent, SKILL, HOME, p),
-      posixJoin(HOME, ".copilot", "skills", SKILL),
-    );
-  });
 });
 
 // ---------------------------------------------------------------------------
@@ -172,14 +164,6 @@ describe("resolveAgentSkillPathFor — windows", () => {
     assert.equal(
       resolveAgentSkillPathFor(agent, SKILL, HOME, p),
       posixJoin(HOME, ".gemini", "antigravity", "skills", SKILL),
-    );
-  });
-
-  it("github-copilot uses home (same template as posix)", () => {
-    const agent = getAgent("github-copilot");
-    assert.equal(
-      resolveAgentSkillPathFor(agent, SKILL, HOME, p),
-      posixJoin(HOME, ".copilot", "skills", SKILL),
     );
   });
 });

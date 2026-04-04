@@ -41,6 +41,13 @@ export function compilePermissionsActions(
       });
       continue;
     }
+    if (support.status === "planned") {
+      warnings.push({
+        kind: "confidence",
+        message: `permissions: agent "${agentId}" permissions support is planned via ${support.plannedSurface} — skipping "${entry.name}" until that surface is implemented`,
+      });
+      continue;
+    }
 
     validatePermissionsConfigShape(entry.config, entry.name, agentId);
 
@@ -88,7 +95,12 @@ export function compilePermissionsReverts(
     if (agentFilter && !agentFilter.includes(agentId)) continue;
     const agent = AGENT_REGISTRY_BY_ID[agentId];
     const support = agent?.permissionsSupport;
-    if (!support || support.status === "unsupported") continue;
+    if (
+      !support ||
+      support.status === "unsupported" ||
+      support.status === "planned"
+    )
+      continue;
 
     const rawTarget = resolvePlaceholders(
       support.path[platform],

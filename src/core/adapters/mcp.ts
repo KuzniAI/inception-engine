@@ -102,6 +102,13 @@ export function compileMcpServerActions(
       });
       continue;
     }
+    if (support.status === "planned") {
+      warnings.push({
+        kind: "confidence",
+        message: `mcpServers: agent "${agentId}" MCP support is planned via ${support.plannedSurface} — skipping "${entry.name}" until that surface is implemented`,
+      });
+      continue;
+    }
 
     validateMcpServerConfigShape(entry.config, entry.name, agentId);
 
@@ -148,7 +155,12 @@ export function compileMcpServerReverts(
     if (agentFilter && !agentFilter.includes(agentId)) continue;
     const agent = AGENT_REGISTRY_BY_ID[agentId];
     const support = agent?.mcpSupport;
-    if (!support || support.status === "unsupported") continue;
+    if (
+      !support ||
+      support.status === "unsupported" ||
+      support.status === "planned"
+    )
+      continue;
 
     const rawTarget = resolvePlaceholders(
       support.path[platform],
