@@ -27,6 +27,8 @@ inception-engine reads a manifest file (`inception.json`) from the target direct
 
 Managed skills overwrite their previous version. If a target exists but was not created by inception-engine, deployment refuses to replace it. On POSIX systems, symlinks mean updates to the source repo are reflected immediately.
 
+Before executing, the deploy command runs preflight analysis on instruction files: it warns when the same agent will have both global and repo `agentRules` active simultaneously, when the same source file is deployed to both scopes (duplicate-content risk), and when `agentRules` or `agentDefinitions` source files exceed 50 KB (context-budget risk). Warnings are printed but do not block deployment.
+
 ## Agent Compatibility Matrix
 
 | Agent | ID | Skills | macOS | Linux | Windows |
@@ -53,6 +55,7 @@ Managed skills overwrite their previous version. If a target exists but was not 
 | Permissions / Approval Config | claude-code (`~/.claude/settings.json`), codex (`~/.codex/config.toml`); other agents are warned and skipped | claude-code, codex |
 | Agent Definitions | claude-code (`{repo}/.claude/agents/{name}.md`), gemini-cli (`{repo}/.gemini/agents/{name}.md`), antigravity (`{repo}/.agents/rules/{name}.md`), opencode (`{repo}/.opencode/agents/{name}.md`), github-copilot (`{repo}/.github/agents/{name}.agent.md`); codex is warned and skipped | All supported agents |
 | `init` manifest generation | Scans `SKILL.md` directories (`skills`), `.md` files with Claude-first agent mapping (`agentRules`), `mcp-servers.json` (`mcpServers`), and agent-definition Markdown files (`agentDefinitions`); emits hints for `files/` and `configs/` directories | N/A |
+| Instruction preflight analysis | Emits `precedence` warnings when an agent has both global and repo `agentRules` active simultaneously (stacking advisory) or the same source file deployed to both scopes (duplicate-content warning); emits `budget` warnings when `agentRules` or `agentDefinitions` source files exceed 50 KB | N/A |
 
 Features that depend on agent-specific config surfaces are intentionally conservative: if a target path or schema is not implemented with enough confidence, inception-engine warns and skips it rather than guessing.
 
