@@ -17,9 +17,8 @@ No active items.
 
 Ordered from highest to lowest after the fixed first step and architecture enablers.
 
-1. ~~Add support for agent definition deployment for agents that expose dedicated agent directories or frontmatter-based agent files. Implemented for supported repo-local agent-definition surfaces, and the current docs/schema now match the intentionally minimal Markdown-path validation. Score: `6/8` (`Architecture 2`, `Agents 2`, `OS 1`, `Confidence 1`)~~
-2. Expand instruction-file support beyond today's global and repo-local rules-file deployment to cover workspace-local instruction surfaces for agents with documented behavior. Repo-local support exists today; workspace-local support does not. Score: `4/8` (`Architecture 1`, `Agents 1`, `OS 0`, `Confidence 2`)
-3. Move today's instruction precedence and instruction-budget analysis from deploy planning into true preflight so the implementation matches the documented preflight model. Score: `3/8` (`Architecture 1`, `Agents 0`, `OS 0`, `Confidence 2`)
+1. Expand instruction-file support beyond today's global and repo-local rules-file deployment to cover workspace-local instruction surfaces for agents with documented behavior. Repo-local support exists today; workspace-local support does not. Score: `4/8` (`Architecture 1`, `Agents 1`, `OS 0`, `Confidence 2`)
+2. Move today's instruction precedence and instruction-budget analysis from deploy planning into true preflight so the implementation matches the documented preflight model. Score: `3/8` (`Architecture 1`, `Agents 0`, `OS 0`, `Confidence 2`)
 
 ## Quality And Maintenance
 
