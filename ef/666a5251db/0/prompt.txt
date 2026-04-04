@@ -1,0 +1,25 @@
+Explore the codebase at /Users/damian/Code/inception-engine thoroughly. I need to understand:
+
+1. The overall project structure (directories, key files)
+2. What "agent definition deployment" currently means in this codebase - look for any existing deployer/deployment code
+3. What agents are supported (look for adapter files, agent configs, manifests)
+4. What "dedicated agent directories" and "frontmatter-based agent files" mean in context - look for any existing examples in limbo/, fixtures/, or docs/
+5. What the current deploy flow looks like (entry points, deployer classes, interfaces)
+6. Any existing tests for deployment
+
+Please be very thorough. Return:
+- The full directory tree (top 2 levels)
+- Key source files and their purposes
+- All agent/adapter types found
+- Any existing agent definition or persona deployment code
+- Any relevant interfaces or types
+- Example agent files from limbo/ or fixtures/
+- Test structure
+
+---
+
+Continue if you have next steps, or stop and ask for clarification if you are unsure how to proceed.
+
+---
+
+Continue if you have next steps, or stop and ask for clarification if you are unsure how to proceed.
