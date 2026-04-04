@@ -94,7 +94,7 @@ export interface AgentConfig {
 }
 
 export interface PlanWarning {
-  kind: "confidence" | "collision" | "ambiguity" | "precedence" | "budget";
+  kind: "confidence" | "collision" | "ambiguity";
   message: string;
 }
 
