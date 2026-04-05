@@ -1,0 +1,32 @@
+I have these tests failing on github runner windows-latest
+
+test at test\unit\deploy.test.ts:742:3
+✖ mcpServers entry with gemini-cli and antigravity produces actions at distinct targets (2.0609ms)
+  AssertionError [ERR_ASSERTION]: The input did not match the regular expression /\.gemini\/settings\.json$/. Input:
+  
+  'D:\\home\\test\\.gemini\\settings.json'
+  
+      at TestContext.<anonymous> (file:///D:/a/inception-engine/inception-engine/test/unit/deploy.test.ts:778:14)
+      at async Test.run (node:internal/test_runner/test:1125:7)
+      at async Suite.processPendingSubtests (node:internal/test_runner/test:787:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 'D:\\home\\test\\.gemini\\settings.json',
+    expected: /\.gemini\/settings\.json$/,
+    operator: 'match',
+    diff: 'simple'
+  }
+
+test at test\unit\enterprise.test.ts:61:3
+✖ detects enterprise via hosts.json (4.619ms)
+  AssertionError [ERR_ASSERTION]: Expected a policy warning
+      at TestContext.<anonymous> (file:///D:/a/inception-engine/inception-engine/test/unit/enterprise.test.ts:80:12)
+      at async Test.run (node:internal/test_runner/test:1125:7)
+      at async Suite.processPendingSubtests (node:internal/test_runner/test:787:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
