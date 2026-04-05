@@ -231,6 +231,27 @@ function collectCapabilityWarningsForTargets(
       pushCapabilityWarning(acc, "info", plan.warning.message);
       continue;
     }
+
+    // Evaluate undocumented/planned surfaces warning
+    const agent = AGENT_REGISTRY_BY_ID[agentId];
+    if (agent?.unsupportedSurfaces) {
+      for (const surface of agent.unsupportedSurfaces) {
+        if (surface.status === "planned") {
+          pushCapabilityWarning(
+            acc,
+            "info",
+            `Agent "${agentId}": ${surface.reason ?? surface.plannedSurface}`,
+          );
+        } else if (surface.status === "unsupported") {
+          pushCapabilityWarning(
+            acc,
+            "config-authority",
+            `Agent "${agentId}": ${surface.reason ?? surface.schemaLabel}`,
+          );
+        }
+      }
+    }
+
     if (capability === "skills") continue;
 
     const confidence = describeCapabilityConfidence(agentId, capability, scope);
@@ -288,6 +309,7 @@ function collectManifestCapabilityWarnings(
       entry.agents.filter((agentId) => detectedAgents.includes(agentId)),
       "agentDefinitions",
       entry.name,
+      entry.scope,
     );
   }
 

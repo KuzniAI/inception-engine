@@ -70,7 +70,7 @@ const AGENT_RULES_SUBDIRS = ["rules", "instructions", ".github"];
 const AGENT_DEFINITION_SUBDIRS: string[] = (() => {
   const subdirs = new Set<string>();
   for (const agent of AGENT_REGISTRY) {
-    const support = agent.agentDefinitionsSupport;
+    const support = agent.agentDefinitionsRepoSupport;
     if (support?.status !== "supported") continue;
     const tmpl = support.path.posix;
     const repoIdx = tmpl.indexOf("{repo}");
@@ -354,7 +354,7 @@ function agentsForDefinitionSubdir(subdir: string): AgentId[] | null {
   if (subdir === ".github/agents") return ["github-copilot"];
   const matching: AgentId[] = [];
   for (const agent of AGENT_REGISTRY) {
-    const support = agent.agentDefinitionsSupport;
+    const support = agent.agentDefinitionsRepoSupport;
     if (support?.status !== "supported") continue;
     const tmpl = support.path.posix;
     const repoIdx = tmpl.indexOf("{repo}");
@@ -479,7 +479,7 @@ function buildAgentDefinitions(
   const definitions: AgentDefinitionEntry[] = [];
   const localNamesSeen = new Set<string>(namesSeen);
   const definitionsCapableAgents = activeAgents.filter((id) =>
-    shouldInitIncludeAgent(id, "agentDefinitions"),
+    shouldInitIncludeAgent(id, "agentDefinitions", "repo"),
   );
 
   for (const { relPath, name: rawName, suggestedAgents } of candidates) {
@@ -515,7 +515,7 @@ function buildAgentDefinitions(
     }
 
     localNamesSeen.add(name);
-    definitions.push({ name, path: relPath, agents });
+    definitions.push({ name, path: relPath, agents, scope: "repo" });
   }
 
   return definitions;

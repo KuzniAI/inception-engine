@@ -54,7 +54,7 @@ export const AGENT_REGISTRY: readonly AgentConfig[] = [
         windows: ["{home}", ".claude", "settings.json"],
       },
     },
-    agentDefinitionsSupport: {
+    agentDefinitionsRepoSupport: {
       status: "supported",
       schemaLabel: "repo-local agent definition Markdown file",
       path: {
@@ -122,7 +122,7 @@ export const AGENT_REGISTRY: readonly AgentConfig[] = [
         windows: ["{home}", ".codex", "config.toml"],
       },
     },
-    agentDefinitionsSupport: {
+    agentDefinitionsRepoSupport: {
       status: "unsupported",
       schemaLabel: "dedicated agent definition directory",
       reason:
@@ -189,12 +189,43 @@ export const AGENT_REGISTRY: readonly AgentConfig[] = [
     },
     agentDefinitionsSupport: {
       status: "supported",
+      schemaLabel: "global agent definition Markdown file",
+      path: {
+        posix: ["{home}", ".gemini", "agents", "{name}.md"],
+        windows: ["{home}", ".gemini", "agents", "{name}.md"],
+      },
+    },
+    agentDefinitionsRepoSupport: {
+      status: "supported",
       schemaLabel: "repo-local agent definition Markdown file",
       path: {
         posix: ["{repo}", ".gemini", "agents", "{name}.md"],
         windows: ["{repo}", ".gemini", "agents", "{name}.md"],
       },
     },
+    unsupportedSurfaces: [
+      {
+        status: "planned",
+        schemaLabel: "TOML subagent definitions",
+        plannedSurface: "TOML agent configuration via .gemini/agents/",
+        reason:
+          "TOML subagent definitions are documented but require clear ownership and revert semantics before they can be safely supported",
+      },
+      {
+        status: "planned",
+        schemaLabel: "configurable instruction filenames via settings.json",
+        plannedSurface: "dynamic GEMINI.md fallback target from settings.json",
+        reason:
+          "Instruction filename overrides are documented but cannot be reliably targeted yet",
+      },
+      {
+        status: "planned",
+        schemaLabel: "AGENTS.md instructions fallback",
+        plannedSurface: "AGENTS.md file in the workspace or global path",
+        reason:
+          "Gemini CLI loads AGENTS.md natively, but inception-engine targets GEMINI.md to avoid collisions with other agents",
+      },
+    ],
     agentRulesWorkspaceSupport: {
       status: "supported",
       schemaLabel: "workspace-local GEMINI.md",
@@ -258,7 +289,7 @@ export const AGENT_REGISTRY: readonly AgentConfig[] = [
       reason:
         "Antigravity does not expose a documented global per-user permission or approval config surface",
     },
-    agentDefinitionsSupport: {
+    agentDefinitionsRepoSupport: {
       status: "supported",
       schemaLabel: "repo-local agent definition Markdown file",
       path: {
@@ -325,6 +356,14 @@ export const AGENT_REGISTRY: readonly AgentConfig[] = [
         "OpenCode does not expose a documented global per-user permission or approval config surface",
     },
     agentDefinitionsSupport: {
+      status: "supported",
+      schemaLabel: "global agent definition Markdown file",
+      path: {
+        posix: ["{xdg_config}", "opencode", "agents", "{name}.md"],
+        windows: ["{appdata}", "opencode", "agents", "{name}.md"],
+      },
+    },
+    agentDefinitionsRepoSupport: {
       status: "supported",
       schemaLabel: "repo-local agent definition Markdown file",
       path: {
@@ -415,7 +454,7 @@ export const AGENT_REGISTRY: readonly AgentConfig[] = [
       reason:
         "GitHub Copilot permissions are managed via organization policy, not a deployable per-user config surface",
     },
-    agentDefinitionsSupport: {
+    agentDefinitionsRepoSupport: {
       status: "supported",
       schemaLabel: "repo-local agent definition Markdown file",
       path: {

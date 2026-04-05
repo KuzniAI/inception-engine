@@ -132,7 +132,16 @@ export interface AgentConfig {
   permissionsSupport?: AgentSurfaceSupport;
   // Agent-specific agent/subagent definition file surface support.
   agentDefinitionsSupport?: AgentSurfaceSupport;
+  // Repo-local agent/subagent definition file surface support.
+  agentDefinitionsRepoSupport?: AgentSurfaceSupport;
+  // Workspace-local agent/subagent definition file surface support.
+  agentDefinitionsWorkspaceSupport?: AgentSurfaceSupport;
   policyNote?: string;
+  /**
+   * A list of documented surfaces that are currently not safe to support directly.
+   * Preflight will emit warnings for these if the agent is targeted.
+   */
+  unsupportedSurfaces?: AgentSurfaceSupport[];
   /**
    * When true, instruction files deployed to this agent must include valid
    * YAML frontmatter. Drives validateInstructionFileRequirements without

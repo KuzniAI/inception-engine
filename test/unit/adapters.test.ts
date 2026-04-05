@@ -917,7 +917,12 @@ describe("compileAgentDefinitionActions", () => {
       );
       const realRoot = await realpath(dir);
       const { actions, warnings } = await compile(
-        { name: "my-agent", agents: ["claude-code"], path: "agent.md" },
+        {
+          name: "my-agent",
+          agents: ["claude-code"],
+          path: "agent.md",
+          scope: "repo",
+        },
         dir,
         dir,
         realRoot,
@@ -938,7 +943,13 @@ describe("compileAgentDefinitionActions", () => {
     try {
       // No file created — validation must not run
       const { actions, warnings } = await compile(
-        { name: "my-agent", agents: ["claude-code"], path: "missing.md" },
+        {
+          name: "my-agent",
+          agents: ["claude-code"],
+          path: "missing.md",
+          scope: "repo",
+          scope: "repo",
+        },
         dir,
         dir,
         dir,
@@ -963,7 +974,13 @@ describe("compileAgentDefinitionActions", () => {
       );
       const realRoot = await realpath(dir);
       const { actions, warnings } = await compile(
-        { name: "my-agent", agents: ["claude-code"], path: "my-agent.md" },
+        {
+          name: "my-agent",
+          agents: ["claude-code"],
+          path: "my-agent.md",
+          scope: "repo",
+          scope: "repo",
+        },
         dir,
         dir,
         realRoot,
@@ -997,7 +1014,13 @@ describe("compileAgentDefinitionActions", () => {
       );
       const realRoot = await realpath(dir);
       const { actions, warnings } = await compile(
-        { name: "my-agent", agents: ["opencode"], path: "my-agent.md" },
+        {
+          name: "my-agent",
+          agents: ["opencode"],
+          path: "my-agent.md",
+          scope: "repo",
+          scope: "repo",
+        },
         dir,
         dir,
         realRoot,
@@ -1032,7 +1055,13 @@ describe("compileAgentDefinitionActions", () => {
       );
       const realRoot = await realpath(dir);
       const { actions, warnings } = await compile(
-        { name: "my-agent", agents: ["github-copilot"], path: "my-agent.md" },
+        {
+          name: "my-agent",
+          agents: ["github-copilot"],
+          path: "my-agent.md",
+          scope: "repo",
+          scope: "repo",
+        },
         dir,
         dir,
         realRoot,
@@ -1070,7 +1099,13 @@ describe("compileAgentDefinitionActions", () => {
       );
       const realRoot = await realpath(dir);
       const { actions, warnings } = await compile(
-        { name: "my-agent", agents: ["antigravity"], path: "my-agent.md" },
+        {
+          name: "my-agent",
+          agents: ["antigravity"],
+          path: "my-agent.md",
+          scope: "repo",
+          scope: "repo",
+        },
         dir,
         dir,
         realRoot,
@@ -1103,7 +1138,13 @@ describe("compileAgentDefinitionActions", () => {
       );
       const realRoot = await realpath(dir);
       const { actions, warnings } = await compile(
-        { name: "my-agent", agents: ["codex"], path: "my-agent.md" },
+        {
+          name: "my-agent",
+          agents: ["codex"],
+          path: "my-agent.md",
+          scope: "repo",
+          scope: "repo",
+        },
         dir,
         dir,
         realRoot,
@@ -1128,7 +1169,12 @@ describe("compileAgentDefinitionActions", () => {
       const realRoot = await realpath(dir);
       await assert.rejects(
         compile(
-          { name: "my-agent", agents: ["claude-code"], path: "agent.txt" },
+          {
+            name: "my-agent",
+            agents: ["claude-code"],
+            path: "agent.txt",
+            scope: "repo",
+          },
           dir,
           dir,
           realRoot,
@@ -1153,6 +1199,7 @@ describe("compileAgentDefinitionActions", () => {
             name: "my-agent",
             agents: ["claude-code"],
             path: "nonexistent.md",
+            scope: "repo",
           },
           dir,
           dir,
@@ -1186,6 +1233,7 @@ describe("compileAgentDefinitionActions", () => {
           name: "my-agent",
           agents: ["claude-code", "opencode", "github-copilot"],
           path: "my-agent.md",
+          scope: "repo",
         },
         dir,
         dir,
@@ -1220,6 +1268,7 @@ describe("compileAgentDefinitionActions", () => {
             name: "bad",
             agents: ["github-copilot"],
             path: "bad-copilot.md",
+            scope: "repo",
           },
           dir,
           dir,
@@ -1250,6 +1299,7 @@ describe("compileAgentDefinitionActions", () => {
             name: "bad",
             agents: ["antigravity"],
             path: "bad-antigravity.md",
+            scope: "repo",
           },
           dir,
           dir,
@@ -1280,6 +1330,7 @@ describe("compileAgentDefinitionActions", () => {
             name: "bad",
             agents: ["antigravity"],
             path: "bad-mcp-config.md",
+            scope: "repo",
           },
           dir,
           dir,

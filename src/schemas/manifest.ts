@@ -133,6 +133,10 @@ export const AgentDefinitionEntrySchema = z.object({
   // Must be a .md or .markdown file. Structural requirements (e.g. YAML
   // frontmatter) are validated per agent requirements by the adapter.
   path: sourcePathField,
+  // Deployment scope: "global" targets the agent's home-directory definition
+  // directory (if supported), "repo" targets the project-root definition directory
+  // within the deployed repository (default).
+  scope: z.enum(["global", "repo", "workspace"]).default("repo"),
 });
 
 export const ManifestSchema = z.object({

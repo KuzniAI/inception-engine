@@ -932,6 +932,7 @@ describe("planDeploy", () => {
         {
           name: "my-agent",
           path: "agents/my-agent.md",
+          scope: "repo",
           agents: ["gemini-cli", "antigravity"],
         },
       ],
@@ -1133,6 +1134,7 @@ describe("planDeploy", () => {
         {
           name: "my-agent",
           path: "agents/my-agent.md",
+          scope: "repo",
           agents: ["antigravity"],
         },
       ],

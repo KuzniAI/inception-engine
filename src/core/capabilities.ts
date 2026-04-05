@@ -65,6 +65,24 @@ function resolveAgentRulesSupport(
   return agent?.agentRulesSupport;
 }
 
+function resolveAgentDefinitionsSupport(
+  agentId: AgentId,
+  scope: CapabilityScope,
+): AgentSurfaceSupport | undefined {
+  const agent = AGENT_REGISTRY_BY_ID[agentId];
+  if (scope === "repo") {
+    return agent?.agentDefinitionsRepoSupport ?? agent?.agentDefinitionsSupport;
+  }
+  if (scope === "workspace") {
+    return (
+      agent?.agentDefinitionsWorkspaceSupport ??
+      agent?.agentDefinitionsRepoSupport ??
+      agent?.agentDefinitionsSupport
+    );
+  }
+  return agent?.agentDefinitionsSupport;
+}
+
 function capabilityLabel(capability: CapabilityKind): string {
   switch (capability) {
     case "skills":
@@ -155,7 +173,7 @@ function getSurfaceRecordAndConfidence(
     };
   }
   return {
-    supportRecord: agent.agentDefinitionsSupport,
+    supportRecord: resolveAgentDefinitionsSupport(agentId, scope),
     confidence: agent.provenance.agentDefinitions,
   };
 }

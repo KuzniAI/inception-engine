@@ -67,6 +67,7 @@ export async function compileAgentDefinitionActions(
       capability: "agentDefinitions",
       entryName: entry.name,
       targetAgentIds: targetAgents,
+      scope: entry.scope,
     });
     if (plan.outcome === "warn") {
       warnings.push(plan.warning);
@@ -77,8 +78,24 @@ export async function compileAgentDefinitionActions(
     const support = resolveCapabilitySurface(
       agentId,
       "agentDefinitions",
+      entry.scope,
     ).support;
     if (!support) continue;
+
+    if (entry.scope === "repo" && !repo) {
+      warnings.push({
+        kind: "confidence",
+        message: `agentDefinitions: scope "repo" requires a repository path but none was resolved — skipping "${entry.name}" for agent "${agentId}"`,
+      });
+      continue;
+    }
+    if (entry.scope === "workspace" && !workspace && !repo) {
+      warnings.push({
+        kind: "confidence",
+        message: `agentDefinitions: scope "workspace" requires a workspace or repository path but none was resolved — skipping "${entry.name}" for agent "${agentId}"`,
+      });
+      continue;
+    }
 
     supportedTargets.push({
       agentId,
@@ -149,11 +166,17 @@ export function compileAgentDefinitionReverts(
 
   for (const agentId of entry.agents) {
     if (agentFilter && !agentFilter.includes(agentId)) continue;
-    const support = resolveCapabilitySurface(
+    const surface = resolveCapabilitySurface(
       agentId,
       "agentDefinitions",
-    ).support;
-    if (!support) continue;
+      entry.scope,
+    );
+    const support = surface.support;
+    if (!support || surface.supportStatus !== "supported") continue;
+
+    if (entry.scope === "repo" && !repo) continue;
+    if (entry.scope === "workspace" && !workspace && !repo) continue;
+
     const target = resolvePlaceholders(
       support.path[platform],
       entry.name,
