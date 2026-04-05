@@ -20,7 +20,7 @@ Score format:
 
 Ordered from highest to lowest.
 
-1. **Extend ownership tracking to cover frontmatter-emit and surface migrations, not just whole-file writes and config patches.**  
+1. ~~**Extend ownership tracking to cover frontmatter-emit and surface migrations, not just whole-file writes and config patches.**~~  
    The north star explicitly requires patch-level provenance and safe reverts for config-like edits. That is still incomplete for Markdown frontmatter emit targets and for any future migration from one surface to another. Add provenance that can prove which frontmatter block or migrated target is engine-owned before more portability vectors are promoted from roadmap to supported behavior.  
    `Score 10/12 (Architecture 2, Agents 2, OS 1, Confidence 2, Safety 1, Stability 2)`
 
