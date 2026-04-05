@@ -773,6 +773,7 @@ async function deployFileWrite(
             source: action.source,
             skill: action.skill,
             agent: action.agent,
+            migratedFrom: action.migratedFrom,
           },
           deps.registry,
         ),

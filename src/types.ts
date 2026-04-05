@@ -167,6 +167,7 @@ export interface FileWriteDeployAction {
   source: string;
   target: string;
   confidence?: Confidence;
+  migratedFrom?: string[];
 }
 
 export interface ConfigPatchDeployAction {

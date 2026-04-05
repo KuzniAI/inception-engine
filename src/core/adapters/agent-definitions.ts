@@ -109,6 +109,20 @@ export async function compileAgentDefinitionActions(
       entry.path,
       target.agentId,
     );
+
+    let migratedFrom: string[] | undefined;
+    if (target.agentId === "github-copilot") {
+      migratedFrom = [
+        resolvePlaceholders(
+          ["{repo}", ".github", "agents", "{name}.agent.md"],
+          entry.name,
+          home,
+          repo,
+          workspace,
+        ),
+      ];
+    }
+
     actions.push({
       kind: "file-write",
       skill: entry.name,
@@ -116,6 +130,7 @@ export async function compileAgentDefinitionActions(
       source,
       target: target.target,
       confidence: target.confidence,
+      migratedFrom,
     });
   }
 

@@ -1022,7 +1022,7 @@ describe("compileAgentDefinitionActions", () => {
     }
   });
 
-  it("returns a file-write action for github-copilot with .agent.md suffix", async () => {
+  it("returns a file-write action for github-copilot with the new documented target and migration path", async () => {
     const compile = await getAdapter();
     const dir = await makeTmpDir();
     try {
@@ -1047,10 +1047,13 @@ describe("compileAgentDefinitionActions", () => {
       assert.equal(action.agent, "github-copilot");
       assert.ok(
         normalizeSlashes(action.target).endsWith(
-          ".github/agents/my-agent.agent.md",
+          ".github/copilot/agents/my-agent.md",
         ),
-        `expected target under .github/agents/my-agent.agent.md, got: ${action.target}`,
+        `expected target under .github/copilot/agents/my-agent.md, got: ${action.target}`,
       );
+      assert.deepEqual(action.migratedFrom, [
+        "/repo/test/.github/agents/my-agent.agent.md",
+      ]);
       assert.equal(action.confidence, "documented");
     } finally {
       await rm(dir, { recursive: true });

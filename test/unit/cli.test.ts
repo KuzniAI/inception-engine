@@ -1310,4 +1310,82 @@ describe("init command", () => {
       await rm(dir, { recursive: true });
     }
   });
+
+  it("init discovers legacy github-copilot agent definitions in .github/agents/", async () => {
+    const dir = await makeTmpDir();
+    try {
+      await mkdir(path.join(dir, ".github", "agents"), { recursive: true });
+      await writeFile(
+        path.join(dir, ".github", "agents", "legacy.agent.md"),
+        "---\nname: legacy\ndescription: legacy agent\n---\n# Legacy Agent\n",
+      );
+      const { code } = await run(["init", dir]);
+      assert.equal(code, 0);
+      const manifest = JSON.parse(
+        (
+          await import("node:fs/promises").then((m) =>
+            m.readFile(path.join(dir, "inception.json"), "utf-8"),
+          )
+        ).toString(),
+      ) as {
+        agentDefinitions: Array<{
+          name: string;
+          path: string;
+          agents: string[];
+        }>;
+      };
+      const found = manifest.agentDefinitions.find((d) => d.name === "legacy");
+      assert.ok(
+        found,
+        "legacy agent-persona file should appear in agentDefinitions",
+      );
+      assert.ok(
+        found?.path.includes(".github/agents/legacy.agent.md"),
+        "path should point into .github/agents/",
+      );
+      assert.deepEqual(found?.agents, ["github-copilot"]);
+    } finally {
+      await rm(dir, { recursive: true });
+    }
+  });
+
+  it("init discovers new github-copilot agent definitions in .github/copilot/agents/", async () => {
+    const dir = await makeTmpDir();
+    try {
+      await mkdir(path.join(dir, ".github", "copilot", "agents"), {
+        recursive: true,
+      });
+      await writeFile(
+        path.join(dir, ".github", "copilot", "agents", "new.md"),
+        "---\nname: new\ndescription: new agent\n---\n# New Agent\n",
+      );
+      const { code } = await run(["init", dir]);
+      assert.equal(code, 0);
+      const manifest = JSON.parse(
+        (
+          await import("node:fs/promises").then((m) =>
+            m.readFile(path.join(dir, "inception.json"), "utf-8"),
+          )
+        ).toString(),
+      ) as {
+        agentDefinitions: Array<{
+          name: string;
+          path: string;
+          agents: string[];
+        }>;
+      };
+      const found = manifest.agentDefinitions.find((d) => d.name === "new");
+      assert.ok(
+        found,
+        "new agent-persona file should appear in agentDefinitions",
+      );
+      assert.ok(
+        found?.path.includes(".github/copilot/agents/new.md"),
+        "path should point into .github/copilot/agents/",
+      );
+      assert.deepEqual(found?.agents, ["github-copilot"]);
+    } finally {
+      await rm(dir, { recursive: true });
+    }
+  });
 });

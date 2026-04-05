@@ -66,6 +66,7 @@ const AGENT_RULES_SUBDIRS = ["rules", "instructions", ".github"];
 // Conventional subdirectories that contain agent definition files.
 // Derived from the registry: for each agent with a supported agentDefinitions
 // surface, extract the directory prefix from its posix path template.
+// Includes the legacy ".github/agents" path for backward compatibility.
 const AGENT_DEFINITION_SUBDIRS: string[] = (() => {
   const subdirs = new Set<string>();
   for (const agent of AGENT_REGISTRY) {
@@ -78,6 +79,7 @@ const AGENT_DEFINITION_SUBDIRS: string[] = (() => {
     const dirSegs = tmpl.slice(repoIdx + 1, nameIdx);
     if (dirSegs.length > 0) subdirs.add(dirSegs.join("/"));
   }
+  subdirs.add(".github/agents");
   return Array.from(subdirs);
 })();
 
@@ -317,7 +319,7 @@ function buildAgentRules(
 
 /**
  * Derives the name for an agent definition entry from its file name.
- * For GitHub Copilot's `{name}.agent.md` naming convention, strips the
+ * For GitHub Copilot's legacy `{name}.agent.md` naming convention, strips the
  * `.agent` infix in addition to the `.md` extension.
  */
 function deriveAgentDefinitionName(
@@ -345,9 +347,11 @@ function deriveAgentDefinitionName(
 /**
  * Maps a known agent-definition subdirectory to the agent IDs that own it.
  * Derived from the registry by matching each agent's agentDefinitionsSupport
- * path prefix. Returns null when the subdir is not recognized.
+ * path prefix. Includes legacy mapping for ".github/agents".
+ * Returns null when the subdir is not recognized.
  */
 function agentsForDefinitionSubdir(subdir: string): AgentId[] | null {
+  if (subdir === ".github/agents") return ["github-copilot"];
   const matching: AgentId[] = [];
   for (const agent of AGENT_REGISTRY) {
     const support = agent.agentDefinitionsSupport;

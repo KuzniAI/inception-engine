@@ -361,7 +361,7 @@ export const AGENT_REGISTRY: readonly AgentConfig[] = [
       status: "planned",
       schemaLabel: "repo-scoped MCP surfaces",
       plannedSurface:
-        "devcontainer (.devcontainer/devcontainer.json) and agent-frontmatter (.github/agents/*.agent.md)",
+        "devcontainer (.devcontainer/devcontainer.json) and agent-frontmatter (.github/copilot/agents/*.md)",
       reason:
         "GitHub Copilot MCP support will be implemented via repo-scoped devcontainer features and agent-frontmatter mappings — surfaces that are genuinely Copilot-specific and not covered by other agent targets",
     },
@@ -419,8 +419,8 @@ export const AGENT_REGISTRY: readonly AgentConfig[] = [
       status: "supported",
       schemaLabel: "repo-local agent definition Markdown file",
       path: {
-        posix: ["{repo}", ".github", "agents", "{name}.agent.md"],
-        windows: ["{repo}", ".github", "agents", "{name}.agent.md"],
+        posix: ["{repo}", ".github", "copilot", "agents", "{name}.md"],
+        windows: ["{repo}", ".github", "copilot", "agents", "{name}.md"],
       },
     },
     policyNote:
