@@ -2,6 +2,7 @@ import { access, readdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { AGENT_REGISTRY_BY_ID } from "../config/agents.ts";
 import { dryRunPrefix, logger } from "../logger.ts";
+import { parseFrontmatterDocument } from "./adapters/frontmatter.ts";
 import type {
   AgentDefinitionEntry,
   AgentId,
@@ -54,6 +55,20 @@ const AGENT_DEFINITION_SUBDIRS = [
   ".opencode/agents",
   ".github/agents",
 ];
+
+async function hasAntigravityMcpFrontmatter(absPath: string): Promise<boolean> {
+  let raw: string;
+  try {
+    raw = await readFile(absPath, "utf-8");
+  } catch {
+    return false;
+  }
+  const { attributes } = parseFrontmatterDocument(raw);
+  return (
+    Object.hasOwn(attributes, "mcp-servers") ||
+    Object.hasOwn(attributes, "mcpServers")
+  );
+}
 
 async function findSkillDirs(
   baseDir: string,
@@ -321,6 +336,22 @@ function agentsForDefinitionSubdir(subdir: string): AgentId[] | null {
   }
 }
 
+async function isSkippedAntigravityMcpFile(
+  subdir: string,
+  absPath: string,
+  relPath: string,
+): Promise<boolean> {
+  if (subdir !== ".agents/rules") return false;
+  const isMcp = await hasAntigravityMcpFrontmatter(absPath);
+  if (isMcp) {
+    logger.warn(
+      "init",
+      `Skipping "${relPath}" as agentDefinitions: frontmatter contains "mcp-servers" — file is an Antigravity MCP surface, not an agent definition`,
+    );
+  }
+  return isMcp;
+}
+
 async function scanDefinitionSubdir(
   subdir: string,
   baseDir: string,
@@ -353,6 +384,7 @@ async function scanDefinitionSubdir(
       agentRulesRelPaths.has(relPath)
     )
       continue;
+    if (await isSkippedAntigravityMcpFile(subdir, absPath, relPath)) continue;
     const name = deriveAgentDefinitionName(relPath, entry.name);
     if (name === null) continue;
     seen.add(relPath);

@@ -1182,4 +1182,79 @@ describe("init command", () => {
       await rm(dir, { recursive: true });
     }
   });
+
+  it("init skips .agents/rules/ file with mcp-servers frontmatter from agentDefinitions", async () => {
+    const dir = await makeTmpDir();
+    try {
+      await mkdir(path.join(dir, ".agents", "rules"), { recursive: true });
+      await writeFile(
+        path.join(dir, ".agents", "rules", "my-server.md"),
+        "---\nmcp-servers:\n  my-server:\n    command: npx\n---\n# MCP Server\n",
+      );
+      const { code } = await run(["init", dir]);
+      assert.equal(code, 0);
+      const manifest = JSON.parse(
+        await import("node:fs/promises").then((m) =>
+          m.readFile(path.join(dir, "inception.json"), "utf-8"),
+        ),
+      ) as { agentDefinitions: Array<{ name: string }> };
+      const found = manifest.agentDefinitions.find(
+        (d) => d.name === "my-server",
+      );
+      assert.equal(
+        found,
+        undefined,
+        "file with mcp-servers frontmatter should not appear in agentDefinitions",
+      );
+    } finally {
+      await rm(dir, { recursive: true });
+    }
+  });
+
+  it("init includes .agents/rules/ file without mcp-servers frontmatter as agentDefinitions", async () => {
+    const dir = await makeTmpDir();
+    try {
+      await mkdir(path.join(dir, ".agents", "rules"), { recursive: true });
+      await writeFile(
+        path.join(dir, ".agents", "rules", "my-agent.md"),
+        "---\nname: my-agent\ndescription: A persona\n---\n# Agent\n",
+      );
+      const { code } = await run(["init", dir]);
+      assert.equal(code, 0);
+      const manifest = JSON.parse(
+        await import("node:fs/promises").then((m) =>
+          m.readFile(path.join(dir, "inception.json"), "utf-8"),
+        ),
+      ) as { agentDefinitions: Array<{ name: string; path: string }> };
+      const found = manifest.agentDefinitions.find(
+        (d) => d.name === "my-agent",
+      );
+      assert.ok(found, "agent-persona file should appear in agentDefinitions");
+      assert.ok(
+        found?.path.includes(".agents/rules/my-agent.md"),
+        "path should point into .agents/rules/",
+      );
+    } finally {
+      await rm(dir, { recursive: true });
+    }
+  });
+
+  it("init warns when skipping .agents/rules/ file with mcp-servers frontmatter", async () => {
+    const dir = await makeTmpDir();
+    try {
+      await mkdir(path.join(dir, ".agents", "rules"), { recursive: true });
+      await writeFile(
+        path.join(dir, ".agents", "rules", "srv.md"),
+        "---\nmcp-servers:\n  srv:\n    command: npx\n---\n",
+      );
+      const { code, stdout } = await run(["init", dir]);
+      assert.equal(code, 0);
+      assert.ok(
+        stdout.includes("mcp-servers") || stdout.includes("srv.md"),
+        "stdout should mention the skipped MCP-frontmatter file",
+      );
+    } finally {
+      await rm(dir, { recursive: true });
+    }
+  });
 });

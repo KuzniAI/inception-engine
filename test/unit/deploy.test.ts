@@ -990,6 +990,105 @@ describe("planDeploy", () => {
       await rm(sourceDir, { recursive: true });
     }
   });
+
+  it("emits collision warning when agentDefinitions and mcpServers share a name for antigravity", async () => {
+    const sourceDir = await makeTmpDir();
+    const manifest: Manifest = {
+      skills: [],
+      files: [],
+      configs: [],
+      mcpServers: [
+        {
+          name: "my-tool",
+          agents: ["antigravity"],
+          config: { command: "npx", args: ["-y", "my-tool"] },
+        },
+      ],
+      agentRules: [],
+      permissions: [],
+      agentDefinitions: [
+        { name: "my-tool", path: "agents/my-tool.md", agents: ["antigravity"] },
+      ],
+    };
+    try {
+      await mkdir(path.join(sourceDir, "agents"), { recursive: true });
+      await writeFile(
+        path.join(sourceDir, "agents", "my-tool.md"),
+        "---\nname: my-tool\ndescription: test\n---\n# Tool\n",
+      );
+      const { warnings } = await planDeploy(
+        manifest,
+        sourceDir,
+        ["antigravity"],
+        "/home/test",
+        "/repo",
+      );
+      const collision = warnings.find(
+        (w) => w.kind === "collision" && w.message.includes("my-tool"),
+      );
+      assert.ok(
+        collision,
+        "expected a collision warning for same-name agentDefinitions and mcpServers entries",
+      );
+      assert.ok(
+        collision?.message.includes(".agents/rules/my-tool.md"),
+        "collision warning should reference the resolved path",
+      );
+    } finally {
+      await rm(sourceDir, { recursive: true });
+    }
+  });
+
+  it("emits no collision warning when agentDefinitions and mcpServers have different names for antigravity", async () => {
+    const sourceDir = await makeTmpDir();
+    const manifest: Manifest = {
+      skills: [],
+      files: [],
+      configs: [],
+      mcpServers: [
+        {
+          name: "my-mcp",
+          agents: ["antigravity"],
+          config: { command: "npx", args: ["-y", "my-mcp"] },
+        },
+      ],
+      agentRules: [],
+      permissions: [],
+      agentDefinitions: [
+        {
+          name: "my-agent",
+          path: "agents/my-agent.md",
+          agents: ["antigravity"],
+        },
+      ],
+    };
+    try {
+      await mkdir(path.join(sourceDir, "agents"), { recursive: true });
+      await writeFile(
+        path.join(sourceDir, "agents", "my-agent.md"),
+        "---\nname: my-agent\ndescription: test\n---\n# Agent\n",
+      );
+      const { warnings } = await planDeploy(
+        manifest,
+        sourceDir,
+        ["antigravity"],
+        "/home/test",
+        "/repo",
+      );
+      const collision = warnings.find(
+        (w) =>
+          w.kind === "collision" &&
+          (w.message.includes("my-mcp") || w.message.includes("my-agent")),
+      );
+      assert.equal(
+        collision,
+        undefined,
+        "should not emit a collision warning when names differ",
+      );
+    } finally {
+      await rm(sourceDir, { recursive: true });
+    }
+  });
 });
 
 describe("executeDeploy", { skip: process.platform === "win32" }, () => {

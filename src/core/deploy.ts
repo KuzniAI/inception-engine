@@ -186,6 +186,25 @@ function checkAgentDefinitionAmbiguities(
   return warnings;
 }
 
+function checkAntigravityPathCollisions(manifest: Manifest): PlanWarning[] {
+  const warnings: PlanWarning[] = [];
+  const defNames = new Set<string>(
+    (manifest.agentDefinitions ?? [])
+      .filter((e) => e.agents.includes("antigravity"))
+      .map((e) => e.name),
+  );
+  for (const entry of manifest.mcpServers ?? []) {
+    if (!entry.agents.includes("antigravity")) continue;
+    if (defNames.has(entry.name)) {
+      warnings.push({
+        kind: "collision",
+        message: `agentDefinitions entry "${entry.name}" and mcpServers entry "${entry.name}" for agent "antigravity" both resolve to {repo}/.agents/rules/${entry.name}.md — one will silently overwrite the other; use different names or remove one entry`,
+      });
+    }
+  }
+  return warnings;
+}
+
 function detectAmbiguities(
   detectedAgents: AgentId[],
   manifest: Manifest,
@@ -381,6 +400,7 @@ export async function planDeploy(
 
   const warnings: PlanWarning[] = [
     ...detectAmbiguities(detectedAgents, manifest),
+    ...checkAntigravityPathCollisions(manifest),
     ...detectCollisions(actions),
     ...adapterResult.warnings,
   ];
