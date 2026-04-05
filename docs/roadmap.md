@@ -28,10 +28,6 @@ Ordered from highest to lowest.
    The codebase already distinguishes documented, implementation-only, unsupported, and planned surfaces in different places, but not through a single planning model. Unify that so generated manifests, warnings, and skips consistently reflect whether a surface is documented, implementation-only, shared through another agent, or deliberately redundant.  
    `Score 10/12 (Architecture 2, Agents 2, OS 1, Confidence 2, Safety 2, Stability 1)`
 
-3. **Add migration primitives for surface realignment.**  
-   Several north-star corrections imply moving existing deployments between paths or schemas, for example GitHub Copilot agent-definition paths or Antigravity shared-surface cleanup. Add explicit migration planning so the engine can move engine-owned artifacts without orphaning registry entries or leaving revert in an inconsistent state.  
-   `Score 8/12 (Architecture 2, Agents 1, OS 1, Confidence 1, Safety 1, Stability 2)`
-
 ## Quality And Maintenance
 
 Ordered from highest to lowest.
