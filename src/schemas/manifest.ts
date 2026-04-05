@@ -107,6 +107,8 @@ export const AgentRuleEntrySchema = z.object({
   name: nameField,
   agents: agentsField,
   // Relative path to the rules/instruction file within the source bundle.
+  // Must be a .md or .markdown file. Structural requirements (e.g. YAML
+  // frontmatter) are validated per agent requirements by the adapter.
   path: sourcePathField,
   // Deployment scope: "global" targets the agent's home-directory instruction
   // file (default), "repo" targets the project-root instruction file within the
@@ -128,8 +130,8 @@ export const AgentDefinitionEntrySchema = z.object({
   name: nameField,
   agents: agentsField,
   // Relative path to the agent definition Markdown file within the source bundle.
-  // Must be a .md or .markdown file. Content and frontmatter structure are not
-  // validated by inception-engine — format requirements are agent-specific.
+  // Must be a .md or .markdown file. Structural requirements (e.g. YAML
+  // frontmatter) are validated per agent requirements by the adapter.
   path: sourcePathField,
 });
 

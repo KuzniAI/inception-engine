@@ -2,6 +2,7 @@ import { lstat, readFile, realpath, stat } from "node:fs/promises";
 import path from "node:path";
 import { UserError } from "../errors.ts";
 import { parseFrontmatterDocument } from "./adapters/frontmatter.ts";
+import type { AgentId } from "../schemas/manifest.ts";
 
 export function sourceAccessError(err: unknown, sourcePath: string): string {
   const code = (err as NodeJS.ErrnoException).code;
@@ -322,4 +323,37 @@ export async function validateSkillDefinitionFile(
 
   validateField("name");
   validateField("description");
+}
+
+/**
+ * Validates that an instruction file (agentRules or agentDefinitions) meets
+ * the structural requirements of the target agent.
+ */
+export async function validateInstructionFileRequirements(
+  sourcePath: string,
+  manifestPath: string,
+  agentId: AgentId,
+): Promise<void> {
+  // Currently, github-copilot and antigravity require valid frontmatter
+  // with name and description (similar to SKILL.md).
+  const requiresFrontmatter =
+    agentId === "github-copilot" || agentId === "antigravity";
+
+  if (requiresFrontmatter) {
+    try {
+      await validateSkillDefinitionFile(sourcePath, manifestPath);
+    } catch (err) {
+      if (err instanceof UserError) {
+        // Re-wrap to make it clear this is an instruction file validation error
+        throw new UserError(
+          "DEPLOY_FAILED",
+          `Instruction file "${manifestPath}" for agent "${agentId}" failed validation: ${err.message}`,
+        );
+      }
+      throw err;
+    }
+  }
+
+  // Future validation for specific fields (tools, instructions, etc.) can be
+  // added here per agent requirements.
 }

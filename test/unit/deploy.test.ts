@@ -394,7 +394,7 @@ describe("planDeploy", () => {
       agentDefinitions: [],
     };
     try {
-      await writeFile(path.join(sourceDir, "GEMINI.md"), "# Shared Rules");
+      await writeFile(path.join(sourceDir, "GEMINI.md"), "---\nname: shared-rules\ndescription: test\n---\n# Shared Rules");
       const { warnings } = await planDeploy(
         bothManifest,
         sourceDir,
@@ -498,7 +498,7 @@ describe("planDeploy", () => {
       agentDefinitions: [],
     };
     try {
-      await writeFile(path.join(sourceDir, "GEMINI.md"), "# Rules");
+      await writeFile(path.join(sourceDir, "GEMINI.md"), "---\nname: test-rule\ndescription: test\n---\n# Rules");
       const { actions } = await planDeploy(
         bothManifest,
         sourceDir,
@@ -729,7 +729,7 @@ describe("planDeploy", () => {
       agentDefinitions: [],
     };
     try {
-      await writeFile(path.join(sourceDir, "CLAUDE.md"), "# Rules");
+      await writeFile(path.join(sourceDir, "CLAUDE.md"), "---\nname: test-rule\ndescription: test\n---\n# Rules");
       const { actions } = await planDeploy(
         manifest,
         sourceDir,
@@ -814,8 +814,8 @@ describe("planDeploy", () => {
       agentDefinitions: [],
     };
     try {
-      await writeFile(path.join(sourceDir, "repo.md"), "# Repo");
-      await writeFile(path.join(sourceDir, "workspace.md"), "# Workspace");
+      await writeFile(path.join(sourceDir, "repo.md"), "---\nname: repo-rule\ndescription: test\n---\n# Repo");
+      await writeFile(path.join(sourceDir, "workspace.md"), "---\nname: workspace-rule\ndescription: test\n---\n# Workspace");
 
       const { warnings } = await planDeploy(
         manifest,
@@ -865,7 +865,7 @@ describe("planDeploy", () => {
     };
     try {
       await mkdir(path.join(sourceDir, "agents"), { recursive: true });
-      await writeFile(path.join(sourceDir, "agents", "my-agent.md"), "# Agent");
+      await writeFile(path.join(sourceDir, "agents", "my-agent.md"), "---\nname: test-agent\ndescription: test\n---\n# Agent");
       const { actions, warnings } = await planDeploy(
         manifest,
         sourceDir,
@@ -915,7 +915,7 @@ describe("planDeploy", () => {
       agentDefinitions: [],
     };
     try {
-      await writeFile(path.join(sourceDir, "workspace.md"), "# Workspace");
+      await writeFile(path.join(sourceDir, "workspace.md"), "---\nname: workspace-rule\ndescription: test\n---\n# Workspace");
       const { warnings } = await planDeploy(
         manifest,
         sourceDir,

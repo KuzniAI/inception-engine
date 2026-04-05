@@ -231,7 +231,7 @@ describe("compileAgentRuleActions", () => {
   it("returns a schema-aware warning and no action for github-copilot rules", async () => {
     const dir = await makeTmpDir();
     try {
-      await writeFile(path.join(dir, "rules.md"), "# Rules");
+      await writeFile(path.join(dir, "rules.md"), "---\nname: test-rule\ndescription: test\n---\n# Rules");
       const realRoot = await realpath(dir);
       const { actions, warnings } = await compileAgentRuleActions(
         {
@@ -265,7 +265,7 @@ describe("compileAgentRuleActions", () => {
   it("returns a file-write action for antigravity rules", async () => {
     const dir = await makeTmpDir();
     try {
-      await writeFile(path.join(dir, "rules.md"), "# Rules");
+      await writeFile(path.join(dir, "rules.md"), "---\nname: test-rule\ndescription: test\n---\n# Rules");
       const realRoot = await realpath(dir);
       const { actions, warnings } = await compileAgentRuleActions(
         {
@@ -294,7 +294,7 @@ describe("compileAgentRuleActions", () => {
   it("gemini-cli and antigravity in the same agentRules entry produce distinct targets", async () => {
     const dir = await makeTmpDir();
     try {
-      await writeFile(path.join(dir, "rules.md"), "# Rules");
+      await writeFile(path.join(dir, "rules.md"), "---\nname: test-rule\ndescription: test\n---\n# Rules");
       const realRoot = await realpath(dir);
       const { actions, warnings } = await compileAgentRuleActions(
         {
@@ -400,7 +400,7 @@ describe("compileAgentRuleActions", () => {
   it("produces actions for each detected agent that has supported rules config", async () => {
     const dir = await makeTmpDir();
     try {
-      await writeFile(path.join(dir, "rules.md"), "# Rules");
+      await writeFile(path.join(dir, "rules.md"), "---\nname: test-rule\ndescription: test\n---\n# Rules");
       const realRoot = await realpath(dir);
       const { actions, warnings } = await compileAgentRuleActions(
         {
@@ -525,7 +525,7 @@ describe("compileAgentRuleActions", () => {
   it("scope repo: antigravity still targets .agents/rules/{name}.md", async () => {
     const dir = await makeTmpDir();
     try {
-      await writeFile(path.join(dir, "rules.md"), "# Rules");
+      await writeFile(path.join(dir, "rules.md"), "---\nname: test-rule\ndescription: test\n---\n# Rules");
       const repo = "/repo/myproject";
       const realRoot = await realpath(dir);
       const { actions, warnings } = await compileAgentRuleActions(
@@ -556,7 +556,7 @@ describe("compileAgentRuleActions", () => {
   it("scope repo: emits a warning and skips when repo path is not provided", async () => {
     const dir = await makeTmpDir();
     try {
-      await writeFile(path.join(dir, "rules.md"), "# Rules");
+      await writeFile(path.join(dir, "rules.md"), "---\nname: test-rule\ndescription: test\n---\n# Rules");
       const realRoot = await realpath(dir);
       const { actions, warnings } = await compileAgentRuleActions(
         {
@@ -587,7 +587,7 @@ describe("compileAgentRuleActions", () => {
   it("scope repo: github-copilot emits unsupported warning", async () => {
     const dir = await makeTmpDir();
     try {
-      await writeFile(path.join(dir, "rules.md"), "# Rules");
+      await writeFile(path.join(dir, "rules.md"), "---\nname: test-rule\ndescription: test\n---\n# Rules");
       const realRoot = await realpath(dir);
       const { actions, warnings } = await compileAgentRuleActions(
         {
@@ -792,7 +792,7 @@ describe("compileAgentDefinitionActions", () => {
     const compile = await getAdapter();
     const dir = await makeTmpDir();
     try {
-      await writeFile(path.join(dir, "agent.md"), "# Agent");
+      await writeFile(path.join(dir, "agent.md"), "---\nname: test-agent\ndescription: test\n---\n# Agent");
       const realRoot = await realpath(dir);
       const { actions, warnings } = await compile(
         { name: "my-agent", agents: ["claude-code"], path: "agent.md" },
@@ -835,7 +835,7 @@ describe("compileAgentDefinitionActions", () => {
     const compile = await getAdapter();
     const dir = await makeTmpDir();
     try {
-      await writeFile(path.join(dir, "my-agent.md"), "# Agent");
+      await writeFile(path.join(dir, "my-agent.md"), "---\nname: test-agent\ndescription: test\n---\n# Agent");
       const realRoot = await realpath(dir);
       const { actions, warnings } = await compile(
         { name: "my-agent", agents: ["claude-code"], path: "my-agent.md" },
@@ -866,7 +866,7 @@ describe("compileAgentDefinitionActions", () => {
     const compile = await getAdapter();
     const dir = await makeTmpDir();
     try {
-      await writeFile(path.join(dir, "my-agent.md"), "# Agent");
+      await writeFile(path.join(dir, "my-agent.md"), "---\nname: test-agent\ndescription: test\n---\n# Agent");
       const realRoot = await realpath(dir);
       const { actions, warnings } = await compile(
         { name: "my-agent", agents: ["opencode"], path: "my-agent.md" },
@@ -898,7 +898,7 @@ describe("compileAgentDefinitionActions", () => {
     const compile = await getAdapter();
     const dir = await makeTmpDir();
     try {
-      await writeFile(path.join(dir, "my-agent.md"), "# Agent");
+      await writeFile(path.join(dir, "my-agent.md"), "---\nname: test-agent\ndescription: test\n---\n# Agent");
       const realRoot = await realpath(dir);
       const { actions, warnings } = await compile(
         { name: "my-agent", agents: ["github-copilot"], path: "my-agent.md" },
@@ -930,7 +930,7 @@ describe("compileAgentDefinitionActions", () => {
     const compile = await getAdapter();
     const dir = await makeTmpDir();
     try {
-      await writeFile(path.join(dir, "my-agent.md"), "# Agent");
+      await writeFile(path.join(dir, "my-agent.md"), "---\nname: test-agent\ndescription: test\n---\n# Agent");
       const realRoot = await realpath(dir);
       const { actions, warnings } = await compile(
         { name: "my-agent", agents: ["antigravity"], path: "my-agent.md" },
@@ -960,7 +960,7 @@ describe("compileAgentDefinitionActions", () => {
     const compile = await getAdapter();
     const dir = await makeTmpDir();
     try {
-      await writeFile(path.join(dir, "my-agent.md"), "# Agent");
+      await writeFile(path.join(dir, "my-agent.md"), "---\nname: test-agent\ndescription: test\n---\n# Agent");
       const realRoot = await realpath(dir);
       const { actions, warnings } = await compile(
         { name: "my-agent", agents: ["codex"], path: "my-agent.md" },
@@ -1036,7 +1036,7 @@ describe("compileAgentDefinitionActions", () => {
     const compile = await getAdapter();
     const dir = await makeTmpDir();
     try {
-      await writeFile(path.join(dir, "my-agent.md"), "# Agent");
+      await writeFile(path.join(dir, "my-agent.md"), "---\nname: test-agent\ndescription: test\n---\n# Agent");
       const realRoot = await realpath(dir);
       const { actions, warnings } = await compile(
         {
