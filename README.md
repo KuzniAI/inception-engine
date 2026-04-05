@@ -51,7 +51,7 @@ Before executing, the deploy command runs preflight analysis on instruction file
 | File write | All agents via manifest and CLI | All agents |
 | Config patch (JSON merge) | All agents via manifest and CLI | All agents |
 | MCP Servers | claude-code, gemini-cli, codex, antigravity, opencode; github-copilot repo-scoped surfaces are warned and skipped | claude-code, gemini-cli, codex, antigravity, opencode |
-| Global/Repo Rules Files | `scope: "global"` and `scope: "repo"` are supported on the implemented agent surfaces; `github-copilot` reads Claude-native rules via `claude-code` and has no separate rules deployment target | All supported agents |
+| Global/Repo/Workspace Rules Files | `scope: "global"` and `scope: "repo"` are supported on the implemented agent surfaces; `scope: "workspace"` is supported for `claude-code`, `codex`, and `gemini-cli`; `github-copilot` reads Claude-native rules via `claude-code` and has no separate rules deployment target | All supported agents |
 | Permissions / Approval Config | claude-code (`~/.claude/settings.json`), codex (`~/.codex/config.toml`); other agents are warned and skipped | claude-code, codex |
 | Agent Definitions | claude-code (`{repo}/.claude/agents/{name}.md`), gemini-cli (`{repo}/.gemini/agents/{name}.md`), antigravity (`{repo}/.agents/rules/{name}.md`), opencode (`{repo}/.opencode/agents/{name}.md`), github-copilot (`{repo}/.github/agents/{name}.agent.md`); codex is warned and skipped | All supported agents |
 | `init` manifest generation | Scans `SKILL.md` directories (`skills`), `.md` files with Claude-first agent mapping (`agentRules`), `mcp-servers.json` (`mcpServers`), and agent-definition Markdown files (`agentDefinitions`); emits hints for `files/` and `configs/` directories | N/A |
@@ -373,6 +373,8 @@ inception-engine init <directory> [options]
 | `--verbose` | Show detailed output including file paths |
 | `--debug` | Show full error stack traces |
 | `--help` | Show help message |
+
+With `--plan`, deploy and revert print a grouped action preview by agent. Each planned change includes the source path when applicable, the resolved target path, and action-specific details such as JSON/TOML patch payloads or emitted frontmatter content.
 
 ### Examples
 

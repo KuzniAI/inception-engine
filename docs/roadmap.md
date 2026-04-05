@@ -17,19 +17,19 @@ No active items.
 
 Ordered from highest to lowest after the fixed first step and architecture enablers.
 
-1. ~~Clarify and complete workspace-local instruction-file support. The manifest schema and adapter plumbing accept `scope: "workspace"`, but current agent registry entries still mark workspace-local instruction surfaces as unsupported and deployments are skipped with warnings. Ship real workspace-local targets only for agents with documented behavior, then update README claims accordingly. Score: `4/8` (`Architecture 1`, `Agents 1`, `OS 0`, `Confidence 2`)~~
+1. ~~Workspace-local instruction-file support is implemented for the documented agent surfaces: `claude-code` deploys to `{workspace}/CLAUDE.md`, `codex` to `{workspace}/AGENTS.md`, and `gemini-cli` to `{workspace}/GEMINI.md`. Agents without a distinct documented workspace surface (`antigravity`, `opencode`, `github-copilot`) emit warnings and are skipped. README now documents the supported matrix accordingly. Score: `4/8` (`Architecture 1`, `Agents 1`, `OS 0`, `Confidence 2`)~~
 
 ## Quality And Maintenance
 
 Ordered from highest to lowest.
 
 1. Expand Windows test coverage for additional edge cases. Score: `4/8` (`Architecture 0`, `Agents 0`, `OS 2`, `Confidence 2`)
-2. ~~Add validation for agent instruction files beyond existence/readability checks, including structure required by supported targets. Score: `4/8` (`Architecture 1`, `Agents 1`, `OS 0`, `Confidence 2`)~~
-3. ~~Add specific field validation (e.g., `tools`, `instructions`) for `github-copilot` instruction files as a follow-up to structural validation. Score: `3/8` (`Architecture 0`, `Agents 1`, `OS 0`, `Confidence 2`)~~
-4. ~~Add specific field validation for `antigravity` instruction files (e.g., ensuring MCP rules structure) as a follow-up to structural validation. Score: `3/8` (`Architecture 0`, `Agents 1`, `OS 0`, `Confidence 2`)~~
-5. ~~Extend today's Gemini CLI / Antigravity shared-surface ambiguity tests into stronger precedence and behavioral coverage. Score: `4/8` (`Architecture 1`, `Agents 1`, `OS 0`, `Confidence 2`)~~
-6. ~~Improve dry-run visibility so planned changes for file writes, rules files, and config patches are easier to inspect before deployment. Score: `4/8` (`Architecture 1`, `Agents 0`, `OS 1`, `Confidence 2`)~~
-7. ~~Add stronger detection and warnings for enterprise or policy-managed environments where local configuration may be ignored or overridden. Score: `3/8` (`Architecture 0`, `Agents 1`, `OS 0`, `Confidence 2`)~~
+2. ~~Instruction-file validation now goes beyond existence/readability checks for supported targets. Deploy validates required YAML frontmatter with non-empty single-line `name` and `description` fields before accepting structured instruction surfaces. Score: `4/8` (`Architecture 1`, `Agents 1`, `OS 0`, `Confidence 2`)~~
+3. ~~`github-copilot` instruction-file validation now enforces the follow-up field requirements: frontmatter must define either `tools` or `instructions` in addition to the shared structural checks. Score: `3/8` (`Architecture 0`, `Agents 1`, `OS 0`, `Confidence 2`)~~
+4. ~~`antigravity` instruction-file validation now enforces the follow-up MCP structure checks: any `mcp-servers` / `mcpServers` frontmatter must be an object whose entries satisfy the MCP server config shape validation. Score: `3/8` (`Architecture 0`, `Agents 1`, `OS 0`, `Confidence 2`)~~
+5. ~~Gemini CLI / Antigravity ambiguity coverage now includes stronger precedence and behavioral checks, including repo/workspace scope interactions, duplicate-content warnings, and divergence warnings for shared surfaces. Score: `4/8` (`Architecture 1`, `Agents 1`, `OS 0`, `Confidence 2`)~~
+6. ~~Dry-run visibility now shows grouped planned changes with source and target paths plus action-specific payload details for config patches, TOML patches, and frontmatter emits before deployment. Score: `4/8` (`Architecture 1`, `Agents 0`, `OS 1`, `Confidence 2`)~~
+7. ~~Preflight now detects stronger policy and enterprise-management signals, especially for `github-copilot`, by checking enterprise environment variables, enterprise `hosts.json` entries, and emitting policy/config-authority warnings when local config may be ignored or overridden. Score: `3/8` (`Architecture 0`, `Agents 1`, `OS 0`, `Confidence 2`)~~
 8. Add fixture-based `init` coverage against `limbo/` so the sample bundle, generated manifest, and README examples do not drift. Score: `4/8` (`Architecture 1`, `Agents 1`, `OS 0`, `Confidence 2`)
 
 ## Additional Dimensions To Consider
