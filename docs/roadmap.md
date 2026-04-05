@@ -28,6 +28,9 @@ Ordered from highest to lowest.
    `init` now has broad CLI coverage for sidecar manifests, shared-surface defaults, `copilot-instructions.md`, hints for `files/` and `configs/`, and `.agents/rules/` filtering. What is still missing is a single fixture-backed test that runs against the real `limbo/` sample tree and README-shaped layouts so documentation drift is caught without reconstructing scenarios piecemeal in tests.  
    `Score 7/12 (Architecture 1, Agents 1, OS 1, Confidence 2, Safety 1, Stability 1)`
 
+3. Treat path handling and path assertions as cross-platform by default. Do not hard-code POSIX or Windows separators in tests; normalize separators (for example replace `\` with `/`) or assert via `path` utilities so CI passes on `windows-latest` as well as POSIX runners. Normalize all tests
+
+
 ## Functional Features
 
 Ordered from highest to lowest.
