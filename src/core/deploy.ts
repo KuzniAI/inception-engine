@@ -31,6 +31,11 @@ import type {
 } from "../types.ts";
 import { compileAdapterActions } from "./adapters/index.ts";
 import {
+  applyMergePatch,
+  computeUndoPatch,
+  isPlainObject,
+} from "./merge-patch.ts";
+import {
   lookupDeployment,
   type RegistryPersistence,
   registerDeployment,
@@ -44,10 +49,6 @@ import {
   validateSourceFile,
   validateSourcePath,
 } from "./validation.ts";
-
-function isPlainObject(v: unknown): v is Record<string, unknown> {
-  return typeof v === "object" && v !== null && !Array.isArray(v);
-}
 
 async function readJsonConfigFile(
   filePath: string,
@@ -74,45 +75,6 @@ async function readJsonConfigFile(
   }
 
   return parsed;
-}
-
-function computeUndoPatch(
-  original: Record<string, unknown>,
-  patch: Record<string, unknown>,
-): Record<string, unknown> {
-  const undoPatch: Record<string, unknown> = {};
-  for (const key of Object.keys(patch)) {
-    const patchVal = patch[key];
-    if (isPlainObject(patchVal) && isPlainObject(original[key])) {
-      undoPatch[key] = computeUndoPatch(
-        original[key] as Record<string, unknown>,
-        patchVal as Record<string, unknown>,
-      );
-    } else {
-      undoPatch[key] = key in original ? original[key] : null;
-    }
-  }
-  return undoPatch;
-}
-
-function applyMergePatch(
-  original: Record<string, unknown>,
-  patch: Record<string, unknown>,
-): Record<string, unknown> {
-  const patched: Record<string, unknown> = { ...original };
-  for (const [key, value] of Object.entries(patch)) {
-    if (value === null) {
-      delete patched[key];
-    } else if (isPlainObject(value) && isPlainObject(patched[key])) {
-      patched[key] = applyMergePatch(
-        patched[key] as Record<string, unknown>,
-        value as Record<string, unknown>,
-      );
-    } else {
-      patched[key] = value;
-    }
-  }
-  return patched;
 }
 
 function detectCollisions(actions: DeployAction[]): PlanWarning[] {
@@ -961,6 +923,12 @@ async function deployFrontmatterEmit(
 ): Promise<{ error: string | null }> {
   const label = `${action.skill} -> ${action.agent}`;
 
+  if (!isPlainObject(action.frontmatter)) {
+    const msg = `Frontmatter patch for skill "${action.skill}" must be a plain object`;
+    logger.fail(label, msg);
+    return { error: msg };
+  }
+
   if (dryRun) {
     planned.push({
       verb: "emit-frontmatter",
@@ -974,21 +942,73 @@ async function deployFrontmatterEmit(
   }
 
   try {
-    await (await import("./adapters/frontmatter.ts")).writeFrontmatterFile(
-      action.target,
-      action.frontmatter,
-      { preserveBody: true },
-    );
-
-    await registerDeployment(
+    const existingEntry = await lookupDeployment(
       home,
       action.target,
-      {
-        kind: "frontmatter-emit",
-        skill: action.skill,
-        agent: action.agent,
-      },
       deps.registry,
+    );
+    if (
+      existingEntry &&
+      (existingEntry.kind !== "frontmatter-emit" ||
+        existingEntry.skill !== action.skill ||
+        existingEntry.agent !== action.agent)
+    ) {
+      throw new Error(
+        `Frontmatter target "${action.target}" is already patched by skill "${existingEntry.skill}" for agent "${existingEntry.agent}" — refusing to double-patch`,
+      );
+    }
+
+    const frontmatterAdapter = await import("./adapters/frontmatter.ts");
+    const existing = await frontmatterAdapter.readFrontmatterDocumentFile(
+      action.target,
+    );
+    const undoPatch = computeUndoPatch(existing.attributes, action.frontmatter);
+    const patchedFrontmatter = applyMergePatch(
+      existing.attributes,
+      action.frontmatter,
+    );
+    const content = frontmatterAdapter.buildMarkdownDocument(
+      patchedFrontmatter,
+      existing.body,
+      { hasFrontmatter: true },
+    );
+
+    await replaceFileAtomically(
+      action.target,
+      deps,
+      (tempPath, fileOps) => fileOps.writeFile(tempPath, content, "utf-8"),
+      async () => {
+        try {
+          await lstat(action.target);
+        } catch {
+          return null;
+        }
+        const backupPath = `${action.target}.inception-backup`;
+        await (deps.fileOps ?? defaultDeployFileOps).rm(backupPath, {
+          recursive: true,
+          force: true,
+        });
+        await (deps.fileOps ?? defaultDeployFileOps).rename(
+          action.target,
+          backupPath,
+        );
+        return backupPath;
+      },
+      () =>
+        registerDeployment(
+          home,
+          action.target,
+          {
+            kind: "frontmatter-emit",
+            patch: action.frontmatter,
+            undoPatch,
+            created: !existing.exists,
+            hadFrontmatter: existing.hasFrontmatter,
+            skill: action.skill,
+            agent: action.agent,
+          },
+          deps.registry,
+        ),
     );
 
     logger.ok(label);

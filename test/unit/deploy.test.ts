@@ -779,7 +779,10 @@ describe("planDeploy", () => {
 
       assert.ok(antigravityAction, "expected an antigravity action");
       // Antigravity's target for mcpServer is .agents/rules/{name}.md
-      assert.match(antigravityAction.target, /[\\/]\.agents[\\/]rules[\\/]my-mcp\.md$/);
+      assert.match(
+        antigravityAction.target,
+        /[\\/]\.agents[\\/]rules[\\/]my-mcp\.md$/,
+      );
     } finally {
       await rm(sourceDir, { recursive: true });
     }
@@ -896,8 +899,14 @@ describe("planDeploy", () => {
       assert.ok(geminiAction, "expected a geminiAction");
       assert.ok(antigravityAction, "expected an antigravityAction");
 
-      assert.match(geminiAction.target, /[\\/]\.gemini[\\/]agents[\\/]my-agent\.md$/);
-      assert.match(antigravityAction.target, /[\\/]\.agents[\\/]rules[\\/]my-agent\.md$/);
+      assert.match(
+        geminiAction.target,
+        /[\\/]\.gemini[\\/]agents[\\/]my-agent\.md$/,
+      );
+      assert.match(
+        antigravityAction.target,
+        /[\\/]\.agents[\\/]rules[\\/]my-agent\.md$/,
+      );
     } finally {
       await rm(sourceDir, { recursive: true });
     }
@@ -3171,6 +3180,140 @@ describe("executeDeploy — config-patch", () => {
         b: 99,
       });
       assert.ok(!(await exists(backupPath)));
+    } finally {
+      await rm(home, { recursive: true, force: true });
+    }
+  });
+});
+
+describe("executeDeploy — frontmatter-emit", () => {
+  it("merges engine-owned frontmatter while preserving unrelated keys and body", async () => {
+    const home = await makeTmpDir();
+    try {
+      const targetFile = path.join(home, ".agents", "rules", "my-mcp.md");
+      await mkdir(path.dirname(targetFile), { recursive: true });
+      await writeFile(
+        targetFile,
+        "---\nname: Existing Agent\ndescription: Keep me\n---\n\n# Body\n",
+      );
+
+      const action: FrontmatterEmitDeployAction = {
+        kind: "frontmatter-emit",
+        skill: "my-mcp",
+        agent: "antigravity",
+        target: targetFile,
+        frontmatter: {
+          "mcp-servers": {
+            "my-mcp": { command: "npx", args: ["-y", "serve"] },
+          },
+        },
+      };
+
+      const { succeeded, failed } = await executeDeploy(
+        [action],
+        false,
+        false,
+        home,
+      );
+      assert.equal(succeeded, 1);
+      assert.equal(failed.length, 0);
+
+      const content = await readFile(targetFile, "utf-8");
+      assert.match(content, /name: Existing Agent/);
+      assert.match(content, /description: Keep me/);
+      assert.match(content, /mcp-servers:/);
+      assert.match(content, /# Body/);
+
+      const entry = await lookupDeployment(home, targetFile);
+      assert.ok(entry);
+      assert.equal(entry?.kind, "frontmatter-emit");
+      if (entry?.kind === "frontmatter-emit") {
+        assert.deepEqual(entry.patch, action.frontmatter);
+        assert.deepEqual(entry.undoPatch, { "mcp-servers": null });
+        assert.equal(entry.created, false);
+        assert.equal(entry.hadFrontmatter, true);
+        assert.equal(entry.surfaceId, "frontmatter-emit:antigravity:my-mcp");
+      }
+    } finally {
+      await rm(home, { recursive: true, force: true });
+    }
+  });
+
+  it("refuses to double-patch frontmatter already owned by another skill", async () => {
+    const home = await makeTmpDir();
+    try {
+      const targetFile = path.join(home, ".agents", "rules", "shared.md");
+      await mkdir(path.dirname(targetFile), { recursive: true });
+      await writeFile(targetFile, "---\nname: Shared\n---\n");
+
+      await registerDeployment(home, targetFile, {
+        kind: "frontmatter-emit",
+        patch: { "mcp-servers": { other: { command: "other" } } },
+        undoPatch: { "mcp-servers": null },
+        created: false,
+        hadFrontmatter: true,
+        skill: "other-skill",
+        agent: "antigravity",
+      });
+
+      const action: FrontmatterEmitDeployAction = {
+        kind: "frontmatter-emit",
+        skill: "my-mcp",
+        agent: "antigravity",
+        target: targetFile,
+        frontmatter: { "mcp-servers": { "my-mcp": { command: "npx" } } },
+      };
+
+      const { succeeded, failed } = await executeDeploy(
+        [action],
+        false,
+        false,
+        home,
+      );
+      assert.equal(succeeded, 0);
+      assert.equal(failed.length, 1);
+      assert.match(failed[0]?.error ?? "", /already patched/);
+    } finally {
+      await rm(home, { recursive: true, force: true });
+    }
+  });
+
+  it("restores the original markdown file when registry persistence fails", async () => {
+    const home = await makeTmpDir();
+    try {
+      const targetFile = path.join(home, ".agents", "rules", "my-mcp.md");
+      await mkdir(path.dirname(targetFile), { recursive: true });
+      const original = "---\nname: Existing Agent\n---\n\n# Body\n";
+      await writeFile(targetFile, original);
+
+      const action: FrontmatterEmitDeployAction = {
+        kind: "frontmatter-emit",
+        skill: "my-mcp",
+        agent: "antigravity",
+        target: targetFile,
+        frontmatter: { "mcp-servers": { "my-mcp": { command: "npx" } } },
+      };
+
+      const failingRegistry = {
+        async load() {
+          return { version: 1 as const, deployments: {} };
+        },
+        async save() {
+          throw new Error("registry unavailable");
+        },
+      };
+
+      const { succeeded, failed } = await executeDeploy(
+        [action],
+        false,
+        false,
+        home,
+        { registry: failingRegistry },
+      );
+      assert.equal(succeeded, 0);
+      assert.equal(failed.length, 1);
+      assert.equal(await readFile(targetFile, "utf-8"), original);
+      assert.ok(!(await exists(`${targetFile}.inception-backup`)));
     } finally {
       await rm(home, { recursive: true, force: true });
     }

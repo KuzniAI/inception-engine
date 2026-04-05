@@ -488,6 +488,73 @@ describe("registerDeployment - config-patch", () => {
   });
 });
 
+describe("registerDeployment - frontmatter-emit", () => {
+  it("stores patch-level provenance and derived surfaceId", async () => {
+    const home = await makeTmpDir();
+    try {
+      const target = "/target/rules/my-mcp.md";
+      await registerDeployment(home, target, {
+        kind: "frontmatter-emit",
+        patch: { "mcp-servers": { "my-mcp": { command: "npx" } } },
+        undoPatch: { "mcp-servers": null },
+        created: true,
+        hadFrontmatter: false,
+        skill: "my-mcp",
+        agent: "antigravity",
+      });
+
+      const raw = JSON.parse(await readFile(registryPath(home), "utf-8"));
+      const entry = raw.deployments[target];
+      assert.ok(entry);
+      assert.equal(entry.kind, "frontmatter-emit");
+      assert.deepEqual(entry.patch, {
+        "mcp-servers": { "my-mcp": { command: "npx" } },
+      });
+      assert.deepEqual(entry.undoPatch, { "mcp-servers": null });
+      assert.equal(entry.created, true);
+      assert.equal(entry.hadFrontmatter, false);
+      assert.equal(entry.surfaceId, "frontmatter-emit:antigravity:my-mcp");
+    } finally {
+      await rm(home, { recursive: true });
+    }
+  });
+
+  it("removes migratedFrom entries with the same surfaceId", async () => {
+    const home = await makeTmpDir();
+    try {
+      const oldTarget = "/target/old.md";
+      const newTarget = "/target/new.md";
+      await registerDeployment(home, oldTarget, {
+        kind: "frontmatter-emit",
+        patch: { "mcp-servers": { "my-mcp": { command: "npx" } } },
+        undoPatch: { "mcp-servers": null },
+        created: true,
+        hadFrontmatter: false,
+        skill: "my-mcp",
+        agent: "antigravity",
+      });
+
+      await registerDeployment(home, newTarget, {
+        kind: "frontmatter-emit",
+        patch: { "mcp-servers": { "my-mcp": { command: "npx" } } },
+        undoPatch: { "mcp-servers": null },
+        created: true,
+        hadFrontmatter: false,
+        skill: "my-mcp",
+        agent: "antigravity",
+        migratedFrom: [oldTarget],
+      });
+
+      assert.equal(await lookupDeployment(home, oldTarget), null);
+      const newEntry = await lookupDeployment(home, newTarget);
+      assert.ok(newEntry);
+      assert.equal(newEntry?.surfaceId, "frontmatter-emit:antigravity:my-mcp");
+    } finally {
+      await rm(home, { recursive: true });
+    }
+  });
+});
+
 describe("loadRegistry - backward compatibility", () => {
   it("reads old-style skill-dir entries without discriminated union", async () => {
     const home = await makeTmpDir();
@@ -521,6 +588,41 @@ describe("loadRegistry - backward compatibility", () => {
       if (entry.kind === "skill-dir") {
         assert.equal(entry.source, "/old/source");
         assert.equal(entry.method, "symlink");
+      }
+    } finally {
+      await rm(home, { recursive: true });
+    }
+  });
+
+  it("reads legacy frontmatter-emit entries without patch provenance", async () => {
+    const home = await makeTmpDir();
+    try {
+      const dir = path.join(home, ".inception-engine");
+      await mkdir(dir, { recursive: true });
+      const legacyRegistry = {
+        version: 1,
+        deployments: {
+          "/old/target": {
+            kind: "frontmatter-emit",
+            skill: "legacy-mcp",
+            agent: "antigravity",
+            deployed: "2026-01-01T00:00:00.000Z",
+          },
+        },
+      };
+      await writeFile(
+        registryPath(home),
+        `${JSON.stringify(legacyRegistry, null, 2)}\n`,
+        "utf-8",
+      );
+
+      const entry = await lookupDeployment(home, "/old/target");
+      assert.ok(entry);
+      assert.equal(entry?.kind, "frontmatter-emit");
+      if (entry?.kind === "frontmatter-emit") {
+        assert.equal(entry.skill, "legacy-mcp");
+        assert.equal(entry.agent, "antigravity");
+        assert.equal(entry.patch, undefined);
       }
     } finally {
       await rm(home, { recursive: true });

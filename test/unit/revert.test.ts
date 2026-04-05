@@ -22,6 +22,7 @@ import { logger } from "../../src/logger.ts";
 import type {
   ConfigPatchRevertAction,
   FileWriteRevertAction,
+  FrontmatterEmitRevertAction,
   Manifest,
 } from "../../src/types.ts";
 import { exists, makeTmpDir } from "../helpers/fs.ts";
@@ -801,6 +802,131 @@ describe("executeRevert — config-patch", () => {
       assert.equal(planned.length, 1);
       assert.equal(planned[0]?.verb, "unapply-patch");
       assert.equal(planned[0]?.kind, "config-patch");
+    } finally {
+      await rm(home, { recursive: true, force: true });
+    }
+  });
+});
+
+describe("executeRevert — frontmatter-emit", () => {
+  it("removes only engine-owned frontmatter and preserves unrelated content", async () => {
+    const home = await makeTmpDir();
+    try {
+      const targetFile = path.join(home, ".agents", "rules", "my-mcp.md");
+      await mkdir(path.dirname(targetFile), { recursive: true });
+      await writeFile(
+        targetFile,
+        "---\nname: Existing Agent\ndescription: Keep me\nmcp-servers:\n  my-mcp:\n    command: npx\n---\n\n# Body\n",
+      );
+
+      await registerDeployment(home, targetFile, {
+        kind: "frontmatter-emit",
+        patch: { "mcp-servers": { "my-mcp": { command: "npx" } } },
+        undoPatch: { "mcp-servers": null },
+        created: false,
+        hadFrontmatter: true,
+        skill: "my-mcp",
+        agent: "antigravity",
+      });
+
+      const action: FrontmatterEmitRevertAction = {
+        kind: "frontmatter-emit",
+        skill: "my-mcp",
+        agent: "antigravity",
+        target: targetFile,
+      };
+
+      const { succeeded, failed } = await executeRevert(
+        [action],
+        false,
+        false,
+        home,
+      );
+      assert.equal(succeeded, 1);
+      assert.equal(failed.length, 0);
+
+      const content = await readFile(targetFile, "utf-8");
+      assert.match(content, /name: Existing Agent/);
+      assert.match(content, /description: Keep me/);
+      assert.doesNotMatch(content, /mcp-servers:/);
+      assert.match(content, /# Body/);
+      assert.equal(await lookupDeployment(home, targetFile), null);
+    } finally {
+      await rm(home, { recursive: true, force: true });
+    }
+  });
+
+  it("removes a frontmatter-only file that inception created", async () => {
+    const home = await makeTmpDir();
+    try {
+      const targetFile = path.join(home, ".agents", "rules", "my-mcp.md");
+      await mkdir(path.dirname(targetFile), { recursive: true });
+      await writeFile(
+        targetFile,
+        "---\nmcp-servers:\n  my-mcp:\n    command: npx\n---\n",
+      );
+
+      await registerDeployment(home, targetFile, {
+        kind: "frontmatter-emit",
+        patch: { "mcp-servers": { "my-mcp": { command: "npx" } } },
+        undoPatch: { "mcp-servers": null },
+        created: true,
+        hadFrontmatter: false,
+        skill: "my-mcp",
+        agent: "antigravity",
+      });
+
+      const action: FrontmatterEmitRevertAction = {
+        kind: "frontmatter-emit",
+        skill: "my-mcp",
+        agent: "antigravity",
+        target: targetFile,
+      };
+
+      const { succeeded, failed } = await executeRevert(
+        [action],
+        false,
+        false,
+        home,
+      );
+      assert.equal(succeeded, 1);
+      assert.equal(failed.length, 0);
+      assert.ok(!(await exists(targetFile)));
+      assert.equal(await lookupDeployment(home, targetFile), null);
+    } finally {
+      await rm(home, { recursive: true, force: true });
+    }
+  });
+
+  it("restores a body-only markdown file by removing the injected frontmatter", async () => {
+    const home = await makeTmpDir();
+    try {
+      const targetFile = path.join(home, ".agents", "rules", "my-mcp.md");
+      await mkdir(path.dirname(targetFile), { recursive: true });
+      await writeFile(
+        targetFile,
+        "---\nmcp-servers:\n  my-mcp:\n    command: npx\n---\n\n# Body\n",
+      );
+
+      await registerDeployment(home, targetFile, {
+        kind: "frontmatter-emit",
+        patch: { "mcp-servers": { "my-mcp": { command: "npx" } } },
+        undoPatch: { "mcp-servers": null },
+        created: false,
+        hadFrontmatter: false,
+        skill: "my-mcp",
+        agent: "antigravity",
+      });
+
+      const action: FrontmatterEmitRevertAction = {
+        kind: "frontmatter-emit",
+        skill: "my-mcp",
+        agent: "antigravity",
+        target: targetFile,
+      };
+
+      await executeRevert([action], false, false, home);
+      assert.equal(await readFile(targetFile, "utf-8"), "# Body\n");
     } finally {
       await rm(home, { recursive: true, force: true });
     }

@@ -74,6 +74,10 @@ export type RegisterEntry =
   | Omit<ConfigPatchRegistryEntry, "deployed">
   | Omit<FrontmatterEmitRegistryEntry, "deployed">;
 
+function surfaceIdForEntry(entry: RegisterEntry): string {
+  return entry.surfaceId ?? `${entry.kind}:${entry.agent}:${entry.skill}`;
+}
+
 export async function registerDeployment(
   home: string,
   targetPath: string,
@@ -81,8 +85,17 @@ export async function registerDeployment(
   persistence: RegistryPersistence = defaultRegistryPersistence,
 ): Promise<void> {
   const registry = await persistence.load(home);
+  const surfaceId = surfaceIdForEntry(entry);
+  for (const migratedTarget of entry.migratedFrom ?? []) {
+    if (migratedTarget === targetPath) continue;
+    const existing = registry.deployments[migratedTarget];
+    if (existing?.surfaceId === surfaceId) {
+      delete registry.deployments[migratedTarget];
+    }
+  }
   registry.deployments[targetPath] = {
     ...entry,
+    surfaceId,
     deployed: new Date().toISOString(),
   } as RegistryEntry;
   await persistence.save(home, registry);

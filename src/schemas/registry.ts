@@ -1,7 +1,12 @@
 import { z } from "zod";
 import { AgentIdSchema } from "./manifest.ts";
 
-const SkillDirRegistryEntrySchema = z.object({
+const RegistryOwnershipMetadataSchema = z.object({
+  surfaceId: z.string().optional(),
+  migratedFrom: z.array(z.string()).optional(),
+});
+
+const SkillDirRegistryEntrySchema = RegistryOwnershipMetadataSchema.extend({
   kind: z.literal("skill-dir"),
   source: z.string(),
   skill: z.string(),
@@ -10,7 +15,7 @@ const SkillDirRegistryEntrySchema = z.object({
   deployed: z.string(),
 });
 
-const FileWriteRegistryEntrySchema = z.object({
+const FileWriteRegistryEntrySchema = RegistryOwnershipMetadataSchema.extend({
   kind: z.literal("file-write"),
   source: z.string(),
   skill: z.string(),
@@ -18,7 +23,7 @@ const FileWriteRegistryEntrySchema = z.object({
   deployed: z.string(),
 });
 
-const ConfigPatchRegistryEntrySchema = z.object({
+const ConfigPatchRegistryEntrySchema = RegistryOwnershipMetadataSchema.extend({
   kind: z.literal("config-patch"),
   patch: z.record(z.string(), z.unknown()),
   undoPatch: z.record(z.string(), z.unknown()),
@@ -27,12 +32,17 @@ const ConfigPatchRegistryEntrySchema = z.object({
   deployed: z.string(),
 });
 
-const FrontmatterEmitRegistryEntrySchema = z.object({
-  kind: z.literal("frontmatter-emit"),
-  skill: z.string(),
-  agent: AgentIdSchema,
-  deployed: z.string(),
-});
+const FrontmatterEmitRegistryEntrySchema =
+  RegistryOwnershipMetadataSchema.extend({
+    kind: z.literal("frontmatter-emit"),
+    patch: z.record(z.string(), z.unknown()).optional(),
+    undoPatch: z.record(z.string(), z.unknown()).optional(),
+    created: z.boolean().optional(),
+    hadFrontmatter: z.boolean().optional(),
+    skill: z.string(),
+    agent: AgentIdSchema,
+    deployed: z.string(),
+  });
 
 export const RegistryEntrySchema = z.discriminatedUnion("kind", [
   SkillDirRegistryEntrySchema,

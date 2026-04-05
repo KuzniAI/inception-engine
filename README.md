@@ -166,7 +166,9 @@ MCP server registration is supported for all agents except GitHub Copilot. Incep
 - **TOML (Patch)**: `codex` (`~/.codex/config.toml`).
 - **Markdown Frontmatter (Emit)**: `antigravity` (repo-local `.agents/rules/{name}.md` files).
 
-Revert removes the registered server entry from the respective configuration file. GitHub Copilot, which uses repo-scoped MCP surfaces not yet implemented by inception-engine, continues to emit a schema-aware warning and is skipped.
+For Markdown frontmatter targets, inception-engine now records patch-level provenance for the emitted frontmatter block. Deploy merges only the owned frontmatter keys, preserves unrelated frontmatter and Markdown body content, and `revert` removes only the engine-owned keys instead of deleting the whole file unless inception-engine originally created an otherwise-empty file.
+
+Revert removes the registered server entry from the respective configuration file or frontmatter block. GitHub Copilot, which uses repo-scoped MCP surfaces not yet implemented by inception-engine, continues to emit a schema-aware warning and is skipped.
 
 Each **agentRules** entry deploys a Markdown instruction file to an agent's supported instruction file location:
 
@@ -433,11 +435,11 @@ Revert targets all agents listed in the manifest by default (regardless of detec
 
 ### Ownership Tracking and Safe Revert
 
-inception-engine maintains a centralized deployment registry at `~/.inception-engine/registry.json`. Each deploy records the target path, skill name, agent ID, action-specific provenance (`source`/`method` for skill-dir, `source` for file-write, `patch`/`undoPatch` for config-patch), and timestamp. No files are written to the source repository.
+inception-engine maintains a centralized deployment registry at `~/.inception-engine/registry.json`. Each deploy records the target path, skill name, agent ID, action-specific provenance (`source`/`method` for skill-dir, `source` for file-write, `patch`/`undoPatch` for config-patch, `patch`/`undoPatch` plus frontmatter-shape metadata for frontmatter-emit), and timestamp. Registry entries also carry a stable surface ID so future surface migrations can preserve ownership continuity. No files are written to the source repository.
 
 - **Registry-based ownership**: On revert, the registry is checked before removing any target. Only targets with a valid registry entry are removed. On redeploy, unmanaged targets are never replaced.
 
-- **Strong binding**: Each registry entry binds a specific target path to its skill, agent, and action kind. For `skill-dir` and `file-write`, ownership checks also require the recorded `source` to match before an existing target is treated as managed. For `config-patch`, overwrite protection is keyed by target path, kind, skill, and agent; the stored `patch` and `undoPatch` are used for revert bookkeeping rather than deploy-time identity checks.
+- **Strong binding**: Each registry entry binds a specific target path to its skill, agent, and action kind. For `skill-dir` and `file-write`, ownership checks also require the recorded `source` to match before an existing target is treated as managed. For `config-patch` and `frontmatter-emit`, overwrite protection is keyed by target path, kind, skill, and agent; the stored `patch` and `undoPatch` are used for patch-level revert bookkeeping rather than deploy-time identity checks.
 
 - **Atomic redeploy**: When overwriting an existing managed `skill-dir` target, the engine renames the old target to a backup, creates the new deployment, and only removes the backup on success. If the new deployment fails, the backup is restored. `file-write` and `config-patch` deployments write directly to the target without this backup/rollback model.
 

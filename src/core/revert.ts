@@ -1,7 +1,10 @@
 import { lstat, readFile, rm, unlink, writeFile } from "node:fs/promises";
 import { AGENT_REGISTRY_BY_ID } from "../config/agents.ts";
 import { logger } from "../logger.ts";
-import type { ConfigPatchRegistryEntry } from "../schemas/registry.ts";
+import type {
+  ConfigPatchRegistryEntry,
+  FrontmatterEmitRegistryEntry,
+} from "../schemas/registry.ts";
 import type {
   AgentId,
   ConfigPatchRevertAction,
@@ -19,6 +22,7 @@ import {
   compilePermissionsReverts,
 } from "./adapters/index.ts";
 import { revertTomlMcpPatch } from "./adapters/toml.ts";
+import { applyUndoPatch } from "./merge-patch.ts";
 import {
   lookupDeployment,
   type RegistryPersistence,
@@ -179,30 +183,6 @@ async function readJsonConfig(
   return parsed as Record<string, unknown>;
 }
 
-function isPlainObject(v: unknown): v is Record<string, unknown> {
-  return typeof v === "object" && v !== null && !Array.isArray(v);
-}
-
-function applyUndoPatch(
-  current: Record<string, unknown>,
-  undoPatch: Record<string, unknown>,
-): Record<string, unknown> {
-  const restored: Record<string, unknown> = { ...current };
-  for (const [key, originalValue] of Object.entries(undoPatch)) {
-    if (originalValue === null) {
-      delete restored[key];
-    } else if (isPlainObject(originalValue) && isPlainObject(restored[key])) {
-      restored[key] = applyUndoPatch(
-        restored[key] as Record<string, unknown>,
-        originalValue as Record<string, unknown>,
-      );
-    } else {
-      restored[key] = originalValue;
-    }
-  }
-  return restored;
-}
-
 function lstatOutcome(
   err: unknown,
 ): { outcome: "skip" } | { outcome: "fail"; error: string } {
@@ -273,15 +253,8 @@ export async function executeRevert(
         );
         break;
       case "frontmatter-emit":
-        // Frontmatter-emit files are fully managed by inception — revert
-        // deletes the file, same as a file-write revert.
-        result = await revertFileWrite(
-          {
-            kind: "file-write",
-            skill: action.skill,
-            agent: action.agent,
-            target: action.target,
-          },
+        result = await revertFrontmatterEmit(
+          action,
           dryRun,
           verbose,
           home,
@@ -304,6 +277,153 @@ export async function executeRevert(
     failed,
     planned,
   };
+}
+
+function isManagedFrontmatterEntry(
+  entry: Awaited<ReturnType<typeof lookupDeployment>>,
+  action: RevertAction,
+): entry is FrontmatterEmitRegistryEntry {
+  return (
+    entry !== null &&
+    entry.kind === "frontmatter-emit" &&
+    entry.skill === action.skill &&
+    entry.agent === action.agent
+  );
+}
+
+async function loadManagedFrontmatterEntry(
+  action: RevertAction,
+  home: string,
+  deps: RevertDependencies,
+): Promise<FrontmatterEmitRegistryEntry | null> {
+  const entry = await lookupDeployment(home, action.target, deps.registry);
+  return isManagedFrontmatterEntry(entry, action) ? entry : null;
+}
+
+function planFrontmatterRevert(
+  action: RevertAction,
+  frontmatterEntry: FrontmatterEmitRegistryEntry,
+  planned: PlannedChange[],
+): RevertOutcome {
+  planned.push({
+    verb: "unapply-patch",
+    kind: "frontmatter-emit",
+    skill: action.skill,
+    agent: action.agent,
+    target: action.target,
+    patch: frontmatterEntry.undoPatch,
+  });
+  return { outcome: "ok" };
+}
+
+async function applyFrontmatterRevert(
+  action: RevertAction,
+  frontmatterEntry: FrontmatterEmitRegistryEntry,
+): Promise<{ shouldDeleteFile: boolean }> {
+  const frontmatterAdapter = await import("./adapters/frontmatter.ts");
+  const current = await frontmatterAdapter.readFrontmatterDocumentFile(
+    action.target,
+  );
+  const restoredFrontmatter = applyUndoPatch(
+    current.attributes,
+    frontmatterEntry.undoPatch ?? {},
+  );
+  const shouldDeleteFile =
+    frontmatterEntry.created === true &&
+    !frontmatterEntry.hadFrontmatter &&
+    Object.keys(restoredFrontmatter).length === 0 &&
+    current.body.trim() === "";
+
+  if (shouldDeleteFile) {
+    await unlink(action.target);
+    return { shouldDeleteFile };
+  }
+
+  const restoredContent = frontmatterAdapter.buildMarkdownDocument(
+    restoredFrontmatter,
+    current.body,
+    { hasFrontmatter: frontmatterEntry.hadFrontmatter ?? false },
+  );
+  await writeFile(action.target, restoredContent, "utf-8");
+  return { shouldDeleteFile };
+}
+
+async function revertFrontmatterEmit(
+  action: RevertAction,
+  dryRun: boolean,
+  verbose: boolean,
+  home: string,
+  planned: PlannedChange[],
+  deps: RevertDependencies,
+): Promise<RevertOutcome> {
+  const label = `${action.skill} -> ${action.agent}`;
+
+  try {
+    await lstat(action.target);
+  } catch (err) {
+    const result = lstatOutcome(err);
+    if (result.outcome === "skip") {
+      logger.skip(label, "(not found, skipping)");
+      return result;
+    }
+    logger.fail(label, result.error);
+    return result;
+  }
+
+  const frontmatterEntry = await loadManagedFrontmatterEntry(
+    action,
+    home,
+    deps,
+  );
+  if (!frontmatterEntry) {
+    logger.warn(
+      label,
+      `skipping: ${action.target} is not in the deployment registry — not managed by inception-engine`,
+    );
+    return { outcome: "skip" };
+  }
+
+  if (!frontmatterEntry.undoPatch) {
+    return revertFileWrite(
+      {
+        kind: "file-write",
+        skill: action.skill,
+        agent: action.agent,
+        target: action.target,
+      },
+      dryRun,
+      verbose,
+      home,
+      planned,
+      deps,
+    );
+  }
+
+  if (dryRun) {
+    return planFrontmatterRevert(action, frontmatterEntry, planned);
+  }
+
+  try {
+    const { shouldDeleteFile } = await applyFrontmatterRevert(
+      action,
+      frontmatterEntry,
+    );
+
+    await unregisterDeployment(home, action.target, deps.registry);
+    logger.ok(label);
+    if (verbose) {
+      logger.detail(
+        shouldDeleteFile
+          ? `removed: ${action.target}`
+          : `unapplied frontmatter patch from: ${action.target}`,
+      );
+    }
+    return { outcome: "ok" };
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    logger.fail(label, msg);
+    return { outcome: "fail", error: msg };
+  }
 }
 
 interface RevertDependencies {

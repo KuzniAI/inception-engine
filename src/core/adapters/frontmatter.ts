@@ -39,13 +39,14 @@ export function parseFrontmatterDocument<T = Record<string, unknown>>(
 ): {
   attributes: T;
   body: string;
+  hasFrontmatter: boolean;
 } {
   const { frontmatter, body } = splitFrontmatter(raw);
   if (!(frontmatter || raw.startsWith("---"))) {
-    return { attributes: {} as T, body };
+    return { attributes: {} as T, body, hasFrontmatter: false };
   }
   const attributes = YAML.parse(frontmatter) as T;
-  return { attributes: (attributes || {}) as T, body };
+  return { attributes: (attributes || {}) as T, body, hasFrontmatter: true };
 }
 
 /**
@@ -63,9 +64,20 @@ export function buildFrontmatterDocument(
   frontmatter: Record<string, unknown>,
   body = "",
 ): string {
+  return buildMarkdownDocument(frontmatter, body, { hasFrontmatter: true });
+}
+
+export function buildMarkdownDocument(
+  frontmatter: Record<string, unknown>,
+  body = "",
+  options: { hasFrontmatter?: boolean } = {},
+): string {
+  const cleanBody = body.trimStart();
+  if (Object.keys(frontmatter).length === 0 && !options.hasFrontmatter) {
+    return cleanBody;
+  }
   const serialized = serializeFrontmatter(frontmatter);
   // Ensure exactly one newline after the closing delimiter before the body
-  const cleanBody = body.trimStart();
   const separator = cleanBody ? "\n\n" : "\n";
   return `---\n${serialized}\n---\n${separator}${cleanBody}`;
 }
@@ -84,15 +96,33 @@ export async function readFrontmatterFile(filePath: string): Promise<{
   attributes: Record<string, unknown>;
   body: string;
 }> {
+  const document = await readFrontmatterDocumentFile(filePath);
+  return { attributes: document.attributes, body: document.body };
+}
+
+export async function readFrontmatterDocumentFile(filePath: string): Promise<{
+  exists: boolean;
+  hasFrontmatter: boolean;
+  attributes: Record<string, unknown>;
+  body: string;
+}> {
   let raw: string;
   try {
     raw = await readFile(filePath, "utf-8");
   } catch (err) {
     const code = (err as NodeJS.ErrnoException).code;
-    if (code === "ENOENT") return { attributes: {}, body: "" };
+    if (code === "ENOENT") {
+      return {
+        exists: false,
+        hasFrontmatter: false,
+        attributes: {},
+        body: "",
+      };
+    }
     throw err;
   }
-  return parseFrontmatterDocument(raw);
+  const parsed = parseFrontmatterDocument(raw);
+  return { exists: true, ...parsed };
 }
 
 /**
