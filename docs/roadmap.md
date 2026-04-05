@@ -16,41 +16,17 @@ Maximum score: `12`
 Score format:
 `Score X/12 (Architecture A, Agents B, OS C, Confidence D, Safety E, Stability F)`
 
-## Architecture Enablers
-
-Ordered from highest to lowest.
-
-1. ~~**Extend ownership tracking to cover frontmatter-emit and surface migrations, not just whole-file writes and config patches.**~~  
-   The north star explicitly requires patch-level provenance and safe reverts for config-like edits. That is still incomplete for Markdown frontmatter emit targets and for any future migration from one surface to another. Add provenance that can prove which frontmatter block or migrated target is engine-owned before more portability vectors are promoted from roadmap to supported behavior.  
-   `Score 10/12 (Architecture 2, Agents 2, OS 1, Confidence 2, Safety 1, Stability 2)`
-
-2. ~~**Make capability confidence a first-class planning input across `init`, deploy, and preflight.**~~  
-   The codebase already distinguishes documented, implementation-only, unsupported, and planned surfaces in different places, but not through a single planning model. Unify that so generated manifests, warnings, and skips consistently reflect whether a surface is documented, implementation-only, shared through another agent, or deliberately redundant.  
-   `Score 10/12 (Architecture 2, Agents 2, OS 1, Confidence 2, Safety 2, Stability 1)`
-
 ## Quality And Maintenance
 
 Ordered from highest to lowest.
 
-1. **Turn Antigravity same-target collisions into a hard planning error before execution.**  
-   The current implementation warns when an Antigravity `mcpServers` entry and `agentDefinitions` entry share the same name, but still compiles both actions against `{repo}/.agents/rules/{name}.md`. Because deploy executes MCP/frontmatter work before agent-definition file writes, the later action overwrites the earlier one and the registry ends up only tracking the last writer. Planning should reject this case outright, or introduce an explicit migration/merge primitive, before more redundant-path cleanup is considered finished.  
-   `Score 10/12 (Architecture 2, Agents 2, OS 1, Confidence 2, Safety 2, Stability 1)`
+1. **Add explicit Windows execution coverage for repo/workspace instruction targets and frontmatter emit.**  
+   Windows coverage is better than when this roadmap was first written: there are Windows deploy/revert tests for skill-dir behavior, config-patch revert integration, file-write revert integration, and cross-platform path-template resolution. The remaining gap is end-to-end execution coverage for repo/workspace `agentRules` targets and Antigravity frontmatter emit on Windows, which are still primarily exercised through platform-agnostic tests.  
+   `Score 8/12 (Architecture 1, Agents 1, OS 2, Confidence 2, Safety 1, Stability 1)`
 
-2. **Add matrix tests for shared-surface collisions and ambiguity cases.**  
-   The current tests cover many Gemini CLI and Antigravity ambiguity warnings plus Copilot-via-Claude behavior, but the roadmap direction now depends on safely collapsing redundant surfaces. Add focused tests for shared-via aliasing, rule-vs-definition collisions, repo/workspace overlap, and migration-safe revert behavior before removing special-case code.  
-   `Score 10/12 (Architecture 1, Agents 2, OS 2, Confidence 2, Safety 2, Stability 1)`
-
-3. **Expand Windows coverage beyond skill-directory deployment into repo/workspace rules and config-adapter behavior.**  
-   Windows tests exist, but the deepest portability work now sits in rules, config patches, frontmatter emit, and revert semantics. Add coverage for rule scopes, config targets, and revert behavior on Windows so future portability work does not remain POSIX-biased.  
-   `Score 10/12 (Architecture 1, Agents 1, OS 2, Confidence 2, Safety 2, Stability 2)`
-
-4. **Add fixture-based `init` coverage against `limbo/`, sidecar manifests, and README examples.**  
-   `init` now scans rules, agent definitions, MCP sidecars, files sidecars, and configs sidecars. A fixture-based test that exercises the real sample bundle and README-facing conventions will catch drift earlier than unit-only coverage.  
-   `Score 9/12 (Architecture 1, Agents 1, OS 1, Confidence 2, Safety 2, Stability 2)`
-
-5. **Add golden tests for registry behavior during surface migrations and redundant-path removal.**  
-   Once redundant configuration starts collapsing, regressions will likely appear in ownership and revert rather than raw planning. Add golden-style tests around registry entries, undo patches, and migrated targets so cleanup work remains reversible.  
-   `Score 9/12 (Architecture 1, Agents 1, OS 2, Confidence 1, Safety 2, Stability 2)`
+2. **Add fixture-based `init` coverage against `limbo/`, sidecar manifests, and README examples.**  
+   `init` now has broad CLI coverage for sidecar manifests, shared-surface defaults, `copilot-instructions.md`, hints for `files/` and `configs/`, and `.agents/rules/` filtering. What is still missing is a single fixture-backed test that runs against the real `limbo/` sample tree and README-shaped layouts so documentation drift is caught without reconstructing scenarios piecemeal in tests.  
+   `Score 7/12 (Architecture 1, Agents 1, OS 1, Confidence 2, Safety 1, Stability 1)`
 
 ## Functional Features
 
