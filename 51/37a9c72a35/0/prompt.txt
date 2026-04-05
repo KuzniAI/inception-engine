@@ -7,3 +7,7 @@ Plan work on this @docs/roadmap.md Item:
 ---
 
 Proceed with implementation of durable version now
+
+---
+
+commit your current changes and plan your work on next 2 suggested items
