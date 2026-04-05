@@ -1,0 +1,25 @@
+{
+  "cli_version": "0.5.3",
+  "checkpoint_id": "e1df01f5b649",
+  "strategy": "manual-commit",
+  "branch": "main",
+  "checkpoints_count": 1,
+  "files_touched": [
+    "docs/north-star.md"
+  ],
+  "sessions": [
+    {
+      "metadata": "/e1/df01f5b649/0/metadata.json",
+      "transcript": "/e1/df01f5b649/0/full.jsonl",
+      "content_hash": "/e1/df01f5b649/0/content_hash.txt",
+      "prompt": "/e1/df01f5b649/0/prompt.txt"
+    }
+  ],
+  "token_usage": {
+    "input_tokens": 840507,
+    "cache_creation_tokens": 0,
+    "cache_read_tokens": 677786,
+    "output_tokens": 6978,
+    "api_call_count": 29
+  }
+}
