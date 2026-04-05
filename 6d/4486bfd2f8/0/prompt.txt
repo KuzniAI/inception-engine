@@ -1,0 +1,13 @@
+Plan your work on next @docs/roadmap.md Item:
+
+2. **Make capability confidence a first-class planning input across `init`, deploy, and preflight.**  
+   The codebase already distinguishes documented, implementation-only, unsupported, and planned surfaces in different places, but not through a single planning model. Unify that so generated manifests, warnings, and skips consistently reflect whether a surface is documented, implementation-only, shared through another agent, or deliberately redundant.  
+   `Score 10/12 (Architecture 2, Agents 2, OS 1, Confidence 2, Safety 2, Stability 1)`
+
+---
+
+I agree with that recommendation. Implament planner with that policy and make sure that @README.md is updated properly
+
+---
+
+proceed

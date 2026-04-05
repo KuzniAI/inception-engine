@@ -1,0 +1,51 @@
+{
+  "cli_version": "0.5.3",
+  "checkpoint_id": "6d4486bfd2f8",
+  "session_id": "ses_2a1cac0aeffeZjdRmiQJDzeTSs",
+  "strategy": "manual-commit",
+  "created_at": "2026-04-05T15:32:33.708063Z",
+  "branch": "main",
+  "checkpoints_count": 1,
+  "files_touched": [
+    "README.md",
+    "docs/roadmap.md",
+    "src/core/adapters/agent-definitions.ts",
+    "src/core/adapters/mcp.ts",
+    "src/core/adapters/permissions.ts",
+    "src/core/adapters/rules.ts",
+    "src/core/capabilities.ts",
+    "src/core/deploy.ts",
+    "src/core/init.ts",
+    "src/core/preflight.ts",
+    "src/types.ts",
+    "test/unit/capabilities.test.ts",
+    "test/unit/cli.test.ts",
+    "test/unit/deploy.test.ts",
+    "test/unit/preflight.test.ts"
+  ],
+  "agent": "OpenCode",
+  "model": "gpt-5.4",
+  "turn_id": "36bd61a15a33",
+  "token_usage": {
+    "input_tokens": 335563,
+    "cache_creation_tokens": 0,
+    "cache_read_tokens": 5654656,
+    "output_tokens": 36189,
+    "api_call_count": 55
+  },
+  "session_metrics": {
+    "turn_count": 3
+  },
+  "initial_attribution": {
+    "calculated_at": "2026-04-05T15:32:30.711446Z",
+    "agent_lines": 943,
+    "agent_removed": 190,
+    "human_added": 0,
+    "human_modified": 0,
+    "human_removed": 0,
+    "total_committed": 943,
+    "total_lines_changed": 1133,
+    "agent_percentage": 100,
+    "metric_version": 2
+  }
+}
