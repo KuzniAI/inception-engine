@@ -84,6 +84,64 @@ describe("runPreflight", () => {
     assert.equal(warnings[0]?.kind, "config-authority");
     assert.match(warnings[0]?.message ?? "", /antigravity/);
   });
+
+  it("emits shared-surface guidance when a skill targets github-copilot without claude-code", async () => {
+    const manifest: Manifest = {
+      ...emptyManifest,
+      skills: [
+        {
+          name: "my-skill",
+          path: "skills/my-skill",
+          agents: ["github-copilot"],
+        },
+      ],
+    };
+    const warnings = await runPreflight(baseOptions, manifest, "/home/test", [
+      "github-copilot",
+    ]);
+    const info = warnings.find((w) => w.kind === "info");
+    assert.ok(info, "expected a shared-surface info warning");
+    assert.match(info?.message ?? "", /via "claude-code"/);
+  });
+
+  it("emits planned-surface warning when manifest uses github-copilot MCP", async () => {
+    const manifest: Manifest = {
+      ...emptyManifest,
+      mcpServers: [
+        {
+          name: "my-mcp",
+          agents: ["github-copilot"],
+          config: { command: "npx", args: ["-y", "my-mcp"] },
+        },
+      ],
+    };
+    const warnings = await runPreflight(baseOptions, manifest, "/home/test", [
+      "github-copilot",
+    ]);
+    const info = warnings.find((w) => w.kind === "info");
+    assert.ok(info, "expected a planned-surface info warning");
+    assert.match(info?.message ?? "", /planned/);
+  });
+
+  it("emits config-authority warning when manifest uses implementation-only agentDefinitions", async () => {
+    const manifest: Manifest = {
+      ...emptyManifest,
+      agentDefinitions: [
+        {
+          name: "my-agent",
+          path: "agents/my-agent.md",
+          agents: ["gemini-cli"],
+        },
+      ],
+    };
+    const warnings = await runPreflight(baseOptions, manifest, "/home/test", [
+      "gemini-cli",
+    ]);
+    const authority = warnings.find((w) => w.kind === "config-authority");
+    assert.ok(authority, "expected a config-authority warning");
+    assert.match(authority?.message ?? "", /implementation-only/);
+    assert.match(authority?.message ?? "", /agent-definitions/);
+  });
 });
 
 describe("instruction precedence warnings", () => {

@@ -8,7 +8,7 @@ GitHub Copilot is no longer treated as a separate instruction or skill target in
 
 The broader portability layer is the roadmap direction, but this README focuses on what is working now.
 
-`init` is available as a bootstrap command. It scans for directories containing `SKILL.md`, discovers agent-rules Markdown files using the Claude-first portability conventions, and reads `mcp-servers.json` from the repo root to populate `mcpServers`. `files` and `configs` remain empty — `init` emits guidance when it detects a `files/` or `configs/` directory.
+`init` is available as a bootstrap command. It scans for directories containing `SKILL.md`, discovers agent-rules Markdown files using the Claude-first portability conventions, and reads `mcp-servers.json` from the repo root to populate `mcpServers`. Shared surfaces now default to the primary deploy target in generated manifests: for example, `init` emits `claude-code` rather than `github-copilot` for shared Claude-native skills and rules, and emits `gemini-cli` rather than `antigravity` for shared `GEMINI.md` rules surfaces. `files` and `configs` remain empty — `init` emits guidance when it detects a `files/` or `configs/` directory.
 
 ## Quick Start
 
@@ -27,7 +27,7 @@ inception-engine reads a manifest file (`inception.json`) from the target direct
 
 Managed skills overwrite their previous version. If a target exists but was not created by inception-engine, deployment refuses to replace it. On POSIX systems, symlinks mean updates to the source repo are reflected immediately.
 
-Before executing, the deploy command runs preflight analysis on instruction files: it validates that `agentRules` and `agentDefinitions` for targets requiring specific structure (like `github-copilot` and `antigravity`) include valid YAML frontmatter with `name` and `description` fields. For `github-copilot`, it further ensures either `tools` or `instructions` are defined; for `antigravity`, it validates the shape of any `mcp-servers` or `mcpServers` defined in the frontmatter. It also warns when the same agent will have multiple `agentRules` scopes active simultaneously, when the same source file is deployed to multiple scopes (duplicate-content risk), when `agentRules` or `agentDefinitions` source files exceed 50 KB (context-budget risk), and when GitHub Copilot appears to be running under enterprise-managed policy that may override local configuration. Warnings are printed but do not block deployment; structural validation failures block deployment for the affected targets.
+Before executing, the deploy command runs preflight analysis on instruction files and capability planning inputs. It validates that `agentRules` and `agentDefinitions` for targets requiring specific structure (like `github-copilot` and `antigravity`) include valid YAML frontmatter with `name` and `description` fields. For `github-copilot`, it further ensures either `tools` or `instructions` are defined; for `antigravity`, it validates the shape of any `mcp-servers` or `mcpServers` defined in the frontmatter. It also warns when a manifest targets a surface that is implementation-only, planned, unsupported, or shared through another agent, when the same agent will have multiple `agentRules` scopes active simultaneously, when the same source file is deployed to multiple scopes (duplicate-content risk), when `agentRules` or `agentDefinitions` source files exceed 50 KB (context-budget risk), and when GitHub Copilot appears to be running under enterprise-managed policy that may override local configuration. Warnings are printed but do not block deployment; structural validation failures block deployment for the affected targets.
 
 ## Agent Compatibility Matrix
 
@@ -54,10 +54,10 @@ Before executing, the deploy command runs preflight analysis on instruction file
 | Global/Repo/Workspace Rules Files | `scope: "global"` and `scope: "repo"` are supported on the implemented agent surfaces; `scope: "workspace"` is supported for `claude-code`, `codex`, and `gemini-cli`; `github-copilot` reads Claude-native rules via `claude-code` and has no separate rules deployment target | All supported agents |
 | Permissions / Approval Config | claude-code (`~/.claude/settings.json`), codex (`~/.codex/config.toml`); other agents are warned and skipped | claude-code, codex |
 | Agent Definitions | claude-code (`{repo}/.claude/agents/{name}.md`), gemini-cli (`{repo}/.gemini/agents/{name}.md`), antigravity (`{repo}/.agents/rules/{name}.md`), opencode (`{repo}/.opencode/agents/{name}.md`), github-copilot (`{repo}/.github/agents/{name}.agent.md`); codex is warned and skipped | All supported agents |
-| `init` manifest generation | Scans `SKILL.md` directories (`skills`), `.md` files with Claude-first agent mapping (`agentRules`), `mcp-servers.json` (`mcpServers`), and agent-definition Markdown files (`agentDefinitions`); emits hints for `files/` and `configs/` directories | N/A |
-| Instruction preflight analysis | Emits `precedence` warnings when an agent has multiple `agentRules` scopes active simultaneously or the same source file is deployed to multiple scopes; emits `budget` warnings when `agentRules` or `agentDefinitions` source files exceed 50 KB; emits GitHub Copilot enterprise-policy warnings when local configuration may be overridden | N/A |
+| `init` manifest generation | Scans `SKILL.md` directories (`skills`), `.md` files with Claude-first agent mapping (`agentRules`), `mcp-servers.json` (`mcpServers`), and agent-definition Markdown files (`agentDefinitions`); shared surfaces default to the primary deploy target instead of shared riders; emits hints for `files/` and `configs/` directories | N/A |
+| Instruction preflight analysis | Emits capability warnings for implementation-only, planned, unsupported, and shared-through surfaces used by the manifest; emits `precedence` warnings when an agent has multiple `agentRules` scopes active simultaneously or the same source file is deployed to multiple scopes; emits `budget` warnings when `agentRules` or `agentDefinitions` source files exceed 50 KB; emits GitHub Copilot enterprise-policy warnings when local configuration may be overridden | N/A |
 
-Features that depend on agent-specific config surfaces are intentionally conservative: if a target path or schema is not implemented with enough confidence, inception-engine warns and skips it rather than guessing.
+Features that depend on agent-specific config surfaces are intentionally conservative: deploy and preflight now classify each surface through the same planner. If a target path or schema is implementation-only, planned, unsupported, or only shared through another agent, inception-engine warns and either routes through the primary surface or skips it rather than guessing.
 
 For GitHub Copilot specifically, the portability rule is Claude-first: if Copilot accepts the same Claude-native instruction or skill artifact, inception-engine should not add a separate Copilot deployment feature for it.
 
@@ -281,7 +281,7 @@ Current `init` behavior:
 - Applies either the `--agents` list or all currently known agent IDs
 - Refuses to overwrite an existing `inception.json` unless `--force` is provided
 - Supports `--plan` so you can inspect the generated manifest before writing it
-- Discovers agent-rules Markdown files in the root and conventional subdirectories (`rules/`, `instructions/`, `.github/`), mapping them to agents using Claude-first portability conventions: `copilot-instructions.md` maps to `claude-code` (Copilot reads `CLAUDE.md` natively), and the fallback for unrecognized files excludes agents whose agentRules surface is unsupported
+- Discovers agent-rules Markdown files in the root and conventional subdirectories (`rules/`, `instructions/`, `.github/`), mapping them to agents using Claude-first portability conventions: `copilot-instructions.md` maps to `claude-code` (Copilot reads `CLAUDE.md` natively), and the fallback for unrecognized files excludes unsupported agents plus shared-surface riders that should default to their primary deploy target
 - Reads `mcp-servers.json` from the repo root (if present) and generates `mcpServers` entries; invalid entries are warned and skipped
 - Reads `files-manifest.json` from the repo root (if present) and generates `files` entries; invalid entries are warned and skipped
 - Reads `configs-manifest.json` from the repo root (if present) and generates `configs` entries; invalid entries are warned and skipped
@@ -350,6 +350,8 @@ Place an `agent-definitions-manifest.json` file at the repo root to have `init` 
 If no `agent-definitions-manifest.json` is present, `init` auto-discovers agent-definition Markdown files from five conventional subdirectories: `.claude/agents/`, `.gemini/agents/`, `.agents/rules/`, `.opencode/agents/`, and `.github/agents/`. Each discovered file is mapped to the owning agent(s). GitHub Copilot files named `{name}.agent.md` have the `.agent` infix stripped to derive the manifest name (e.g., `foo.agent.md` → name `foo`).
 
 Invalid entries are warned and skipped; the rest are written into the generated manifest verbatim.
+
+For shared surfaces, `init` prefers the primary deploy target instead of emitting both agents. That means generated `skills` entries exclude `github-copilot` in favor of `claude-code`, and generated shared `GEMINI.md` `agentRules` entries exclude `antigravity` in favor of `gemini-cli`. This keeps starter manifests minimal while preserving deploy behavior for explicitly authored shared-rider entries.
 
 ## CLI Reference
 

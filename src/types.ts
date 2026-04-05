@@ -16,6 +16,13 @@ export interface AgentPaths {
 
 export type Confidence = "documented" | "implementation-only" | "provisional";
 
+export type CapabilityKind =
+  | "skills"
+  | "mcpServers"
+  | "agentRules"
+  | "permissions"
+  | "agentDefinitions";
+
 export interface SupportedAgentSurface {
   status: "supported";
   /**

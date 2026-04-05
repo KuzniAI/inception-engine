@@ -359,6 +359,72 @@ describe("planDeploy", () => {
     }
   });
 
+  it("warns and skips when a skill targets github-copilot without claude-code", async () => {
+    const sourceDir = await makeTmpDir();
+    const manifest: Manifest = {
+      skills: [
+        {
+          name: "test-skill",
+          path: "skills/test-skill",
+          agents: ["github-copilot"],
+        },
+      ],
+      files: [],
+      configs: [],
+      mcpServers: [],
+      agentRules: [],
+      permissions: [],
+      agentDefinitions: [],
+    };
+    try {
+      await createSkillSource(sourceDir, "skills/test-skill");
+      const { actions, warnings } = await planDeploy(
+        manifest,
+        sourceDir,
+        ["github-copilot"],
+        "/home/test",
+      );
+      assert.equal(actions.length, 0);
+      assert.equal(warnings.length, 1);
+      assert.match(warnings[0]?.message ?? "", /via "claude-code"/);
+    } finally {
+      await rm(sourceDir, { recursive: true });
+    }
+  });
+
+  it("deduplicates github-copilot skills behind claude-code when both are targeted", async () => {
+    const sourceDir = await makeTmpDir();
+    const manifest: Manifest = {
+      skills: [
+        {
+          name: "test-skill",
+          path: "skills/test-skill",
+          agents: ["claude-code", "github-copilot"],
+        },
+      ],
+      files: [],
+      configs: [],
+      mcpServers: [],
+      agentRules: [],
+      permissions: [],
+      agentDefinitions: [],
+    };
+    try {
+      await createSkillSource(sourceDir, "skills/test-skill");
+      const { actions, warnings } = await planDeploy(
+        manifest,
+        sourceDir,
+        ["claude-code", "github-copilot"],
+        "/home/test",
+      );
+      assert.equal(actions.length, 1);
+      assert.equal(actions[0]?.agent, "claude-code");
+      assert.equal(warnings.length, 0);
+    } finally {
+      await rm(sourceDir, { recursive: true });
+    }
+  });
+
   it("emits no warnings for all-documented agents", async () => {
     const sourceDir = await makeTmpDir();
     try {

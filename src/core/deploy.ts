@@ -30,6 +30,7 @@ import type {
   TomlPatchDeployAction,
 } from "../types.ts";
 import { compileAdapterActions } from "./adapters/index.ts";
+import { planCapabilityForDeploy } from "./capabilities.ts";
 import {
   applyMergePatch,
   computeUndoPatch,
@@ -267,22 +268,38 @@ async function planSkillDirActions(
   realRoot: string,
   detectedAgents: AgentId[],
   home: string,
-): Promise<SkillDirDeployAction[]> {
+): Promise<{ actions: SkillDirDeployAction[]; warnings: PlanWarning[] }> {
   const method = getDeployMethod();
   const actions: SkillDirDeployAction[] = [];
-  for (const skill of manifest.skills) {
+  const warnings: PlanWarning[] = [];
+
+  async function planSkillEntry(
+    skill: Manifest["skills"][number],
+  ): Promise<void> {
     const targetAgents = skill.agents.filter((agentId) =>
       detectedAgents.includes(agentId),
     );
-    if (targetAgents.length === 0) continue;
+    if (targetAgents.length === 0) return;
 
     const source = path.resolve(sourceDir, skill.path);
     await validateSourcePath(source, skill.path, resolvedSourceDir, realRoot);
     await validateSkillContract(source, skill.path);
+
     for (const agentId of targetAgents) {
+      const plan = planCapabilityForDeploy({
+        agentId,
+        capability: "skills",
+        entryName: skill.name,
+        targetAgentIds: targetAgents,
+      });
+      if (plan.outcome === "warn") {
+        warnings.push(plan.warning);
+        continue;
+      }
+      if (plan.outcome === "native" || plan.outcome === "redundant") continue;
+
       const agent = AGENT_REGISTRY_BY_ID[agentId];
       if (!agent) continue;
-      if (!agent.skills) continue;
       actions.push({
         kind: "skill-dir",
         skill: skill.name,
@@ -290,11 +307,15 @@ async function planSkillDirActions(
         source,
         target: resolveAgentSkillPath(agent, skill.name, home),
         method,
-        confidence: agent.provenance.skills ?? "provisional",
+        confidence: plan.confidence ?? "provisional",
       });
     }
   }
-  return actions;
+
+  for (const skill of manifest.skills) {
+    await planSkillEntry(skill);
+  }
+  return { actions, warnings };
 }
 
 async function planFileWriteActions(
@@ -388,16 +409,17 @@ export async function planDeploy(
   }
 
   const repoDir = repo ?? realRoot;
+  const skillPlan = await planSkillDirActions(
+    manifest,
+    sourceDir,
+    resolvedSourceDir,
+    realRoot,
+    detectedAgents,
+    home,
+  );
 
   const actions: DeployAction[] = [
-    ...(await planSkillDirActions(
-      manifest,
-      sourceDir,
-      resolvedSourceDir,
-      realRoot,
-      detectedAgents,
-      home,
-    )),
+    ...skillPlan.actions,
     ...(await planFileWriteActions(
       manifest,
       sourceDir,
@@ -433,6 +455,7 @@ export async function planDeploy(
   actions.push(...adapterResult.actions);
 
   const warnings: PlanWarning[] = [
+    ...skillPlan.warnings,
     ...detectAmbiguities(detectedAgents, manifest),
     ...checkAntigravityPathCollisions(manifest),
     ...detectCollisions(actions),

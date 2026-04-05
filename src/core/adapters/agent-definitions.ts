@@ -1,5 +1,4 @@
 import path from "node:path";
-import { AGENT_REGISTRY_BY_ID } from "../../config/agents.ts";
 import type { AgentDefinitionEntry } from "../../schemas/manifest.ts";
 import type {
   AgentId,
@@ -7,6 +6,10 @@ import type {
   FileWriteRevertAction,
   PlanWarning,
 } from "../../types.ts";
+import {
+  planCapabilityForDeploy,
+  resolveCapabilitySurface,
+} from "../capabilities.ts";
 import { getPlatformKey, resolvePlaceholders } from "../resolve.ts";
 import {
   validateAgentRuleMarkdownPath,
@@ -59,26 +62,27 @@ export async function compileAgentDefinitionActions(
   }
 
   for (const agentId of targetAgents) {
-    const agent = AGENT_REGISTRY_BY_ID[agentId];
-    const support = agent?.agentDefinitionsSupport;
-    if (!support || support.status === "unsupported") {
-      warnings.push({
-        kind: "confidence",
-        message: `agentDefinitions: agent "${agentId}" uses ${support?.schemaLabel ?? "an unsupported agent-definition schema"} and ${support?.status === "unsupported" ? support.reason : "does not expose a supported agent-definitions adapter"} — skipping "${entry.name}"`,
-      });
+    const plan = planCapabilityForDeploy({
+      agentId,
+      capability: "agentDefinitions",
+      entryName: entry.name,
+      targetAgentIds: targetAgents,
+    });
+    if (plan.outcome === "warn") {
+      warnings.push(plan.warning);
       continue;
     }
-    if (support.status === "planned") {
-      warnings.push({
-        kind: "confidence",
-        message: `agentDefinitions: agent "${agentId}" agent-definitions support is planned via ${support.plannedSurface} — skipping "${entry.name}" until that surface is implemented`,
-      });
-      continue;
-    }
+    if (plan.outcome === "native" || plan.outcome === "redundant") continue;
+
+    const support = resolveCapabilitySurface(
+      agentId,
+      "agentDefinitions",
+    ).support;
+    if (!support) continue;
 
     supportedTargets.push({
       agentId,
-      confidence: agent.provenance.agentDefinitions ?? "provisional",
+      confidence: plan.confidence ?? "provisional",
       target: resolvePlaceholders(
         support.path[platform],
         entry.name,
@@ -130,14 +134,11 @@ export function compileAgentDefinitionReverts(
 
   for (const agentId of entry.agents) {
     if (agentFilter && !agentFilter.includes(agentId)) continue;
-    const agent = AGENT_REGISTRY_BY_ID[agentId];
-    const support = agent?.agentDefinitionsSupport;
-    if (
-      !support ||
-      support.status === "unsupported" ||
-      support.status === "planned"
-    )
-      continue;
+    const support = resolveCapabilitySurface(
+      agentId,
+      "agentDefinitions",
+    ).support;
+    if (!support) continue;
     const target = resolvePlaceholders(
       support.path[platform],
       entry.name,

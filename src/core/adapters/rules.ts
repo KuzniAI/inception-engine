@@ -1,13 +1,15 @@
 import path from "node:path";
-import { AGENT_REGISTRY_BY_ID } from "../../config/agents.ts";
 import type { AgentRuleEntry } from "../../schemas/manifest.ts";
 import type {
   AgentId,
-  AgentSurfaceSupport,
   FileWriteDeployAction,
   FileWriteRevertAction,
   PlanWarning,
 } from "../../types.ts";
+import {
+  planCapabilityForDeploy,
+  resolveCapabilitySurface,
+} from "../capabilities.ts";
 import { getPlatformKey, resolvePlaceholders } from "../resolve.ts";
 import {
   validateAgentRuleMarkdownPath,
@@ -19,24 +21,6 @@ import {
 export interface RulesAdapterResult {
   actions: FileWriteDeployAction[];
   warnings: PlanWarning[];
-}
-
-function resolveRulesSupport(
-  agentId: AgentId,
-  scope: AgentRuleEntry["scope"],
-): AgentSurfaceSupport | undefined {
-  const agent = AGENT_REGISTRY_BY_ID[agentId];
-  if (scope === "repo") {
-    return agent?.agentRulesRepoSupport ?? agent?.agentRulesSupport;
-  }
-  if (scope === "workspace") {
-    return (
-      agent?.agentRulesWorkspaceSupport ??
-      agent?.agentRulesRepoSupport ??
-      agent?.agentRulesSupport
-    );
-  }
-  return agent?.agentRulesSupport;
 }
 
 type ResolvedTarget = {
@@ -53,33 +37,19 @@ function resolveAgentTarget(
   platform: "posix" | "windows",
   workspace?: string,
   allTargetAgentIds?: AgentId[],
-): ResolvedTarget | PlanWarning {
-  const support = resolveRulesSupport(agentId, entry.scope);
-  if (!support || support.status === "unsupported") {
-    return {
-      kind: "confidence",
-      message: `agentRules: agent "${agentId}" uses ${support?.schemaLabel ?? "an unsupported instruction schema"} (unsupported) and ${support?.status === "unsupported" ? support.reason : "does not expose a supported rules adapter"} — skipping "${entry.name}"`,
-    };
-  }
-  if (support.status === "planned") {
-    return {
-      kind: "confidence",
-      message: `agentRules: agent "${agentId}" rules support is planned via ${support.plannedSurface} — skipping "${entry.name}" until that surface is implemented`,
-    };
-  }
-  // shared-via: when requiresPrimary is set and the primary agent is absent
-  // from the target list, emit a guidance warning instead of deploying.
-  if (
-    support.surfaceKind?.kind === "shared-via" &&
-    support.surfaceKind.requiresPrimary &&
-    allTargetAgentIds &&
-    !allTargetAgentIds.includes(support.surfaceKind.via)
-  ) {
-    return {
-      kind: "confidence",
-      message: `agentRules: agent "${agentId}" reads this surface via "${support.surfaceKind.via}" — add "${support.surfaceKind.via}" to the entry's agents list to deploy to this surface, or deploy via the "${support.surfaceKind.via}" agentRules target instead`,
-    };
-  }
+): ResolvedTarget | PlanWarning | null {
+  const plan = planCapabilityForDeploy({
+    agentId,
+    capability: "agentRules",
+    entryName: entry.name,
+    targetAgentIds: allTargetAgentIds ?? [agentId],
+    scope: entry.scope,
+  });
+  if (plan.outcome === "warn") return plan.warning;
+  if (plan.outcome === "native" || plan.outcome === "redundant") return null;
+
+  const surface = resolveCapabilitySurface(agentId, "agentRules", entry.scope);
+  const support = surface.support;
   if (entry.scope === "repo" && !repo) {
     return {
       kind: "confidence",
@@ -92,12 +62,11 @@ function resolveAgentTarget(
       message: `agentRules: scope "workspace" requires a workspace or repository path but none was resolved — skipping "${entry.name}" for agent "${agentId}"`,
     };
   }
-  const agent = AGENT_REGISTRY_BY_ID[agentId];
   return {
     agentId,
-    confidence: agent?.provenance.agentRules ?? "provisional",
+    confidence: plan.confidence,
     target: resolvePlaceholders(
-      support.path[platform],
+      support?.path[platform] ?? [],
       entry.name,
       home,
       repo,
@@ -138,6 +107,9 @@ export async function compileAgentRuleActions(
       workspace,
       targetAgents,
     );
+    if (result === null) {
+      continue;
+    }
     if ("kind" in result) {
       warnings.push(result);
     } else {
@@ -155,15 +127,16 @@ export async function compileAgentRuleActions(
   const seenTargetPaths = new Set<string>();
   const dedupedTargets: ResolvedTarget[] = [];
   for (const t of supportedTargets) {
-    const sup = resolveRulesSupport(t.agentId, entry.scope);
+    const surface = resolveCapabilitySurface(
+      t.agentId,
+      "agentRules",
+      entry.scope,
+    );
     if (
-      sup?.status === "supported" &&
-      sup.surfaceKind?.kind === "shared-via" &&
+      surface.surfaceKind === "shared-via" &&
+      surface.sharedVia &&
       supportedTargets.some(
-        (o) =>
-          o.agentId ===
-            (sup.surfaceKind as { kind: "shared-via"; via: AgentId }).via &&
-          o.target === t.target,
+        (o) => o.agentId === surface.sharedVia && o.target === t.target,
       )
     ) {
       // Primary agent is present and writes the same target — skip rider.
@@ -214,13 +187,14 @@ export function compileAgentRuleReverts(
 
   for (const agentId of entry.agents) {
     if (agentFilter && !agentFilter.includes(agentId)) continue;
-    const support = resolveRulesSupport(agentId, entry.scope);
+    const surface = resolveCapabilitySurface(
+      agentId,
+      "agentRules",
+      entry.scope,
+    );
+    const support = surface.support;
 
-    if (
-      !support ||
-      support.status === "unsupported" ||
-      support.status === "planned"
-    ) {
+    if (surface.supportStatus !== "supported" || !support) {
       continue;
     }
 

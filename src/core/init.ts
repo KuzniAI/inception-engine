@@ -1,6 +1,6 @@
 import { access, readdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
-import { AGENT_REGISTRY, AGENT_REGISTRY_BY_ID } from "../config/agents.ts";
+import { AGENT_REGISTRY } from "../config/agents.ts";
 import { dryRunPrefix, logger } from "../logger.ts";
 import type {
   AgentDefinitionEntry,
@@ -19,6 +19,7 @@ import {
   McpServerEntrySchema,
 } from "../schemas/manifest.ts";
 import { parseFrontmatterDocument } from "./adapters/frontmatter.ts";
+import { shouldInitIncludeAgent } from "./capabilities.ts";
 
 const SAFE_NAME_RE = /^[a-zA-Z0-9][a-zA-Z0-9._-]*$/;
 
@@ -34,14 +35,9 @@ const AGENT_RULES_FILE_PATTERNS: Array<{
 }> = (() => {
   const filenameToAgents = new Map<string, AgentId[]>();
   for (const agent of AGENT_REGISTRY) {
+    if (!shouldInitIncludeAgent(agent.id, "agentRules", "global")) continue;
     const support = agent.agentRulesSupport;
     if (support?.status !== "supported") continue;
-    // Skip riders that require the primary — they cannot be listed independently
-    if (
-      support.surfaceKind?.kind === "shared-via" &&
-      support.surfaceKind.requiresPrimary
-    )
-      continue;
     const filename =
       support.path.posix[support.path.posix.length - 1]?.toLowerCase();
     if (!filename) continue;
@@ -154,13 +150,16 @@ function buildSkills(
   found: Array<{ relPath: string; name: string }>,
   agents: AgentId[],
 ): SkillEntry[] {
+  const initAgents = agents.filter((agentId) =>
+    shouldInitIncludeAgent(agentId, "skills"),
+  );
   const namesSeen = new Set<string>();
   const skills: SkillEntry[] = [];
   for (const { relPath, name } of found) {
     const skillName = resolveSkillName(relPath, name, namesSeen);
     if (skillName === null) continue;
     namesSeen.add(skillName);
-    skills.push({ name: skillName, path: relPath, agents });
+    skills.push({ name: skillName, path: relPath, agents: initAgents });
   }
   return skills;
 }
@@ -475,10 +474,8 @@ function buildAgentDefinitions(
 ): AgentDefinitionEntry[] {
   const definitions: AgentDefinitionEntry[] = [];
   const localNamesSeen = new Set<string>(namesSeen);
-  const definitionsCapableAgents = activeAgents.filter(
-    (id) =>
-      AGENT_REGISTRY_BY_ID[id].agentDefinitionsSupport?.status !==
-      "unsupported",
+  const definitionsCapableAgents = activeAgents.filter((id) =>
+    shouldInitIncludeAgent(id, "agentDefinitions"),
   );
 
   for (const { relPath, name: rawName, suggestedAgents } of candidates) {
@@ -759,18 +756,9 @@ export interface InitOptions {
 export async function runInit(options: InitOptions): Promise<number> {
   const { directory, dryRun, force, verbose } = options;
   const agents: AgentId[] = options.agents ?? ([...AGENT_IDS] as AgentId[]);
-  const agentRulesCapableAgents = agents.filter((id) => {
-    const support = AGENT_REGISTRY_BY_ID[id].agentRulesSupport;
-    if (!support || support.status === "unsupported") return false;
-    // Exclude riders that require the primary — they cannot operate independently
-    if (
-      support.status === "supported" &&
-      support.surfaceKind?.kind === "shared-via" &&
-      support.surfaceKind.requiresPrimary
-    )
-      return false;
-    return true;
-  });
+  const agentRulesCapableAgents = agents.filter((id) =>
+    shouldInitIncludeAgent(id, "agentRules", "global"),
+  );
 
   const manifestPath = path.join(directory, "inception.json");
 

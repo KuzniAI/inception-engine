@@ -462,7 +462,7 @@ describe("init command", () => {
     }
   });
 
-  it("discovers GEMINI.md as agentRules entry for gemini-cli and antigravity", async () => {
+  it("discovers GEMINI.md as agentRules entry for gemini-cli only", async () => {
     const dir = await makeTmpDir();
     try {
       await mkdir(path.join(dir, "my-skill"), { recursive: true });
@@ -488,8 +488,8 @@ describe("init command", () => {
       assert.ok(entry, "should have an entry for GEMINI.md");
       assert.deepEqual(
         entry?.agents.slice().sort(),
-        ["antigravity", "gemini-cli"],
-        `expected gemini-cli+antigravity, got: ${JSON.stringify(entry?.agents)}`,
+        ["gemini-cli"],
+        `expected gemini-cli only, got: ${JSON.stringify(entry?.agents)}`,
       );
     } finally {
       await rm(dir, { recursive: true });
@@ -653,6 +653,10 @@ describe("init command", () => {
         !entry?.agents.includes("github-copilot"),
         `fallback agents should not include github-copilot, got: ${JSON.stringify(entry?.agents)}`,
       );
+      assert.ok(
+        !entry?.agents.includes("antigravity"),
+        `fallback agents should not include antigravity rider surfaces, got: ${JSON.stringify(entry?.agents)}`,
+      );
     } finally {
       await rm(dir, { recursive: true });
     }
@@ -676,6 +680,55 @@ describe("init command", () => {
         [],
         "github-copilot cannot receive agentRules, so agentRules should be []",
       );
+    } finally {
+      await rm(dir, { recursive: true });
+    }
+  });
+
+  it("generated skills exclude github-copilot because skills are shared via claude-code", async () => {
+    const dir = await makeTmpDir();
+    try {
+      await mkdir(path.join(dir, "my-skill"), { recursive: true });
+      await writeFile(
+        path.join(dir, "my-skill", "SKILL.md"),
+        "---\nname: my-skill\ndescription: test\n---\n",
+      );
+      const { code } = await run(["init", dir]);
+      assert.equal(code, 0);
+      const manifest = JSON.parse(
+        (
+          await import("node:fs/promises").then((m) =>
+            m.readFile(path.join(dir, "inception.json"), "utf-8"),
+          )
+        ).toString(),
+      ) as { skills: Array<{ agents: string[] }> };
+      assert.ok(manifest.skills[0], "expected one generated skill");
+      assert.ok(
+        !manifest.skills[0].agents.includes("github-copilot"),
+        `skills should not include github-copilot, got: ${JSON.stringify(manifest.skills[0].agents)}`,
+      );
+    } finally {
+      await rm(dir, { recursive: true });
+    }
+  });
+
+  it("--agents antigravity alone produces agentRules: [] because shared surfaces default to the primary agent", async () => {
+    const dir = await makeTmpDir();
+    try {
+      await writeFile(
+        path.join(dir, "my-custom-rules.md").toString(),
+        "# rules\n",
+      );
+      const { code } = await run(["init", dir, "--agents", "antigravity"]);
+      assert.equal(code, 0);
+      const manifest = JSON.parse(
+        (
+          await import("node:fs/promises").then((m) =>
+            m.readFile(path.join(dir, "inception.json"), "utf-8"),
+          )
+        ).toString(),
+      ) as { agentRules: unknown[] };
+      assert.deepEqual(manifest.agentRules, []);
     } finally {
       await rm(dir, { recursive: true });
     }

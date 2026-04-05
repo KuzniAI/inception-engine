@@ -2,6 +2,10 @@ import { readFile, stat } from "node:fs/promises";
 import path from "node:path";
 import { AGENT_REGISTRY_BY_ID } from "../config/agents.ts";
 import type { AgentId, CliOptions, Manifest } from "../types.ts";
+import {
+  describeCapabilityConfidence,
+  planCapabilityForDeploy,
+} from "./capabilities.ts";
 import { resolveRuntimePaths } from "./runtime-paths.ts";
 
 export interface PreflightWarning {
@@ -188,6 +192,115 @@ async function detectInstructionBudgetRisk(
   return warnings;
 }
 
+type CapabilityWarningAccumulator = {
+  warnings: PreflightWarning[];
+  seen: Set<string>;
+};
+
+function pushCapabilityWarning(
+  acc: CapabilityWarningAccumulator,
+  kind: PreflightWarning["kind"],
+  message: string,
+): void {
+  if (acc.seen.has(`${kind}:${message}`)) return;
+  acc.seen.add(`${kind}:${message}`);
+  acc.warnings.push({ kind, message });
+}
+
+function collectCapabilityWarningsForTargets(
+  acc: CapabilityWarningAccumulator,
+  targetAgents: AgentId[],
+  capability:
+    | "skills"
+    | "mcpServers"
+    | "agentRules"
+    | "permissions"
+    | "agentDefinitions",
+  entryName: string,
+  scope?: "global" | "repo" | "workspace",
+): void {
+  for (const agentId of targetAgents) {
+    const plan = planCapabilityForDeploy({
+      agentId,
+      capability,
+      entryName,
+      targetAgentIds: targetAgents,
+      scope,
+    });
+    if (plan.outcome === "warn") {
+      pushCapabilityWarning(acc, "info", plan.warning.message);
+      continue;
+    }
+    if (capability === "skills") continue;
+
+    const confidence = describeCapabilityConfidence(agentId, capability, scope);
+    if (confidence.message) {
+      pushCapabilityWarning(acc, "config-authority", confidence.message);
+    }
+  }
+}
+
+function collectManifestCapabilityWarnings(
+  manifest: Manifest,
+  detectedAgents: AgentId[],
+): PreflightWarning[] {
+  const acc: CapabilityWarningAccumulator = {
+    warnings: [],
+    seen: new Set<string>(),
+  };
+
+  for (const entry of manifest.skills) {
+    collectCapabilityWarningsForTargets(
+      acc,
+      entry.agents.filter((agentId) => detectedAgents.includes(agentId)),
+      "skills",
+      entry.name,
+    );
+  }
+  for (const entry of manifest.mcpServers ?? []) {
+    collectCapabilityWarningsForTargets(
+      acc,
+      entry.agents.filter((agentId) => detectedAgents.includes(agentId)),
+      "mcpServers",
+      entry.name,
+    );
+  }
+  for (const entry of manifest.agentRules ?? []) {
+    collectCapabilityWarningsForTargets(
+      acc,
+      entry.agents.filter((agentId) => detectedAgents.includes(agentId)),
+      "agentRules",
+      entry.name,
+      entry.scope,
+    );
+  }
+  for (const entry of manifest.permissions ?? []) {
+    collectCapabilityWarningsForTargets(
+      acc,
+      entry.agents.filter((agentId) => detectedAgents.includes(agentId)),
+      "permissions",
+      entry.name,
+    );
+  }
+  for (const entry of manifest.agentDefinitions ?? []) {
+    collectCapabilityWarningsForTargets(
+      acc,
+      entry.agents.filter((agentId) => detectedAgents.includes(agentId)),
+      "agentDefinitions",
+      entry.name,
+    );
+  }
+
+  return acc.warnings;
+}
+
+function detectCapabilityPlanningWarnings(
+  manifest: Manifest,
+  detectedAgents: AgentId[],
+): PreflightWarning[] {
+  return collectManifestCapabilityWarnings(manifest, detectedAgents);
+}
+
 export async function runPreflight(
   options: CliOptions,
   manifest: Manifest,
@@ -200,15 +313,16 @@ export async function runPreflight(
     const agent = AGENT_REGISTRY_BY_ID[agentId];
     if (!agent) continue;
 
-    if (agent.provenance.skills === "implementation-only") {
+    const skillConfidence = describeCapabilityConfidence(agentId, "skills");
+    if (
+      skillConfidence.confidence === "implementation-only" ||
+      skillConfidence.confidence === "provisional"
+    ) {
       warnings.push({
         kind: "config-authority",
-        message: `Agent "${agentId}" skill support is implementation-only: paths are derived from source inspection, not published documentation.`,
-      });
-    } else if (agent.provenance.skills === "provisional") {
-      warnings.push({
-        kind: "config-authority",
-        message: `Agent "${agentId}" skill support is provisional: behavior has not been independently verified.`,
+        message:
+          skillConfidence.message ??
+          `Agent "${agentId}" skill support is ${skillConfidence.confidence}.`,
       });
     }
 
@@ -228,6 +342,8 @@ export async function runPreflight(
       });
     }
   }
+
+  warnings.push(...detectCapabilityPlanningWarnings(manifest, detectedAgents));
 
   warnings.push(...detectInstructionPrecedence(detectedAgents, manifest));
   warnings.push(

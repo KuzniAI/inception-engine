@@ -24,7 +24,7 @@ Ordered from highest to lowest.
    The north star explicitly requires patch-level provenance and safe reverts for config-like edits. That is still incomplete for Markdown frontmatter emit targets and for any future migration from one surface to another. Add provenance that can prove which frontmatter block or migrated target is engine-owned before more portability vectors are promoted from roadmap to supported behavior.  
    `Score 10/12 (Architecture 2, Agents 2, OS 1, Confidence 2, Safety 1, Stability 2)`
 
-2. **Make capability confidence a first-class planning input across `init`, deploy, and preflight.**  
+2. ~~**Make capability confidence a first-class planning input across `init`, deploy, and preflight.**~~  
    The codebase already distinguishes documented, implementation-only, unsupported, and planned surfaces in different places, but not through a single planning model. Unify that so generated manifests, warnings, and skips consistently reflect whether a surface is documented, implementation-only, shared through another agent, or deliberately redundant.  
    `Score 10/12 (Architecture 2, Agents 2, OS 1, Confidence 2, Safety 2, Stability 1)`
 

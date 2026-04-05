@@ -1,5 +1,4 @@
 import path from "node:path";
-import { AGENT_REGISTRY_BY_ID } from "../../config/agents.ts";
 import type { McpServerEntry } from "../../schemas/manifest.ts";
 import type {
   AgentId,
@@ -11,6 +10,10 @@ import type {
   TomlPatchDeployAction,
   TomlPatchRevertAction,
 } from "../../types.ts";
+import {
+  planCapabilityForDeploy,
+  resolveCapabilitySurface,
+} from "../capabilities.ts";
 import { getPlatformKey, resolvePlaceholders } from "../resolve.ts";
 import { validateMcpServerConfigShape } from "../validation.ts";
 
@@ -94,22 +97,20 @@ export function compileMcpServerActions(
 
   for (const agentId of entry.agents) {
     if (!detectedAgents.includes(agentId)) continue;
-    const agent = AGENT_REGISTRY_BY_ID[agentId];
-    const support = agent?.mcpSupport;
-    if (!support || support.status === "unsupported") {
-      warnings.push({
-        kind: "confidence",
-        message: `mcpServers: agent "${agentId}" uses ${support?.schemaLabel ?? "an unsupported MCP schema"} and ${support?.status === "unsupported" ? support.reason : "does not expose a supported MCP adapter"} — skipping "${entry.name}"`,
-      });
+    const plan = planCapabilityForDeploy({
+      agentId,
+      capability: "mcpServers",
+      entryName: entry.name,
+      targetAgentIds: entry.agents,
+    });
+    if (plan.outcome === "warn") {
+      warnings.push(plan.warning);
       continue;
     }
-    if (support.status === "planned") {
-      warnings.push({
-        kind: "confidence",
-        message: `mcpServers: agent "${agentId}" MCP support is planned via ${support.plannedSurface} — skipping "${entry.name}" until that surface is implemented`,
-      });
-      continue;
-    }
+    if (plan.outcome === "native" || plan.outcome === "redundant") continue;
+
+    const support = resolveCapabilitySurface(agentId, "mcpServers").support;
+    if (!support) continue;
 
     validateMcpServerConfigShape(entry.config, entry.name, agentId);
 
@@ -121,7 +122,7 @@ export function compileMcpServerActions(
       workspace,
     );
     const resolvedTarget = path.resolve(rawTarget);
-    const confidence = agent.provenance.mcpConfig ?? "provisional";
+    const confidence = plan.confidence ?? "provisional";
     const mcpPatchKey = support.mcpPatchKey ?? "mcpServers";
 
     actions.push(
@@ -156,14 +157,8 @@ export function compileMcpServerReverts(
 
   for (const agentId of entry.agents) {
     if (agentFilter && !agentFilter.includes(agentId)) continue;
-    const agent = AGENT_REGISTRY_BY_ID[agentId];
-    const support = agent?.mcpSupport;
-    if (
-      !support ||
-      support.status === "unsupported" ||
-      support.status === "planned"
-    )
-      continue;
+    const support = resolveCapabilitySurface(agentId, "mcpServers").support;
+    if (!support) continue;
 
     const rawTarget = resolvePlaceholders(
       support.path[platform],
