@@ -11,7 +11,7 @@ import type {
   TomlPatchDeployAction,
 } from "../../src/types.ts";
 import { makeTmpDir } from "../helpers/fs.ts";
-import { normalizeSlashes } from "../helpers/path.ts";
+import { assertPathEndsWith, normalizeSlashes } from "../helpers/path.ts";
 
 describe("compileMcpServerActions", () => {
   it("returns zero actions and warnings when no detectedAgents overlap", () => {
@@ -60,8 +60,9 @@ describe("compileMcpServerActions", () => {
     );
     assert.equal(actions.length, 1);
     const action = actions[0] as ConfigPatchDeployAction;
-    assert.ok(
-      normalizeSlashes(action.target).endsWith(".gemini/settings.json"),
+    assertPathEndsWith(
+      action.target,
+      ".gemini/settings.json",
       `expected target under .gemini/settings.json, got: ${action.target}`,
     );
   });
@@ -96,10 +97,9 @@ describe("compileMcpServerActions", () => {
     assert.equal(warnings.length, 0);
     assert.equal(actions[0]?.kind, "frontmatter-emit");
     assert.equal(actions[0]?.agent, "antigravity");
-    assert.ok(
-      normalizeSlashes(actions[0]?.target ?? "").endsWith(
-        ".agents/rules/my-mcp.md",
-      ),
+    assertPathEndsWith(
+      actions[0]?.target ?? "",
+      ".agents/rules/my-mcp.md",
       `expected target to end with .agents/rules/my-mcp.md, got ${actions[0]?.target}`,
     );
   });
@@ -215,8 +215,9 @@ describe("compileAgentRuleActions", () => {
       assert.equal(action.skill, "my-rule");
       assert.equal(action.agent, "claude-code");
       assert.equal(action.source, rulesFile);
-      assert.ok(
-        normalizeSlashes(action.target).endsWith(".claude/CLAUDE.md"),
+      assertPathEndsWith(
+        action.target,
+        ".claude/CLAUDE.md",
         `expected target under .claude/CLAUDE.md, got: ${action.target}`,
       );
       assert.equal(action.confidence, "documented");
@@ -290,10 +291,9 @@ describe("compileAgentRuleActions", () => {
       assert.equal(warnings.length, 0);
       assert.equal(actions[0]?.kind, "file-write");
       assert.equal(actions[0]?.agent, "antigravity");
-      assert.ok(
-        normalizeSlashes(actions[0]?.target ?? "").endsWith(
-          ".gemini/GEMINI.md",
-        ),
+      assertPathEndsWith(
+        actions[0]?.target ?? "",
+        ".gemini/GEMINI.md",
         `expected target to end with .gemini/GEMINI.md, got ${actions[0]?.target}`,
       );
     } finally {
@@ -328,10 +328,9 @@ describe("compileAgentRuleActions", () => {
       assert.equal(warnings.length, 0);
       // First agent in list wins.
       assert.equal(actions[0]?.agent, "gemini-cli");
-      assert.ok(
-        normalizeSlashes(actions[0]?.target ?? "").endsWith(
-          ".gemini/GEMINI.md",
-        ),
+      assertPathEndsWith(
+        actions[0]?.target ?? "",
+        ".gemini/GEMINI.md",
         `expected target to end with .gemini/GEMINI.md, got: ${actions[0]?.target}`,
       );
       assert.equal(actions[0]?.confidence, "documented");
@@ -684,10 +683,9 @@ describe("compileAgentRuleActions", () => {
       assert.equal(actions.length, 1, "expected exactly one action");
       assert.equal(warnings.length, 0);
       assert.equal(actions[0]?.agent, "claude-code");
-      assert.ok(
-        normalizeSlashes(actions[0]?.target ?? "").endsWith(
-          ".claude/CLAUDE.md",
-        ),
+      assertPathEndsWith(
+        actions[0]?.target ?? "",
+        ".claude/CLAUDE.md",
         `expected target to end with .claude/CLAUDE.md, got: ${actions[0]?.target}`,
       );
     } finally {
@@ -763,8 +761,9 @@ describe("compilePermissionsActions", () => {
     assert.equal(action.kind, "config-patch");
     assert.equal(action.skill, "safety");
     assert.equal(action.agent, "claude-code");
-    assert.ok(
-      normalizeSlashes(action.target).endsWith(".claude/settings.json"),
+    assertPathEndsWith(
+      action.target,
+      ".claude/settings.json",
       `expected target to end with .claude/settings.json, got: ${action.target}`,
     );
     assert.deepEqual(action.patch, {
@@ -790,8 +789,9 @@ describe("compilePermissionsActions", () => {
     assert.equal(action.kind, "toml-patch");
     assert.equal(action.skill, "codex-approval");
     assert.equal(action.agent, "codex");
-    assert.ok(
-      normalizeSlashes(action.target).endsWith(".codex/config.toml"),
+    assertPathEndsWith(
+      action.target,
+      ".codex/config.toml",
       `expected target to end with .codex/config.toml, got: ${action.target}`,
     );
     assert.deepEqual(action.config, { approval_policy: "suggest" });
@@ -892,8 +892,9 @@ describe("compilePermissionsActions", () => {
     assert.equal(action.kind, "config-patch");
     assert.equal(action.skill, "opencode-perms");
     assert.equal(action.agent, "opencode");
-    assert.ok(
-      normalizeSlashes(action.target).endsWith("opencode/opencode.json"),
+    assertPathEndsWith(
+      action.target,
+      "opencode/opencode.json",
       `expected target to end with opencode/opencode.json, got: ${action.target}`,
     );
     assert.deepEqual(action.patch, {
@@ -1048,8 +1049,9 @@ describe("compileAgentDefinitionActions", () => {
       assert.equal(action.kind, "file-write");
       assert.equal(action.skill, "my-agent");
       assert.equal(action.agent, "claude-code");
-      assert.ok(
-        normalizeSlashes(action.target).endsWith(".claude/agents/my-agent.md"),
+      assertPathEndsWith(
+        action.target,
+        ".claude/agents/my-agent.md",
         `expected target under .claude/agents/my-agent.md, got: ${action.target}`,
       );
       assert.equal(action.confidence, "documented");
@@ -1086,10 +1088,9 @@ describe("compileAgentDefinitionActions", () => {
       const action = actions[0] as FileWriteDeployAction;
       assert.equal(action.kind, "file-write");
       assert.equal(action.agent, "opencode");
-      assert.ok(
-        normalizeSlashes(action.target).endsWith(
-          ".opencode/agents/my-agent.md",
-        ),
+      assertPathEndsWith(
+        action.target,
+        ".opencode/agents/my-agent.md",
         `expected target under .opencode/agents/my-agent.md, got: ${action.target}`,
       );
       assert.equal(action.confidence, "documented");
@@ -1126,10 +1127,9 @@ describe("compileAgentDefinitionActions", () => {
       const action = actions[0] as FileWriteDeployAction;
       assert.equal(action.kind, "file-write");
       assert.equal(action.agent, "github-copilot");
-      assert.ok(
-        normalizeSlashes(action.target).endsWith(
-          ".github/copilot/agents/my-agent.md",
-        ),
+      assertPathEndsWith(
+        action.target,
+        ".github/copilot/agents/my-agent.md",
         `expected target under .github/copilot/agents/my-agent.md, got: ${action.target}`,
       );
       assert.deepEqual(action.migratedFrom, [
@@ -1169,8 +1169,9 @@ describe("compileAgentDefinitionActions", () => {
       const action = actions[0] as FileWriteDeployAction;
       assert.equal(action.kind, "file-write");
       assert.equal(action.agent, "antigravity");
-      assert.ok(
-        normalizeSlashes(action.target).endsWith(".agents/rules/my-agent.md"),
+      assertPathEndsWith(
+        action.target,
+        ".agents/rules/my-agent.md",
         `expected target under .agents/rules/my-agent.md, got: ${action.target}`,
       );
       assert.equal(action.confidence, "documented");

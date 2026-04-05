@@ -5,7 +5,7 @@ import { compileAgentDefinitionActions } from "../../src/core/adapters/agent-def
 import { runPreflight } from "../../src/core/preflight.ts";
 import { realpath, rm, writeFile } from "node:fs/promises";
 import { makeTmpDir } from "../helpers/fs.ts";
-import { normalizeSlashes } from "../helpers/path.ts";
+import { assertPathEndsWith } from "../helpers/path.ts";
 
 describe("Gemini CLI North Star", () => {
   it("compiles a global file-write action for gemini-cli when scope is global", async () => {
@@ -35,8 +35,9 @@ describe("Gemini CLI North Star", () => {
       assert.equal(actions.length, 1);
       const action = actions[0];
       assert.equal(action.agent, "gemini-cli");
-      assert.ok(
-        normalizeSlashes(action.target).endsWith(".gemini/agents/my-agent.md"),
+      assertPathEndsWith(
+        action.target,
+        ".gemini/agents/my-agent.md",
         `expected target under .gemini/agents/my-agent.md, got: ${action.target}`,
       );
       // Verify it targets home directory
