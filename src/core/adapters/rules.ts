@@ -142,7 +142,11 @@ export async function compileAgentRuleActions(
 
   for (const target of supportedTargets) {
     validateAgentRuleMarkdownPath(entry.path, target.agentId);
-    await validateInstructionFileRequirements(source, entry.path, target.agentId);
+    await validateInstructionFileRequirements(
+      source,
+      entry.path,
+      target.agentId,
+    );
     actions.push({
       kind: "file-write",
       skill: entry.name,

@@ -257,7 +257,7 @@ export function validateAgentRuleMarkdownPath(
 export async function validateSkillDefinitionFile(
   sourcePath: string,
   manifestPath: string,
-): Promise<void> {
+): Promise<{ attributes: Record<string, unknown>; body: string }> {
   await validateSourceFile(sourcePath, `${manifestPath}/SKILL.md`);
 
   let raw: string;
@@ -289,9 +289,11 @@ export async function validateSkillDefinitionFile(
   }
 
   let attributes: Record<string, unknown>;
+  let body: string;
   try {
     const parsed = parseFrontmatterDocument(raw);
     attributes = parsed.attributes;
+    body = parsed.body;
   } catch (err) {
     throw new UserError(
       "DEPLOY_FAILED",
@@ -323,6 +325,58 @@ export async function validateSkillDefinitionFile(
 
   validateField("name");
   validateField("description");
+
+  return { attributes, body };
+}
+
+function validateGithubCopilotRequirements(
+  attributes: Record<string, unknown>,
+  manifestPath: string,
+): void {
+  const hasTools = Object.hasOwn(attributes, "tools");
+  const hasInstructions = Object.hasOwn(attributes, "instructions");
+  if (!(hasTools || hasInstructions)) {
+    throw new UserError(
+      "DEPLOY_FAILED",
+      `Instruction file "${manifestPath}" for agent "github-copilot" must define "tools" or "instructions" in frontmatter`,
+    );
+  }
+}
+
+function validateAntigravityRequirements(
+  attributes: Record<string, unknown>,
+  manifestPath: string,
+): void {
+  const mcpServers = attributes["mcp-servers"] ?? attributes.mcpServers;
+  if (mcpServers === undefined) return;
+
+  if (
+    typeof mcpServers !== "object" ||
+    mcpServers === null ||
+    Array.isArray(mcpServers)
+  ) {
+    throw new UserError(
+      "DEPLOY_FAILED",
+      `Instruction file "${manifestPath}" for agent "antigravity" must define "mcp-servers" as an object`,
+    );
+  }
+  for (const [name, config] of Object.entries(mcpServers)) {
+    if (
+      typeof config !== "object" ||
+      config === null ||
+      Array.isArray(config)
+    ) {
+      throw new UserError(
+        "DEPLOY_FAILED",
+        `Instruction file "${manifestPath}" for agent "antigravity" has malformed MCP server config for "${name}"`,
+      );
+    }
+    validateMcpServerConfigShape(
+      config as Record<string, unknown>,
+      name,
+      "antigravity",
+    );
+  }
 }
 
 /**
@@ -334,26 +388,28 @@ export async function validateInstructionFileRequirements(
   manifestPath: string,
   agentId: AgentId,
 ): Promise<void> {
-  // Currently, github-copilot and antigravity require valid frontmatter
-  // with name and description (similar to SKILL.md).
   const requiresFrontmatter =
     agentId === "github-copilot" || agentId === "antigravity";
 
-  if (requiresFrontmatter) {
-    try {
-      await validateSkillDefinitionFile(sourcePath, manifestPath);
-    } catch (err) {
-      if (err instanceof UserError) {
-        // Re-wrap to make it clear this is an instruction file validation error
-        throw new UserError(
-          "DEPLOY_FAILED",
-          `Instruction file "${manifestPath}" for agent "${agentId}" failed validation: ${err.message}`,
-        );
-      }
-      throw err;
+  if (!requiresFrontmatter) return;
+
+  let attributes: Record<string, unknown>;
+  try {
+    const result = await validateSkillDefinitionFile(sourcePath, manifestPath);
+    attributes = result.attributes;
+  } catch (err) {
+    if (err instanceof UserError) {
+      throw new UserError(
+        "DEPLOY_FAILED",
+        `Instruction file "${manifestPath}" for agent "${agentId}" failed structural validation: ${err.message}`,
+      );
     }
+    throw err;
   }
 
-  // Future validation for specific fields (tools, instructions, etc.) can be
-  // added here per agent requirements.
+  if (agentId === "github-copilot") {
+    validateGithubCopilotRequirements(attributes, manifestPath);
+  } else if (agentId === "antigravity") {
+    validateAntigravityRequirements(attributes, manifestPath);
+  }
 }
