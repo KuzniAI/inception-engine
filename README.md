@@ -27,7 +27,7 @@ inception-engine reads a manifest file (`inception.json`) from the target direct
 
 Managed skills overwrite their previous version. If a target exists but was not created by inception-engine, deployment refuses to replace it. On POSIX systems, symlinks mean updates to the source repo are reflected immediately.
 
-Before executing, the deploy command runs preflight analysis on instruction files: it validates that `agentRules` and `agentDefinitions` for targets requiring specific structure (like `github-copilot` and `antigravity`) include valid YAML frontmatter with `name` and `description` fields. For `github-copilot`, it further ensures either `tools` or `instructions` are defined; for `antigravity`, it validates the shape of any `mcp-servers` or `mcpServers` defined in the frontmatter. It also warns when the same agent will have both global and repo `agentRules` active simultaneously, when the same source file is deployed to both scopes (duplicate-content risk), and when `agentRules` or `agentDefinitions` source files exceed 50 KB (context-budget risk). Warnings are printed but do not block deployment; structural validation failures block deployment for the affected targets.
+Before executing, the deploy command runs preflight analysis on instruction files: it validates that `agentRules` and `agentDefinitions` for targets requiring specific structure (like `github-copilot` and `antigravity`) include valid YAML frontmatter with `name` and `description` fields. For `github-copilot`, it further ensures either `tools` or `instructions` are defined; for `antigravity`, it validates the shape of any `mcp-servers` or `mcpServers` defined in the frontmatter. It also warns when the same agent will have multiple `agentRules` scopes active simultaneously, when the same source file is deployed to multiple scopes (duplicate-content risk), when `agentRules` or `agentDefinitions` source files exceed 50 KB (context-budget risk), and when GitHub Copilot appears to be running under enterprise-managed policy that may override local configuration. Warnings are printed but do not block deployment; structural validation failures block deployment for the affected targets.
 
 ## Agent Compatibility Matrix
 
@@ -51,11 +51,11 @@ Before executing, the deploy command runs preflight analysis on instruction file
 | File write | All agents via manifest and CLI | All agents |
 | Config patch (JSON merge) | All agents via manifest and CLI | All agents |
 | MCP Servers | claude-code, gemini-cli, codex, antigravity, opencode; github-copilot repo-scoped surfaces are warned and skipped | claude-code, gemini-cli, codex, antigravity, opencode |
-| Global/Repo/Workspace Rules Files | All agents via `scope: "global"` (home-dir), `scope: "repo"` (project-root), or `scope: "workspace"` (workspace-root); antigravity always uses repo-local `.agents/rules/`; github-copilot reads CLAUDE.md natively (deploy via claude-code) | All agents |
+| Global/Repo Rules Files | `scope: "global"` and `scope: "repo"` are supported on the implemented agent surfaces; `github-copilot` reads Claude-native rules via `claude-code` and has no separate rules deployment target | All supported agents |
 | Permissions / Approval Config | claude-code (`~/.claude/settings.json`), codex (`~/.codex/config.toml`); other agents are warned and skipped | claude-code, codex |
 | Agent Definitions | claude-code (`{repo}/.claude/agents/{name}.md`), gemini-cli (`{repo}/.gemini/agents/{name}.md`), antigravity (`{repo}/.agents/rules/{name}.md`), opencode (`{repo}/.opencode/agents/{name}.md`), github-copilot (`{repo}/.github/agents/{name}.agent.md`); codex is warned and skipped | All supported agents |
 | `init` manifest generation | Scans `SKILL.md` directories (`skills`), `.md` files with Claude-first agent mapping (`agentRules`), `mcp-servers.json` (`mcpServers`), and agent-definition Markdown files (`agentDefinitions`); emits hints for `files/` and `configs/` directories | N/A |
-| Instruction preflight analysis | Emits `precedence` warnings when an agent has both global and repo `agentRules` active simultaneously (stacking advisory) or the same source file deployed to both scopes (duplicate-content warning); emits `budget` warnings when `agentRules` or `agentDefinitions` source files exceed 50 KB | N/A |
+| Instruction preflight analysis | Emits `precedence` warnings when an agent has multiple `agentRules` scopes active simultaneously or the same source file is deployed to multiple scopes; emits `budget` warnings when `agentRules` or `agentDefinitions` source files exceed 50 KB; emits GitHub Copilot enterprise-policy warnings when local configuration may be overridden | N/A |
 
 Features that depend on agent-specific config surfaces are intentionally conservative: if a target path or schema is not implemented with enough confidence, inception-engine warns and skips it rather than guessing.
 
@@ -174,22 +174,22 @@ Each **agentRules** entry deploys a Markdown instruction file to an agent's supp
 - **path** - Relative path to the source Markdown file within the repo; supported rules adapters require a `.md` or `.markdown` source path
 - **agents** - Array of agent IDs to deploy this file to
 - **scope** - `"global"` (default), `"repo"`, or `"workspace"`. Controls which instruction surface is targeted:
-  - `"global"` — deploys to the agent's home-directory instruction file (e.g., `~/.claude/CLAUDE.md` for `claude-code`)
-  - `"repo"` — deploys to the project-root instruction file inside the deployed repository (e.g., `{repo}/CLAUDE.md` for `claude-code`)
-  - `"workspace"` — deploys to the workspace-root instruction file (e.g., `{workspace}/CLAUDE.md` for `claude-code`); falls back to `{repo}` if no workspace is resolved
+  - `"global"` — deploys to the agent's home-directory instruction file when that surface is supported (e.g., `~/.claude/CLAUDE.md` for `claude-code`)
+  - `"repo"` — deploys to the project-root instruction file inside the deployed repository when that surface is supported (e.g., `{repo}/CLAUDE.md` for `claude-code`)
+  - `"workspace"` — reserved for a distinct workspace-root instruction file when an agent exposes one; current agent registry entries treat this as unsupported and deployment is skipped with a warning
 
-Instruction rule deployment is supported for all agents. The target path depends on the agent and the `scope`:
+Instruction rule deployment is supported for implemented global and repo surfaces. The target path depends on the agent and the `scope`:
 
 | Agent | `scope: "global"` | `scope: "repo"` | `scope: "workspace"` |
 |---|---|---|---|
-| `claude-code` | `~/.claude/CLAUDE.md` | `{repo}/CLAUDE.md` | `{workspace}/CLAUDE.md` |
-| `codex` | `~/.codex/AGENTS.md` | `{repo}/AGENTS.md` | `{workspace}/AGENTS.md` |
-| `gemini-cli` | `~/.gemini/GEMINI.md` | `{repo}/GEMINI.md` | `{workspace}/GEMINI.md` |
-| `antigravity` | `{repo}/.agents/rules/{name}.md` | `{repo}/.agents/rules/{name}.md` | `{repo}/.agents/rules/{name}.md` |
-| `opencode` | `~/.config/opencode/AGENTS.md` | `{repo}/AGENTS.md` | `{workspace}/AGENTS.md` |
-| `github-copilot` | unsupported / Claude-first | deploy via `claude-code` | deploy via `claude-code` |
+| `claude-code` | `~/.claude/CLAUDE.md` | `{repo}/CLAUDE.md` | unsupported; warns and skips |
+| `codex` | `~/.codex/AGENTS.md` | `{repo}/AGENTS.md` | unsupported; warns and skips |
+| `gemini-cli` | `~/.gemini/GEMINI.md` | `{repo}/GEMINI.md` | unsupported; warns and skips |
+| `antigravity` | `{repo}/.agents/rules/{name}.md` | `{repo}/.agents/rules/{name}.md` | unsupported; warns and skips |
+| `opencode` | `~/.config/opencode/AGENTS.md` | `{repo}/AGENTS.md` | unsupported; warns and skips |
+| `github-copilot` | unsupported / Claude-first | deploy via `claude-code` | unsupported; deploy via `claude-code` when a future workspace-local Claude surface exists |
 
-For `antigravity`, all scopes target the same repo-local surface (`{repo}/.agents/rules/${name}.md`) since Antigravity has no global home-directory instruction file. For `github-copilot`, no separate deployment is needed — target it via the `claude-code` agentRules entry and it reaches Copilot automatically. Revert removes the deployed rules file.
+For `antigravity`, the implemented instruction surface is repo-local (`{repo}/.agents/rules/${name}.md`) for `global` and `repo` scopes; `workspace` is not a separate supported surface and is skipped with a warning. For `github-copilot`, no separate deployment is needed — target it via the `claude-code` agentRules entry and it reaches Copilot automatically. Revert removes the deployed rules file.
 
 Each **permissions** entry deploys execution and safety-oriented configuration to an agent's permission or approval surface:
 
