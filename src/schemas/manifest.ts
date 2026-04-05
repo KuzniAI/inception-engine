@@ -123,6 +123,7 @@ export const PermissionsEntrySchema = z.object({
   // Raw permission config payload validated per agent by the permissions adapter.
   // For claude-code: { permissions: { allow?: string[], deny?: string[] } }
   // For codex: { approval_policy?: "auto" | "manual" | "suggest" | "on-failure" }
+  // For opencode: { permissions: { allow?: string[], ask?: string[], deny?: string[] } }
   config: z.record(z.string(), z.unknown()),
 });
 

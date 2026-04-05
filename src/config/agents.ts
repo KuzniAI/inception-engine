@@ -323,6 +323,7 @@ export const AGENT_REGISTRY: readonly AgentConfig[] = [
       detectBinary: "documented",
       agentRules: "documented",
       agentDefinitions: "documented",
+      permissions: "documented",
     },
     mcpSupport: {
       status: "supported",
@@ -350,10 +351,12 @@ export const AGENT_REGISTRY: readonly AgentConfig[] = [
       },
     },
     permissionsSupport: {
-      status: "unsupported",
-      schemaLabel: "global permissions surface",
-      reason:
-        "OpenCode does not expose a documented global per-user permission or approval config surface",
+      status: "supported",
+      schemaLabel: "opencode.json permissions config",
+      path: {
+        posix: ["{xdg_config}", "opencode", "opencode.json"],
+        windows: ["{appdata}", "opencode", "opencode.json"],
+      },
     },
     agentDefinitionsSupport: {
       status: "supported",

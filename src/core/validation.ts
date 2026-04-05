@@ -230,6 +230,34 @@ function validateCodexPermissions(
   }
 }
 
+function validateOpenCodePermissions(
+  config: Record<string, unknown>,
+  entryName: string,
+): void {
+  rejectUnknownKeys(config, ["permissions"], entryName, "opencode");
+  const perms = config.permissions;
+  if (perms === undefined) return;
+  if (typeof perms !== "object" || perms === null || Array.isArray(perms)) {
+    throw new UserError(
+      "DEPLOY_FAILED",
+      `permissions entry "${entryName}" for agent "opencode" must define "permissions" as an object`,
+    );
+  }
+  const permsObj = perms as Record<string, unknown>;
+  for (const key of ["allow", "ask", "deny"] as const) {
+    const val = permsObj[key];
+    if (
+      val !== undefined &&
+      (!Array.isArray(val) || val.some((item) => typeof item !== "string"))
+    ) {
+      throw new UserError(
+        "DEPLOY_FAILED",
+        `permissions entry "${entryName}" for agent "opencode" must define "permissions.${key}" as an array of strings when present`,
+      );
+    }
+  }
+}
+
 export function validatePermissionsConfigShape(
   config: Record<string, unknown>,
   entryName: string,
@@ -239,6 +267,8 @@ export function validatePermissionsConfigShape(
     validateClaudeCodePermissions(config, entryName);
   } else if (agentId === "codex") {
     validateCodexPermissions(config, entryName);
+  } else if (agentId === "opencode") {
+    validateOpenCodePermissions(config, entryName);
   }
 }
 

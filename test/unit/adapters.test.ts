@@ -802,7 +802,7 @@ describe("compilePermissionsActions", () => {
   });
 
   it("emits a warning and skips for agents without a permissions surface", () => {
-    for (const agentId of ["gemini-cli", "opencode", "antigravity"] as const) {
+    for (const agentId of ["gemini-cli", "antigravity"] as const) {
       const { actions, warnings } = compilePermissionsActions(
         { name: "safety", agents: [agentId], config: {} },
         [agentId],
@@ -875,6 +875,65 @@ describe("compilePermissionsActions", () => {
           "/home/test",
         ),
       /approval_policy/,
+    );
+  });
+
+  it("returns a config-patch action for opencode permissions", () => {
+    const home = "/home/test";
+    const { actions, warnings } = compilePermissionsActions(
+      {
+        name: "opencode-perms",
+        agents: ["opencode"],
+        config: { permissions: { allow: ["Read", "Glob"], ask: ["*"] } },
+      },
+      ["opencode"],
+      home,
+    );
+    assert.equal(actions.length, 1);
+    assert.equal(warnings.length, 0);
+    const action = actions[0] as ConfigPatchDeployAction;
+    assert.equal(action.kind, "config-patch");
+    assert.equal(action.skill, "opencode-perms");
+    assert.equal(action.agent, "opencode");
+    assert.ok(
+      normalizeSlashes(action.target).endsWith("opencode/opencode.json"),
+      `expected target to end with opencode/opencode.json, got: ${action.target}`,
+    );
+    assert.deepEqual(action.patch, {
+      permissions: { allow: ["Read", "Glob"], ask: ["*"] },
+    });
+    assert.equal(action.confidence, "documented");
+  });
+
+  it("throws for opencode config with unrecognized top-level keys", () => {
+    assert.throws(
+      () =>
+        compilePermissionsActions(
+          {
+            name: "bad",
+            agents: ["opencode"],
+            config: { unknown_key: true },
+          },
+          ["opencode"],
+          "/home/test",
+        ),
+      /unrecognized keys/,
+    );
+  });
+
+  it("throws for opencode config with non-array deny field", () => {
+    assert.throws(
+      () =>
+        compilePermissionsActions(
+          {
+            name: "bad",
+            agents: ["opencode"],
+            config: { permissions: { deny: "Rm" } },
+          },
+          ["opencode"],
+          "/home/test",
+        ),
+      /array of strings/,
     );
   });
 
