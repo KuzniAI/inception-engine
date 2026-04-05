@@ -176,18 +176,18 @@ Each **agentRules** entry deploys a Markdown instruction file to an agent's supp
 - **scope** - `"global"` (default), `"repo"`, or `"workspace"`. Controls which instruction surface is targeted:
   - `"global"` — deploys to the agent's home-directory instruction file when that surface is supported (e.g., `~/.claude/CLAUDE.md` for `claude-code`)
   - `"repo"` — deploys to the project-root instruction file inside the deployed repository when that surface is supported (e.g., `{repo}/CLAUDE.md` for `claude-code`)
-  - `"workspace"` — reserved for a distinct workspace-root instruction file when an agent exposes one; current agent registry entries treat this as unsupported and deployment is skipped with a warning
+  - `"workspace"` — deploys to the workspace-root instruction file when an agent exposes one (e.g., `{workspace}/CLAUDE.md` for `claude-code`); when unsupported, deployment is skipped with a warning
 
-Instruction rule deployment is supported for implemented global and repo surfaces. The target path depends on the agent and the `scope`:
+Instruction rule deployment is supported for implemented global, repo, and workspace surfaces. The target path depends on the agent and the `scope`:
 
 | Agent | `scope: "global"` | `scope: "repo"` | `scope: "workspace"` |
 |---|---|---|---|
-| `claude-code` | `~/.claude/CLAUDE.md` | `{repo}/CLAUDE.md` | unsupported; warns and skips |
-| `codex` | `~/.codex/AGENTS.md` | `{repo}/AGENTS.md` | unsupported; warns and skips |
-| `gemini-cli` | `~/.gemini/GEMINI.md` | `{repo}/GEMINI.md` | unsupported; warns and skips |
+| `claude-code` | `~/.claude/CLAUDE.md` | `{repo}/CLAUDE.md` | `{workspace}/CLAUDE.md` |
+| `codex` | `~/.codex/AGENTS.md` | `{repo}/AGENTS.md` | `{workspace}/AGENTS.md` |
+| `gemini-cli` | `~/.gemini/GEMINI.md` | `{repo}/GEMINI.md` | `{workspace}/GEMINI.md` |
 | `antigravity` | `{repo}/.agents/rules/{name}.md` | `{repo}/.agents/rules/{name}.md` | unsupported; warns and skips |
 | `opencode` | `~/.config/opencode/AGENTS.md` | `{repo}/AGENTS.md` | unsupported; warns and skips |
-| `github-copilot` | unsupported / Claude-first | deploy via `claude-code` | unsupported; deploy via `claude-code` when a future workspace-local Claude surface exists |
+| `github-copilot` | unsupported / Claude-first | deploy via `claude-code` | unsupported; deploy via `claude-code` with `scope: "workspace"` |
 
 For `antigravity`, the implemented instruction surface is repo-local (`{repo}/.agents/rules/${name}.md`) for `global` and `repo` scopes; `workspace` is not a separate supported surface and is skipped with a warning. For `github-copilot`, no separate deployment is needed — target it via the `claude-code` agentRules entry and it reaches Copilot automatically. Revert removes the deployed rules file.
 

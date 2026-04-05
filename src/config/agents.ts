@@ -63,10 +63,12 @@ export const AGENT_REGISTRY: readonly AgentConfig[] = [
       },
     },
     agentRulesWorkspaceSupport: {
-      status: "unsupported",
+      status: "supported",
       schemaLabel: "workspace-local CLAUDE.md",
-      reason:
-        "Claude Code does not expose a documented workspace-local instruction surface distinct from repo-local CLAUDE.md",
+      path: {
+        posix: ["{workspace}", "CLAUDE.md"],
+        windows: ["{workspace}", "CLAUDE.md"],
+      },
     },
   },
   {
@@ -127,10 +129,12 @@ export const AGENT_REGISTRY: readonly AgentConfig[] = [
         "OpenAI Codex does not expose a documented dedicated per-agent definition directory surface separate from AGENTS.md and config.toml — use agentRules to deploy persona instructions instead",
     },
     agentRulesWorkspaceSupport: {
-      status: "unsupported",
+      status: "supported",
       schemaLabel: "workspace-local AGENTS.md",
-      reason:
-        "OpenAI Codex does not expose a documented workspace-local instruction surface distinct from repo-local AGENTS.md",
+      path: {
+        posix: ["{workspace}", "AGENTS.md"],
+        windows: ["{workspace}", "AGENTS.md"],
+      },
     },
   },
   {
@@ -192,10 +196,12 @@ export const AGENT_REGISTRY: readonly AgentConfig[] = [
       },
     },
     agentRulesWorkspaceSupport: {
-      status: "unsupported",
+      status: "supported",
       schemaLabel: "workspace-local GEMINI.md",
-      reason:
-        "Gemini CLI does not expose a documented workspace-local instruction surface distinct from repo-local GEMINI.md",
+      path: {
+        posix: ["{workspace}", "GEMINI.md"],
+        windows: ["{workspace}", "GEMINI.md"],
+      },
     },
   },
   {
@@ -382,7 +388,7 @@ export const AGENT_REGISTRY: readonly AgentConfig[] = [
       status: "unsupported",
       schemaLabel: "workspace-local instruction surface",
       reason:
-        "GitHub Copilot instruction surfaces are managed at the repo, devcontainer, or organization level",
+        'GitHub Copilot instruction surfaces are managed at the repo, devcontainer, or organization level — deploy via the "claude-code" agentRules target with scope: "workspace" instead of a separate rules surface',
     },
     policyNote:
       "Organization policies may override locally deployed configuration. Verify with your GitHub org admin if deployed skills or rules are not active.",

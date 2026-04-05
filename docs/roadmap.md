@@ -17,7 +17,7 @@ No active items.
 
 Ordered from highest to lowest after the fixed first step and architecture enablers.
 
-1. Clarify and complete workspace-local instruction-file support. The manifest schema and adapter plumbing accept `scope: "workspace"`, but current agent registry entries still mark workspace-local instruction surfaces as unsupported and deployments are skipped with warnings. Ship real workspace-local targets only for agents with documented behavior, then update README claims accordingly. Score: `4/8` (`Architecture 1`, `Agents 1`, `OS 0`, `Confidence 2`)
+1. ~~Clarify and complete workspace-local instruction-file support. The manifest schema and adapter plumbing accept `scope: "workspace"`, but current agent registry entries still mark workspace-local instruction surfaces as unsupported and deployments are skipped with warnings. Ship real workspace-local targets only for agents with documented behavior, then update README claims accordingly. Score: `4/8` (`Architecture 1`, `Agents 1`, `OS 0`, `Confidence 2`)~~
 
 ## Quality And Maintenance
 

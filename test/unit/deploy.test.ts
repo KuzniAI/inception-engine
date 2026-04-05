@@ -914,7 +914,7 @@ describe("planDeploy", () => {
     }
   });
 
-  it("agentRules support scope: workspace even if unsupported by agent (emits confidence warning)", async () => {
+  it("agentRules support scope: workspace for supported agents", async () => {
     const sourceDir = await makeTmpDir();
     const manifest: Manifest = {
       skills: [],
@@ -937,10 +937,52 @@ describe("planDeploy", () => {
         path.join(sourceDir, "workspace.md"),
         "---\nname: workspace-rule\ndescription: test\n---\n# Workspace",
       );
-      const { warnings } = await planDeploy(
+      const { actions, warnings } = await planDeploy(
         manifest,
         sourceDir,
         ["claude-code"],
+        "/home/test",
+        "/repo",
+        "/workspace",
+      );
+
+      assert.equal(actions.length, 1);
+      assert.equal(actions[0]?.kind, "file-write");
+      assert.equal(actions[0]?.agent, "claude-code");
+      assert.equal(actions[0]?.target, "/workspace/CLAUDE.md");
+      assert.equal(warnings.length, 0);
+    } finally {
+      await rm(sourceDir, { recursive: true });
+    }
+  });
+
+  it("agentRules support scope: workspace even if unsupported by agent (emits confidence warning)", async () => {
+    const sourceDir = await makeTmpDir();
+    const manifest: Manifest = {
+      skills: [],
+      files: [],
+      configs: [],
+      mcpServers: [],
+      agentRules: [
+        {
+          name: "workspace-rules",
+          path: "workspace.md",
+          agents: ["antigravity"],
+          scope: "workspace",
+        },
+      ],
+      permissions: [],
+      agentDefinitions: [],
+    };
+    try {
+      await writeFile(
+        path.join(sourceDir, "workspace.md"),
+        "---\nname: workspace-rule\ndescription: test\n---\n# Workspace",
+      );
+      const { warnings } = await planDeploy(
+        manifest,
+        sourceDir,
+        ["antigravity"],
         "/home/test",
         "/repo",
         "/workspace",
@@ -954,7 +996,7 @@ describe("planDeploy", () => {
       );
       assert.ok(
         confidence,
-        "expected an unsupported confidence warning for workspace scope on claude-code",
+        "expected an unsupported confidence warning for workspace scope on antigravity",
       );
     } finally {
       await rm(sourceDir, { recursive: true });
