@@ -50,17 +50,14 @@ describe("runPreflight", () => {
     assert.equal(warnings.length, 0);
   });
 
-  it("emits policy warning for github-copilot", async () => {
+  it("returns empty for standard github-copilot without enterprise markers", async () => {
     const warnings = await runPreflight(
       baseOptions,
       emptyManifest,
       "/home/test",
       ["github-copilot"],
     );
-    assert.equal(warnings.length, 1);
-    assert.equal(warnings[0]?.kind, "policy");
-    assert.match(warnings[0]?.message ?? "", /github-copilot/);
-    assert.match(warnings[0]?.message ?? "", /[Oo]rganization/);
+    assert.equal(warnings.length, 0);
   });
 
   it("emits config-authority warning for antigravity (implementation-only skills)", async () => {
@@ -236,10 +233,7 @@ describe("instruction precedence warnings", () => {
     try {
       await writeFile(path.join(sourceDir, "CLAUDE.md"), "# Rules");
       const manifest: Manifest = {
-        skills: [],
-        files: [],
-        configs: [],
-        mcpServers: [],
+        ...emptyManifest,
         agentRules: [
           {
             name: "global-rules",
@@ -277,10 +271,7 @@ describe("instruction budget warnings", () => {
         Buffer.alloc(51 * 1024, "x"),
       );
       const manifest: Manifest = {
-        skills: [],
-        files: [],
-        configs: [],
-        mcpServers: [],
+        ...emptyManifest,
         agentRules: [
           {
             name: "big-rules",
@@ -350,10 +341,7 @@ describe("instruction budget warnings", () => {
         Buffer.alloc(49 * 1024, "x"),
       );
       const manifest: Manifest = {
-        skills: [],
-        files: [],
-        configs: [],
-        mcpServers: [],
+        ...emptyManifest,
         agentRules: [
           {
             name: "small-rules",
@@ -383,10 +371,7 @@ describe("instruction budget warnings", () => {
         Buffer.alloc(51 * 1024, "x"),
       );
       const manifest: Manifest = {
-        skills: [],
-        files: [],
-        configs: [],
-        mcpServers: [],
+        ...emptyManifest,
         agentRules: [
           {
             name: "big-rules",
@@ -416,10 +401,7 @@ describe("instruction budget warnings", () => {
         Buffer.alloc(51 * 1024, "x"),
       );
       const manifest: Manifest = {
-        skills: [],
-        files: [],
-        configs: [],
-        mcpServers: [],
+        ...emptyManifest,
         agentRules: [
           {
             name: "rules-a",

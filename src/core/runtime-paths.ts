@@ -2,13 +2,20 @@ import path from "node:path";
 
 export interface RuntimePaths {
   appdata: string;
+  localAppdata: string;
   xdgConfig: string;
 }
 
-type TargetRoot = "home" | "appdata" | "xdg_config" | "repo" | "workspace";
+type TargetRoot =
+  | "home"
+  | "appdata"
+  | "local_appdata"
+  | "xdg_config"
+  | "repo"
+  | "workspace";
 
 const TARGET_TEMPLATE_RE =
-  /^\{(home|appdata|xdg_config|repo|workspace)\}(?<suffix>(?:[\\/].*)?)$/;
+  /^\{(home|appdata|local_appdata|xdg_config|repo|workspace)\}(?<suffix>(?:[\\/].*)?)$/;
 
 export function getPathApi(
   root: string,
@@ -42,17 +49,26 @@ function isSameOrDescendantPath(candidate: string, root: string): boolean {
 
 export function resolveRuntimePaths(home: string): RuntimePaths {
   const appdataRaw = process.env.APPDATA;
+  const localAppdataRaw = process.env.LOCALAPPDATA;
   const homePathApi = getPathApi(home);
+
   const appdata =
     appdataRaw && getPathApi(appdataRaw).isAbsolute(appdataRaw)
       ? appdataRaw
       : homePathApi.join(home, "AppData", "Roaming");
+
+  const localAppdata =
+    localAppdataRaw && getPathApi(localAppdataRaw).isAbsolute(localAppdataRaw)
+      ? localAppdataRaw
+      : homePathApi.join(home, "AppData", "Local");
+
   const xdgRaw = process.env.XDG_CONFIG_HOME;
   const xdgConfig =
     xdgRaw && getPathApi(xdgRaw).isAbsolute(xdgRaw)
       ? xdgRaw
       : homePathApi.join(home, ".config");
-  return { appdata, xdgConfig };
+
+  return { appdata, localAppdata, xdgConfig };
 }
 
 function resolveVfsPlaceholder(
@@ -88,7 +104,7 @@ export function resolveTargetTemplate(
   repo?: string,
   workspace?: string,
 ): string {
-  const { appdata, xdgConfig } = resolveRuntimePaths(home);
+  const { appdata, localAppdata, xdgConfig } = resolveRuntimePaths(home);
   const match = TARGET_TEMPLATE_RE.exec(template);
   if (!match) {
     throw new Error(`Invalid target template: ${template}`);
@@ -107,6 +123,7 @@ export function resolveTargetTemplate(
   > = {
     home,
     appdata,
+    local_appdata: localAppdata,
     xdg_config: xdgConfig,
   };
   const base = baseByRoot[root];

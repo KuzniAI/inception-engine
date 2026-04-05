@@ -1,7 +1,8 @@
-import { stat } from "node:fs/promises";
+import { readFile, stat } from "node:fs/promises";
 import path from "node:path";
 import { AGENT_REGISTRY_BY_ID } from "../config/agents.ts";
 import type { AgentId, CliOptions, Manifest } from "../types.ts";
+import { resolveRuntimePaths } from "./runtime-paths.ts";
 
 export interface PreflightWarning {
   kind: "policy" | "config-authority" | "info" | "precedence" | "budget";
@@ -9,6 +10,54 @@ export interface PreflightWarning {
 }
 
 const BUDGET_WARN_BYTES = 50 * 1024; // 50 KB
+
+async function detectEnterpriseManagement(
+  agentId: AgentId,
+  home: string,
+): Promise<string | null> {
+  if (agentId !== "github-copilot") return null;
+
+  // Check for common GitHub Enterprise environment variables
+  if (
+    process.env.GITHUB_ENTERPRISE_URL ||
+    process.env.GH_ENTERPRISE_TOKEN ||
+    process.env.GITHUB_TOKEN_TYPE === "enterprise"
+  ) {
+    return "GitHub Enterprise environment variables detected. Enterprise policies may override local configurations.";
+  }
+
+  const { xdgConfig, localAppdata } = resolveRuntimePaths(home);
+  const configPath =
+    process.platform === "win32"
+      ? path.join(localAppdata, "github-copilot", "hosts.json")
+      : path.join(xdgConfig, "github-copilot", "hosts.json");
+
+  try {
+    const content = await readFile(configPath, "utf8");
+    const hosts = JSON.parse(content);
+    const hostNames = Object.keys(hosts);
+
+    const enterpriseHosts = hostNames.filter(
+      (h) => h !== "github.com" && h !== "localhost",
+    );
+
+    if (enterpriseHosts.length > 0) {
+      return `GitHub Copilot is authenticated against enterprise host(s): ${enterpriseHosts.join(", ")}. Enterprise policies may override local configurations.`;
+    }
+  } catch (err) {
+    const code = (err as NodeJS.ErrnoException).code;
+    if (
+      code !== "ENOENT" &&
+      code !== "EACCES" &&
+      code !== "EPERM" &&
+      code !== undefined
+    ) {
+      throw err;
+    }
+  }
+
+  return null;
+}
 
 function groupRulesByPath(rulesForAgent: Manifest["agentRules"]) {
   const entriesByPath = new Map<
@@ -142,7 +191,7 @@ async function detectInstructionBudgetRisk(
 export async function runPreflight(
   options: CliOptions,
   manifest: Manifest,
-  _home: string,
+  home: string,
   detectedAgents: AgentId[],
 ): Promise<PreflightWarning[]> {
   const warnings: PreflightWarning[] = [];
@@ -150,6 +199,7 @@ export async function runPreflight(
   for (const agentId of detectedAgents) {
     const agent = AGENT_REGISTRY_BY_ID[agentId];
     if (!agent) continue;
+
     if (agent.provenance.skills === "implementation-only") {
       warnings.push({
         kind: "config-authority",
@@ -161,7 +211,17 @@ export async function runPreflight(
         message: `Agent "${agentId}" skill support is provisional: behavior has not been independently verified.`,
       });
     }
-    if (agent.policyNote) {
+
+    const enterpriseWarning = await detectEnterpriseManagement(agentId, home);
+    if (enterpriseWarning) {
+      warnings.push({
+        kind: "policy",
+        message: `Agent "${agentId}": ${enterpriseWarning}`,
+      });
+    } else if (
+      agent.policyNote &&
+      !agent.policyNote.includes("Organization policies may override")
+    ) {
       warnings.push({
         kind: "policy",
         message: `Agent "${agentId}": ${agent.policyNote}`,
