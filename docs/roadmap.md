@@ -28,7 +28,9 @@ Ordered from highest to lowest.
    `init` now has broad CLI coverage for sidecar manifests, shared-surface defaults, `copilot-instructions.md`, hints for `files/` and `configs/`, and `.agents/rules/` filtering. What is still missing is a single fixture-backed test that runs against the real `limbo/` sample tree and README-shaped layouts so documentation drift is caught without reconstructing scenarios piecemeal in tests.  
    `Score 7/12 (Architecture 1, Agents 1, OS 1, Confidence 2, Safety 1, Stability 1)`
 
-3. Treat path handling and path assertions as cross-platform by default. Do not hard-code POSIX or Windows separators in tests; normalize separators (for example replace `\` with `/`) or assert via `path` utilities so CI passes on `windows-latest` as well as POSIX runners. Normalize all tests
+3. **Refactor the test suite onto shared cross-platform path assertion helpers.**  
+   New tests keep reintroducing one-off path workarounds, and those assertions regularly fail on `windows-latest` because they hard-code POSIX or Windows separators. Do a deliberate cleanup pass across the unit test suite: add a small shared helper layer for path normalization and path-aware assertions, migrate existing tests to it, and remove ad-hoc separator fixes so new coverage follows one consistent pattern. Treat this as both a refactor and a guardrail task: every test that asserts on paths should either normalize separators through the shared helper or assert via `path` utilities, and agent instructions should explicitly forbid hard-coded path-separator assertions in new tests.  
+   `Score 8/12 (Architecture 1, Agents 1, OS 2, Confidence 2, Safety 1, Stability 1)`
 
 
 ## Functional Features
@@ -43,14 +45,6 @@ Ordered from highest to lowest.
    Current MCP support only targets the global Claude JSON surface, but the north star now calls out a documented project-level config as well. Supporting both levels is necessary before Claude MCP can be considered aligned with the target portability model.  
    `Score 8/12 (Architecture 1, Agents 1, OS 1, Confidence 2, Safety 1, Stability 2)`
 
-~~3. **Implement OpenCode permissions support in `opencode.json`.**  
-   The north star now treats OpenCode permissions as a real execution/safety surface, but the current registry still marks it unsupported. Add an adapter for `allow` / `ask` / `deny` semantics with validation and revert coverage.  
-   `Score 8/12 (Architecture 1, Agents 1, OS 1, Confidence 2, Safety 1, Stability 2)`~~
-
-~~4. **Realign GitHub Copilot agent-definition support with the latest documented on-disk surface.**  
-   The current implementation deploys Copilot agent definitions to `.github/agents/{name}.agent.md`, while the north star now points at a different documented target. Reconcile the path, update `init` discovery, and add migration coverage so the implementation does not hard-code an outdated Copilot layout.~~  
-   `Score 8/12 (Architecture 1, Agents 1, OS 1, Confidence 2, Safety 1, Stability 2)`~~
-
-5. **Finish Gemini CLI documented-surface alignment.**  
+3. **Finish Gemini CLI documented-surface alignment.**  
    The implementation now supports `GEMINI.md` rules plus Markdown agent definitions in `.gemini/agents/` for both `scope: "repo"` and `scope: "global"`, and preflight explicitly warns about documented-but-not-yet-supported Gemini surfaces. What is still missing is full alignment with the documented surface area: configurable instruction filename overrides from `settings.json`, native `AGENTS.md` fallback targeting, and documented TOML subagent definitions are still warning-only, and Gemini agent definitions are still classified as implementation-only rather than fully documented.  
    `Score 7/12 (Architecture 1, Agents 1, OS 1, Confidence 1, Safety 1, Stability 2)`
