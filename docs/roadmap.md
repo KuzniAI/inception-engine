@@ -52,19 +52,23 @@ Ordered from highest to lowest.
 
 Ordered from highest to lowest.
 
-1. **Add matrix tests for shared-surface collisions and ambiguity cases.**  
+1. **Turn Antigravity same-target collisions into a hard planning error before execution.**  
+   The current implementation warns when an Antigravity `mcpServers` entry and `agentDefinitions` entry share the same name, but still compiles both actions against `{repo}/.agents/rules/{name}.md`. Because deploy executes MCP/frontmatter work before agent-definition file writes, the later action overwrites the earlier one and the registry ends up only tracking the last writer. Planning should reject this case outright, or introduce an explicit migration/merge primitive, before more redundant-path cleanup is considered finished.  
+   `Score 10/12 (Architecture 2, Agents 2, OS 1, Confidence 2, Safety 2, Stability 1)`
+
+2. **Add matrix tests for shared-surface collisions and ambiguity cases.**  
    The current tests cover many Gemini CLI and Antigravity ambiguity warnings plus Copilot-via-Claude behavior, but the roadmap direction now depends on safely collapsing redundant surfaces. Add focused tests for shared-via aliasing, rule-vs-definition collisions, repo/workspace overlap, and migration-safe revert behavior before removing special-case code.  
    `Score 10/12 (Architecture 1, Agents 2, OS 2, Confidence 2, Safety 2, Stability 1)`
 
-2. **Expand Windows coverage beyond skill-directory deployment into repo/workspace rules and config-adapter behavior.**  
+3. **Expand Windows coverage beyond skill-directory deployment into repo/workspace rules and config-adapter behavior.**  
    Windows tests exist, but the deepest portability work now sits in rules, config patches, frontmatter emit, and revert semantics. Add coverage for rule scopes, config targets, and revert behavior on Windows so future portability work does not remain POSIX-biased.  
    `Score 10/12 (Architecture 1, Agents 1, OS 2, Confidence 2, Safety 2, Stability 2)`
 
-3. **Add fixture-based `init` coverage against `limbo/`, sidecar manifests, and README examples.**  
+4. **Add fixture-based `init` coverage against `limbo/`, sidecar manifests, and README examples.**  
    `init` now scans rules, agent definitions, MCP sidecars, files sidecars, and configs sidecars. A fixture-based test that exercises the real sample bundle and README-facing conventions will catch drift earlier than unit-only coverage.  
    `Score 9/12 (Architecture 1, Agents 1, OS 1, Confidence 2, Safety 2, Stability 2)`
 
-4. **Add golden tests for registry behavior during surface migrations and redundant-path removal.**  
+5. **Add golden tests for registry behavior during surface migrations and redundant-path removal.**  
    Once redundant configuration starts collapsing, regressions will likely appear in ownership and revert rather than raw planning. Add golden-style tests around registry entries, undo patches, and migrated targets so cleanup work remains reversible.  
    `Score 9/12 (Architecture 1, Agents 1, OS 2, Confidence 1, Safety 2, Stability 2)`
 
