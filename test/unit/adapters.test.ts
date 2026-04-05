@@ -291,13 +291,18 @@ describe("compileAgentRuleActions", () => {
       assert.equal(warnings.length, 0);
       assert.equal(actions[0]?.kind, "file-write");
       assert.equal(actions[0]?.agent, "antigravity");
-      assert.match(actions[0]?.target, /\.agents\/rules\/my-rule\.md$/);
+      assert.ok(
+        normalizeSlashes(actions[0]?.target ?? "").endsWith(
+          ".gemini/GEMINI.md",
+        ),
+        `expected target to end with .gemini/GEMINI.md, got ${actions[0]?.target}`,
+      );
     } finally {
       await rm(dir, { recursive: true });
     }
   });
 
-  it("gemini-cli and antigravity in the same agentRules entry produce distinct targets", async () => {
+  it("gemini-cli and antigravity in the same agentRules entry (global scope) produce ONE deduplicated action", async () => {
     const dir = await makeTmpDir();
     try {
       await writeFile(
@@ -319,34 +324,54 @@ describe("compileAgentRuleActions", () => {
         "/home/test",
         "/repo/test",
       );
-      assert.equal(actions.length, 2);
+      // Both agents target ~/.gemini/GEMINI.md — deduplication emits only one action.
+      assert.equal(actions.length, 1, "expected one deduplicated action");
       assert.equal(warnings.length, 0);
-      const byAgent = Object.fromEntries(actions.map((a) => [a.agent, a]));
-      const geminiAction = byAgent["gemini-cli"] as FileWriteDeployAction;
-      const antigravityAction = byAgent.antigravity as FileWriteDeployAction;
-      assert.ok(geminiAction, "expected a gemini-cli action");
-      assert.ok(antigravityAction, "expected an antigravity action");
-      // gemini-cli → global ~/.gemini/GEMINI.md
+      // First agent in list wins.
+      assert.equal(actions[0]?.agent, "gemini-cli");
       assert.ok(
-        normalizeSlashes(geminiAction.target).endsWith(".gemini/GEMINI.md"),
-        `expected gemini-cli target under .gemini/GEMINI.md, got: ${geminiAction.target}`,
-      );
-      // antigravity → repo-local .agents/rules/{name}.md
-      assert.ok(
-        normalizeSlashes(antigravityAction.target).endsWith(
-          ".agents/rules/my-rule.md",
+        normalizeSlashes(actions[0]?.target ?? "").endsWith(
+          ".gemini/GEMINI.md",
         ),
-        `expected antigravity target under .agents/rules/my-rule.md, got: ${antigravityAction.target}`,
+        `expected target to end with .gemini/GEMINI.md, got: ${actions[0]?.target}`,
       );
-      // targets must be different files
-      assert.notEqual(
-        geminiAction.target,
-        antigravityAction.target,
-        "gemini-cli and antigravity must deploy to distinct target paths",
+      assert.equal(actions[0]?.confidence, "documented");
+    } finally {
+      await rm(dir, { recursive: true });
+    }
+  });
+
+  it("gemini-cli and antigravity together (repo scope) emit ONE action targeting {repo}/GEMINI.md", async () => {
+    const dir = await makeTmpDir();
+    try {
+      await writeFile(
+        path.join(dir, "rules.md"),
+        "---\nname: test-rule\ndescription: test\n---\n# Rules",
       );
-      // confidence: both are documented
-      assert.equal(geminiAction.confidence, "documented");
-      assert.equal(antigravityAction.confidence, "documented");
+      const repo = "/repo/myproject";
+      const realRoot = await realpath(dir);
+      const { actions, warnings } = await compileAgentRuleActions(
+        {
+          name: "my-rule",
+          agents: ["gemini-cli", "antigravity"],
+          path: "rules.md",
+          scope: "repo",
+        },
+        dir,
+        dir,
+        realRoot,
+        ["gemini-cli", "antigravity"],
+        "/home/test",
+        repo,
+      );
+      assert.equal(actions.length, 1, "expected one deduplicated action");
+      assert.equal(warnings.length, 0);
+      assert.equal(actions[0]?.agent, "gemini-cli");
+      assert.equal(
+        normalizeSlashes(actions[0]?.target ?? ""),
+        `${repo}/GEMINI.md`,
+        "expected target to be {repo}/GEMINI.md",
+      );
     } finally {
       await rm(dir, { recursive: true });
     }
@@ -534,7 +559,7 @@ describe("compileAgentRuleActions", () => {
     }
   });
 
-  it("scope repo: antigravity still targets .agents/rules/{name}.md", async () => {
+  it("scope repo: antigravity targets {repo}/GEMINI.md", async () => {
     const dir = await makeTmpDir();
     try {
       await writeFile(
@@ -559,9 +584,10 @@ describe("compileAgentRuleActions", () => {
       );
       assert.equal(actions.length, 1);
       assert.equal(warnings.length, 0);
-      assert.match(
+      assert.equal(
         normalizeSlashes(actions[0]?.target ?? ""),
-        /\.agents\/rules\/my-rule\.md$/,
+        `${repo}/GEMINI.md`,
+        "expected target to be {repo}/GEMINI.md",
       );
     } finally {
       await rm(dir, { recursive: true });

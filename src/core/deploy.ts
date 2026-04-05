@@ -147,7 +147,7 @@ function checkAgentRuleAmbiguities(
             : "~/.gemini/GEMINI.md";
       warnings.push({
         kind: "ambiguity",
-        message: `Both "gemini-cli" and "antigravity" are listed in agentRules entry "${entry.name}". They write to distinct surfaces ("gemini-cli" → ${geminiPath}, "antigravity" → {repo}/.agents/rules/${entry.name}.md) from the same source file — verify that deploying to both produces the intended behavior on each agent.`,
+        message: `Both "gemini-cli" and "antigravity" are listed in agentRules entry "${entry.name}". Both now target the same ${geminiPath} surface — listing both is redundant but harmless; deduplication ensures only one write action is emitted.`,
       });
     }
   }

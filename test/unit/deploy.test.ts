@@ -406,12 +406,10 @@ describe("planDeploy", () => {
       );
       const ambiguity = warnings.find((w) => w.kind === "ambiguity");
       assert.ok(ambiguity, "expected an ambiguity warning");
-      // gemini-cli writes to the global ~/.gemini/GEMINI.md; antigravity writes
-      // to the repo-local .agents/rules/{name}.md — warn that these are distinct
-      // surfaces driven from the same source file
-      assert.match(ambiguity.message, /distinct surfaces/);
+      // both agents now target the same GEMINI.md surface — warn that listing
+      // both is redundant but harmless
+      assert.match(ambiguity.message, /redundant but harmless/);
       assert.match(ambiguity.message, /GEMINI\.md/);
-      assert.match(ambiguity.message, /\.agents\/rules\//);
     } finally {
       await rm(sourceDir, { recursive: true });
     }
@@ -482,7 +480,7 @@ describe("planDeploy", () => {
     }
   });
 
-  it("agentRules entry with gemini-cli and antigravity produces actions at distinct targets", async () => {
+  it("agentRules entry with gemini-cli and antigravity (global scope) produces ONE deduplicated file-write action", async () => {
     const sourceDir = await makeTmpDir();
     const bothManifest: Manifest = {
       skills: [],
@@ -512,29 +510,19 @@ describe("planDeploy", () => {
         "/home/test",
       );
       const rulesActions = actions.filter((a) => a.kind === "file-write");
-      assert.equal(rulesActions.length, 2, "expected two file-write actions");
-      const byAgent = Object.fromEntries(rulesActions.map((a) => [a.agent, a]));
-      const geminiAction = byAgent["gemini-cli"] as FileWriteDeployAction;
-      const antigravityAction = byAgent.antigravity as FileWriteDeployAction;
-      assert.ok(geminiAction, "expected a gemini-cli action");
-      assert.ok(antigravityAction, "expected an antigravity action");
-      // gemini-cli writes to global ~/.gemini/GEMINI.md
-      assert.ok(
-        geminiAction.target.replaceAll("\\", "/").endsWith(".gemini/GEMINI.md"),
-        `expected gemini-cli target under .gemini/GEMINI.md, got: ${geminiAction.target}`,
+      // Both agents target ~/.gemini/GEMINI.md — deduplication emits only one action.
+      assert.equal(
+        rulesActions.length,
+        1,
+        "expected one deduplicated file-write action",
       );
-      // antigravity writes to repo-local .agents/rules/{name}.md
+      // First agent in list wins.
+      assert.equal(rulesActions[0]?.agent, "gemini-cli");
       assert.ok(
-        antigravityAction.target
+        (rulesActions[0] as FileWriteDeployAction).target
           .replaceAll("\\", "/")
-          .endsWith(".agents/rules/my-rules.md"),
-        `expected antigravity target under .agents/rules/my-rules.md, got: ${antigravityAction.target}`,
-      );
-      // the two targets must be different paths
-      assert.notEqual(
-        geminiAction.target,
-        antigravityAction.target,
-        "gemini-cli and antigravity must write to distinct paths",
+          .endsWith(".gemini/GEMINI.md"),
+        `expected target to end with .gemini/GEMINI.md, got: ${rulesActions[0]?.agent}`,
       );
     } finally {
       await rm(sourceDir, { recursive: true });

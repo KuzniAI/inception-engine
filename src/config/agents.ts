@@ -233,18 +233,18 @@ export const AGENT_REGISTRY: readonly AgentConfig[] = [
     },
     agentRulesSupport: {
       status: "supported",
-      schemaLabel: "repo-local Markdown rules file",
+      schemaLabel: "global Gemini blueprint instructions file",
       path: {
-        posix: ["{repo}", ".agents", "rules", "{name}.md"],
-        windows: ["{repo}", ".agents", "rules", "{name}.md"],
+        posix: ["{home}", ".gemini", "GEMINI.md"],
+        windows: ["{home}", ".gemini", "GEMINI.md"],
       },
     },
     agentRulesRepoSupport: {
       status: "supported",
-      schemaLabel: "repo-local Markdown rules file",
+      schemaLabel: "repo-local GEMINI.md",
       path: {
-        posix: ["{repo}", ".agents", "rules", "{name}.md"],
-        windows: ["{repo}", ".agents", "rules", "{name}.md"],
+        posix: ["{repo}", "GEMINI.md"],
+        windows: ["{repo}", "GEMINI.md"],
       },
     },
     permissionsSupport: {

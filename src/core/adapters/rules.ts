@@ -134,13 +134,25 @@ export async function compileAgentRuleActions(
     return { actions, warnings };
   }
 
+  // Deduplicate by resolved target path — first agent in list wins.
+  // Handles cases where multiple agents share the same surface (e.g.,
+  // gemini-cli and antigravity both targeting GEMINI.md).
+  const seenTargetPaths = new Set<string>();
+  const dedupedTargets: ResolvedTarget[] = [];
+  for (const t of supportedTargets) {
+    if (!seenTargetPaths.has(t.target)) {
+      seenTargetPaths.add(t.target);
+      dedupedTargets.push(t);
+    }
+  }
+
   // Validate the shared source file only when at least one target uses the
   // current rules adapter surface.
   const source = path.resolve(sourceDir, entry.path);
   await validateSourcePath(source, entry.path, resolvedSourceDir, realRoot);
   await validateSourceFile(source, entry.path);
 
-  for (const target of supportedTargets) {
+  for (const target of dedupedTargets) {
     validateAgentRuleMarkdownPath(entry.path, target.agentId);
     await validateInstructionFileRequirements(
       source,
@@ -169,6 +181,7 @@ export function compileAgentRuleReverts(
 ): FileWriteRevertAction[] {
   const actions: FileWriteRevertAction[] = [];
   const platform = getPlatformKey();
+  const seenRevertTargets = new Set<string>();
 
   for (const agentId of entry.agents) {
     if (agentFilter && !agentFilter.includes(agentId)) continue;
@@ -185,17 +198,21 @@ export function compileAgentRuleReverts(
     if (entry.scope === "repo" && !repo) continue;
     if (entry.scope === "workspace" && !workspace && !repo) continue;
 
+    const target = resolvePlaceholders(
+      support.path[platform],
+      entry.name,
+      home,
+      repo,
+      workspace,
+    );
+    if (seenRevertTargets.has(target)) continue;
+    seenRevertTargets.add(target);
+
     actions.push({
       kind: "file-write",
       skill: entry.name,
       agent: agentId,
-      target: resolvePlaceholders(
-        support.path[platform],
-        entry.name,
-        home,
-        repo,
-        workspace,
-      ),
+      target,
     });
   }
 

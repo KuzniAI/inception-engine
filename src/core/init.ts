@@ -42,12 +42,7 @@ const AGENT_RULES_FILE_PATTERNS: Array<{
 ];
 
 // Conventional subdirectory names to scan one level deep for .md files.
-const AGENT_RULES_SUBDIRS = [
-  "rules",
-  "instructions",
-  ".github",
-  ".agents/rules",
-];
+const AGENT_RULES_SUBDIRS = ["rules", "instructions", ".github"];
 
 // Conventional subdirectories that contain agent definition files.
 // These are the agent-specific directories that each agent scans for

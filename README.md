@@ -185,11 +185,11 @@ Instruction rule deployment is supported for implemented global, repo, and works
 | `claude-code` | `~/.claude/CLAUDE.md` | `{repo}/CLAUDE.md` | `{workspace}/CLAUDE.md` |
 | `codex` | `~/.codex/AGENTS.md` | `{repo}/AGENTS.md` | `{workspace}/AGENTS.md` |
 | `gemini-cli` | `~/.gemini/GEMINI.md` | `{repo}/GEMINI.md` | `{workspace}/GEMINI.md` |
-| `antigravity` | `{repo}/.agents/rules/{name}.md` | `{repo}/.agents/rules/{name}.md` | unsupported; warns and skips |
+| `antigravity` | `~/.gemini/GEMINI.md` | `{repo}/GEMINI.md` | unsupported; warns and skips |
 | `opencode` | `~/.config/opencode/AGENTS.md` | `{repo}/AGENTS.md` | unsupported; warns and skips |
 | `github-copilot` | unsupported / Claude-first | deploy via `claude-code` | unsupported; deploy via `claude-code` with `scope: "workspace"` |
 
-For `antigravity`, the implemented instruction surface is repo-local (`{repo}/.agents/rules/${name}.md`) for `global` and `repo` scopes; `workspace` is not a separate supported surface and is skipped with a warning. For `github-copilot`, no separate deployment is needed — target it via the `claude-code` agentRules entry and it reaches Copilot automatically. Revert removes the deployed rules file.
+For `antigravity`, `agentRules` now targets the shared GEMINI.md surface (`~/.gemini/GEMINI.md` for `global`, `{repo}/GEMINI.md` for `repo`) — the same paths used by `gemini-cli`. When both agents appear in the same entry, deduplication ensures only one write action is emitted. `workspace` scope is not supported and is skipped with a warning. For `github-copilot`, no separate deployment is needed — target it via the `claude-code` agentRules entry and it reaches Copilot automatically. Revert removes the deployed rules file.
 
 Each **permissions** entry deploys execution and safety-oriented configuration to an agent's permission or approval surface:
 
@@ -277,7 +277,7 @@ Current `init` behavior:
 - Applies either the `--agents` list or all currently known agent IDs
 - Refuses to overwrite an existing `inception.json` unless `--force` is provided
 - Supports `--plan` so you can inspect the generated manifest before writing it
-- Discovers agent-rules Markdown files in the root and conventional subdirectories (`rules/`, `instructions/`, `.github/`, `.agents/rules/`), mapping them to agents using Claude-first portability conventions: `copilot-instructions.md` maps to `claude-code` (Copilot reads `CLAUDE.md` natively), and the fallback for unrecognized files excludes agents whose agentRules surface is unsupported
+- Discovers agent-rules Markdown files in the root and conventional subdirectories (`rules/`, `instructions/`, `.github/`), mapping them to agents using Claude-first portability conventions: `copilot-instructions.md` maps to `claude-code` (Copilot reads `CLAUDE.md` natively), and the fallback for unrecognized files excludes agents whose agentRules surface is unsupported
 - Reads `mcp-servers.json` from the repo root (if present) and generates `mcpServers` entries; invalid entries are warned and skipped
 - Reads `files-manifest.json` from the repo root (if present) and generates `files` entries; invalid entries are warned and skipped
 - Reads `configs-manifest.json` from the repo root (if present) and generates `configs` entries; invalid entries are warned and skipped
