@@ -2,8 +2,8 @@ import { lstat, readFile, realpath, stat } from "node:fs/promises";
 import path from "node:path";
 import { AGENT_REGISTRY_BY_ID } from "../config/agents.ts";
 import { UserError } from "../errors.ts";
-import { parseFrontmatterDocument } from "./adapters/frontmatter.ts";
 import type { AgentId } from "../schemas/manifest.ts";
+import { parseFrontmatterDocument } from "./adapters/frontmatter.ts";
 
 export function sourceAccessError(err: unknown, sourcePath: string): string {
   const code = (err as NodeJS.ErrnoException).code;

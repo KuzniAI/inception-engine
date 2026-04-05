@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { mkdir, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
-import { describe, it, beforeEach, afterEach } from "node:test";
+import { afterEach, beforeEach, describe, it } from "node:test";
 import { runPreflight } from "../../src/core/preflight.ts";
 import { logger } from "../../src/logger.ts";
 import type { CliOptions, Manifest } from "../../src/types.ts";

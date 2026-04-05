@@ -2,7 +2,6 @@ import { access, readdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { AGENT_REGISTRY, AGENT_REGISTRY_BY_ID } from "../config/agents.ts";
 import { dryRunPrefix, logger } from "../logger.ts";
-import { parseFrontmatterDocument } from "./adapters/frontmatter.ts";
 import type {
   AgentDefinitionEntry,
   AgentId,
@@ -19,6 +18,7 @@ import {
   FileEntrySchema,
   McpServerEntrySchema,
 } from "../schemas/manifest.ts";
+import { parseFrontmatterDocument } from "./adapters/frontmatter.ts";
 
 const SAFE_NAME_RE = /^[a-zA-Z0-9][a-zA-Z0-9._-]*$/;
 
