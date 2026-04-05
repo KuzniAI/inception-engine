@@ -1,0 +1,25 @@
+{
+  "cli_version": "0.5.3",
+  "checkpoint_id": "43b0badde123",
+  "strategy": "manual-commit",
+  "branch": "main",
+  "checkpoints_count": 1,
+  "files_touched": [
+    ".opencode/package-lock.json"
+  ],
+  "sessions": [
+    {
+      "metadata": "/43/b0badde123/0/metadata.json",
+      "transcript": "/43/b0badde123/0/full.jsonl",
+      "content_hash": "/43/b0badde123/0/content_hash.txt",
+      "prompt": "/43/b0badde123/0/prompt.txt"
+    }
+  ],
+  "token_usage": {
+    "input_tokens": 454570,
+    "cache_creation_tokens": 0,
+    "cache_read_tokens": 7860608,
+    "output_tokens": 34563,
+    "api_call_count": 84
+  }
+}
