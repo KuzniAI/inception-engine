@@ -28,9 +28,9 @@ Ordered from highest to lowest.
    `init` now has broad CLI coverage for sidecar manifests, shared-surface defaults, `copilot-instructions.md`, hints for `files/` and `configs/`, and `.agents/rules/` filtering. What is still missing is a single fixture-backed test that runs against the real `limbo/` sample tree and README-shaped layouts so documentation drift is caught without reconstructing scenarios piecemeal in tests.  
    `Score 7/12 (Architecture 1, Agents 1, OS 1, Confidence 2, Safety 1, Stability 1)`
 
-3. **Refactor the test suite onto shared cross-platform path assertion helpers.**  
+3. ~~**Refactor the test suite onto shared cross-platform path assertion helpers.**  
    New tests keep reintroducing one-off path workarounds, and those assertions regularly fail on `windows-latest` because they hard-code POSIX or Windows separators. Do a deliberate cleanup pass across the unit test suite: add a small shared helper layer for path normalization and path-aware assertions, migrate existing tests to it, and remove ad-hoc separator fixes so new coverage follows one consistent pattern. Treat this as both a refactor and a guardrail task: every test that asserts on paths should either normalize separators through the shared helper or assert via `path` utilities, and agent instructions should explicitly forbid hard-coded path-separator assertions in new tests.  
-   `Score 8/12 (Architecture 1, Agents 1, OS 2, Confidence 2, Safety 1, Stability 1)`
+   `Score 8/12 (Architecture 1, Agents 1, OS 2, Confidence 2, Safety 1, Stability 1)`~~
 
 
 ## Functional Features

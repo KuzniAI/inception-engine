@@ -11,10 +11,7 @@ import type {
   TomlPatchDeployAction,
 } from "../../src/types.ts";
 import { makeTmpDir } from "../helpers/fs.ts";
-
-function normalizeSlashes(value: string): string {
-  return value.replaceAll("\\", "/");
-}
+import { normalizeSlashes } from "../helpers/path.ts";
 
 describe("compileMcpServerActions", () => {
   it("returns zero actions and warnings when no detectedAgents overlap", () => {

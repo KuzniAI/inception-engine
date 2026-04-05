@@ -30,6 +30,7 @@ import type {
   Manifest,
 } from "../../src/types.ts";
 import { exists, makeTmpDir } from "../helpers/fs.ts";
+import { normalizeSlashes } from "../helpers/path.ts";
 
 logger.silence();
 
@@ -584,9 +585,9 @@ describe("planDeploy", () => {
       // First agent in list wins.
       assert.equal(rulesActions[0]?.agent, "gemini-cli");
       assert.ok(
-        (rulesActions[0] as FileWriteDeployAction).target
-          .replaceAll("\\", "/")
-          .endsWith(".gemini/GEMINI.md"),
+        normalizeSlashes(
+          (rulesActions[0] as FileWriteDeployAction).target,
+        ).endsWith(".gemini/GEMINI.md"),
         `expected target to end with .gemini/GEMINI.md, got: ${rulesActions[0]?.agent}`,
       );
     } finally {
@@ -624,7 +625,7 @@ describe("planDeploy", () => {
       assert.equal(action.skill, "my-mcp");
       assert.equal(action.agent, "claude-code");
       assert.ok(
-        action.target.endsWith(".claude.json"),
+        normalizeSlashes(action.target).endsWith(".claude.json"),
         `expected target to end with .claude.json, got: ${action.target}`,
       );
       assert.deepEqual(action.patch, {

@@ -5,10 +5,7 @@ import { compileAgentDefinitionActions } from "../../src/core/adapters/agent-def
 import { runPreflight } from "../../src/core/preflight.ts";
 import { realpath, rm, writeFile } from "node:fs/promises";
 import { makeTmpDir } from "../helpers/fs.ts";
-
-function normalizeSlashes(value: string): string {
-  return value.replaceAll("\\", "/");
-}
+import { normalizeSlashes } from "../helpers/path.ts";
 
 describe("Gemini CLI North Star", () => {
   it("compiles a global file-write action for gemini-cli when scope is global", async () => {

@@ -6,6 +6,7 @@ import { runPreflight } from "../../src/core/preflight.ts";
 import { logger } from "../../src/logger.ts";
 import type { CliOptions, Manifest } from "../../src/types.ts";
 import { makeTmpDir } from "../helpers/fs.ts";
+import { normalizeSlashes } from "../helpers/path.ts";
 
 logger.silence();
 
@@ -384,7 +385,9 @@ describe("instruction budget warnings", () => {
       const budgetWarnings = warnings.filter((w) => w.kind === "budget");
       assert.ok(budgetWarnings.length > 0, "expected a budget warning");
       assert.ok(
-        budgetWarnings.some((w) => w.message.includes("agents/big-agent.md")),
+        budgetWarnings.some((w) =>
+          normalizeSlashes(w.message).includes("agents/big-agent.md"),
+        ),
       );
     } finally {
       await rm(sourceDir, { recursive: true });

@@ -4,6 +4,7 @@ import { mkdir, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { describe, it } from "node:test";
 import { makeTmpDir } from "../helpers/fs.ts";
+import { normalizeSlashes } from "../helpers/path.ts";
 
 const PROJECT_ROOT = path.resolve(import.meta.dirname, "..", "..");
 
@@ -1284,7 +1285,9 @@ describe("init command", () => {
       );
       assert.ok(found, "agent-persona file should appear in agentDefinitions");
       assert.ok(
-        found?.path.includes(".agents/rules/my-agent.md"),
+        normalizeSlashes(found?.path ?? "").includes(
+          ".agents/rules/my-agent.md",
+        ),
         "path should point into .agents/rules/",
       );
     } finally {
@@ -1340,7 +1343,9 @@ describe("init command", () => {
         "legacy agent-persona file should appear in agentDefinitions",
       );
       assert.ok(
-        found?.path.includes(".github/agents/legacy.agent.md"),
+        normalizeSlashes(found?.path ?? "").includes(
+          ".github/agents/legacy.agent.md",
+        ),
         "path should point into .github/agents/",
       );
       assert.deepEqual(found?.agents, ["github-copilot"]);
@@ -1380,7 +1385,9 @@ describe("init command", () => {
         "new agent-persona file should appear in agentDefinitions",
       );
       assert.ok(
-        found?.path.includes(".github/copilot/agents/new.md"),
+        normalizeSlashes(found?.path ?? "").includes(
+          ".github/copilot/agents/new.md",
+        ),
         "path should point into .github/copilot/agents/",
       );
       assert.deepEqual(found?.agents, ["github-copilot"]);
