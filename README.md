@@ -168,6 +168,8 @@ MCP server registration is supported for all agents except GitHub Copilot. Incep
 
 For Markdown frontmatter targets, inception-engine now records patch-level provenance for the emitted frontmatter block. Deploy merges only the owned frontmatter keys, preserves unrelated frontmatter and Markdown body content, and `revert` removes only the engine-owned keys instead of deleting the whole file unless inception-engine originally created an otherwise-empty file.
 
+Because Antigravity currently reuses `.agents/rules/{name}.md` for both MCP frontmatter emit and agent-definition files, planning now rejects a manifest when an `mcpServers` entry and an `agentDefinitions` entry would resolve to the same Antigravity target.
+
 Revert removes the registered server entry from the respective configuration file or frontmatter block. GitHub Copilot, which uses repo-scoped MCP surfaces not yet implemented by inception-engine, continues to emit a schema-aware warning and is skipped.
 
 Each **agentRules** entry deploys a Markdown instruction file to an agent's supported instruction file location:

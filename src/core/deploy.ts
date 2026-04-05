@@ -251,6 +251,15 @@ function checkAntigravityPathCollisions(manifest: Manifest): PlanWarning[] {
   return warnings;
 }
 
+function assertNoAntigravityPathCollisions(manifest: Manifest): void {
+  const collisions = checkAntigravityPathCollisions(manifest);
+  if (collisions.length === 0) return;
+  throw new UserError(
+    "MANIFEST_INVALID",
+    collisions.map((warning) => warning.message).join("; "),
+  );
+}
+
 async function planSkillDirActions(
   manifest: Manifest,
   sourceDir: string,
@@ -368,6 +377,8 @@ export async function planDeploy(
   repo?: string,
   workspace?: string,
 ): Promise<{ actions: DeployAction[]; warnings: PlanWarning[] }> {
+  assertNoAntigravityPathCollisions(manifest);
+
   const resolvedSourceDir = path.resolve(sourceDir);
   let realRoot: string;
   try {

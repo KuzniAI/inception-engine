@@ -1001,7 +1001,7 @@ describe("planDeploy", () => {
     }
   });
 
-  it("emits collision warning when agentDefinitions and mcpServers share a name for antigravity", async () => {
+  it("throws when agentDefinitions and mcpServers share a name for antigravity", async () => {
     const sourceDir = await makeTmpDir();
     const manifest: Manifest = {
       skills: [],
@@ -1026,23 +1026,22 @@ describe("planDeploy", () => {
         path.join(sourceDir, "agents", "my-tool.md"),
         "---\nname: my-tool\ndescription: test\n---\n# Tool\n",
       );
-      const { warnings } = await planDeploy(
-        manifest,
-        sourceDir,
-        ["antigravity"],
-        "/home/test",
-        "/repo",
-      );
-      const collision = warnings.find(
-        (w) => w.kind === "collision" && w.message.includes("my-tool"),
-      );
-      assert.ok(
-        collision,
-        "expected a collision warning for same-name agentDefinitions and mcpServers entries",
-      );
-      assert.ok(
-        collision?.message.includes(".agents/rules/my-tool.md"),
-        "collision warning should reference the resolved path",
+      await assert.rejects(
+        () =>
+          planDeploy(
+            manifest,
+            sourceDir,
+            ["antigravity"],
+            "/home/test",
+            "/repo",
+          ),
+        (err: unknown) => {
+          assert.ok(err instanceof UserError);
+          assert.equal(err.code, "MANIFEST_INVALID");
+          assert.match(err.message, /my-tool/);
+          assert.match(err.message, /\.agents\/rules\/my-tool\.md/);
+          return true;
+        },
       );
     } finally {
       await rm(sourceDir, { recursive: true });
