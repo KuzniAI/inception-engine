@@ -207,6 +207,59 @@ function pushCapabilityWarning(
   acc.warnings.push({ kind, message });
 }
 
+function collectCapabilityWarningsForAgent(
+  acc: CapabilityWarningAccumulator,
+  agentId: AgentId,
+  capability:
+    | "skills"
+    | "mcpServers"
+    | "agentRules"
+    | "permissions"
+    | "agentDefinitions",
+  entryName: string,
+  targetAgents: AgentId[],
+  scope?: "global" | "repo" | "workspace",
+): void {
+  const plan = planCapabilityForDeploy({
+    agentId,
+    capability,
+    entryName,
+    targetAgentIds: targetAgents,
+    scope,
+  });
+  if (plan.outcome === "warn") {
+    pushCapabilityWarning(acc, "info", plan.warning.message);
+    return;
+  }
+
+  // Evaluate undocumented/planned surfaces warning
+  const agent = AGENT_REGISTRY_BY_ID[agentId];
+  if (agent?.unsupportedSurfaces) {
+    for (const surface of agent.unsupportedSurfaces) {
+      if (surface.status === "planned") {
+        pushCapabilityWarning(
+          acc,
+          "info",
+          `Agent "${agentId}": ${surface.reason ?? surface.plannedSurface}`,
+        );
+      } else if (surface.status === "unsupported") {
+        pushCapabilityWarning(
+          acc,
+          "config-authority",
+          `Agent "${agentId}": ${surface.reason ?? surface.schemaLabel}`,
+        );
+      }
+    }
+  }
+
+  if (capability === "skills") return;
+
+  const confidence = describeCapabilityConfidence(agentId, capability, scope);
+  if (confidence.message) {
+    pushCapabilityWarning(acc, "config-authority", confidence.message);
+  }
+}
+
 function collectCapabilityWarningsForTargets(
   acc: CapabilityWarningAccumulator,
   targetAgents: AgentId[],
@@ -220,44 +273,14 @@ function collectCapabilityWarningsForTargets(
   scope?: "global" | "repo" | "workspace",
 ): void {
   for (const agentId of targetAgents) {
-    const plan = planCapabilityForDeploy({
+    collectCapabilityWarningsForAgent(
+      acc,
       agentId,
       capability,
       entryName,
-      targetAgentIds: targetAgents,
+      targetAgents,
       scope,
-    });
-    if (plan.outcome === "warn") {
-      pushCapabilityWarning(acc, "info", plan.warning.message);
-      continue;
-    }
-
-    // Evaluate undocumented/planned surfaces warning
-    const agent = AGENT_REGISTRY_BY_ID[agentId];
-    if (agent?.unsupportedSurfaces) {
-      for (const surface of agent.unsupportedSurfaces) {
-        if (surface.status === "planned") {
-          pushCapabilityWarning(
-            acc,
-            "info",
-            `Agent "${agentId}": ${surface.reason ?? surface.plannedSurface}`,
-          );
-        } else if (surface.status === "unsupported") {
-          pushCapabilityWarning(
-            acc,
-            "config-authority",
-            `Agent "${agentId}": ${surface.reason ?? surface.schemaLabel}`,
-          );
-        }
-      }
-    }
-
-    if (capability === "skills") continue;
-
-    const confidence = describeCapabilityConfidence(agentId, capability, scope);
-    if (confidence.message) {
-      pushCapabilityWarning(acc, "config-authority", confidence.message);
-    }
+    );
   }
 }
 

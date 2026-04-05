@@ -35,31 +35,22 @@ export interface AgentDefinitionsAdapterResult {
  * Target paths use the `{repo}` placeholder so definitions land in the
  * repository being deployed, not the user's home directory.
  */
-export async function compileAgentDefinitionActions(
+interface SupportedTarget {
+  agentId: AgentId;
+  confidence: FileWriteDeployAction["confidence"];
+  target: string;
+}
+
+function resolveSupportedTargets(
   entry: AgentDefinitionEntry,
-  sourceDir: string,
-  resolvedSourceDir: string,
-  realRoot: string,
-  detectedAgents: AgentId[],
+  targetAgents: AgentId[],
   home: string,
   repo?: string,
   workspace?: string,
-): Promise<AgentDefinitionsAdapterResult> {
-  const actions: FileWriteDeployAction[] = [];
+): { targets: SupportedTarget[]; warnings: PlanWarning[] } {
+  const targets: SupportedTarget[] = [];
   const warnings: PlanWarning[] = [];
   const platform = getPlatformKey();
-  const targetAgents = entry.agents.filter((agentId) =>
-    detectedAgents.includes(agentId),
-  );
-  const supportedTargets: Array<{
-    agentId: AgentId;
-    confidence: FileWriteDeployAction["confidence"];
-    target: string;
-  }> = [];
-
-  if (targetAgents.length === 0) {
-    return { actions, warnings };
-  }
 
   for (const agentId of targetAgents) {
     const plan = planCapabilityForDeploy({
@@ -97,7 +88,7 @@ export async function compileAgentDefinitionActions(
       continue;
     }
 
-    supportedTargets.push({
+    targets.push({
       agentId,
       confidence: plan.confidence ?? "provisional",
       target: resolvePlaceholders(
@@ -110,14 +101,18 @@ export async function compileAgentDefinitionActions(
     });
   }
 
-  if (supportedTargets.length === 0) {
-    return { actions, warnings };
-  }
+  return { targets, warnings };
+}
 
-  // Validate the shared source file only when at least one target is active.
-  const source = path.resolve(sourceDir, entry.path);
-  await validateSourcePath(source, entry.path, resolvedSourceDir, realRoot);
-  await validateSourceFile(source, entry.path);
+async function createAgentDefinitionActions(
+  entry: AgentDefinitionEntry,
+  source: string,
+  supportedTargets: SupportedTarget[],
+  home: string,
+  repo?: string,
+  workspace?: string,
+): Promise<FileWriteDeployAction[]> {
+  const actions: FileWriteDeployAction[] = [];
 
   for (const target of supportedTargets) {
     validateAgentRuleMarkdownPath(entry.path, target.agentId);
@@ -150,6 +145,53 @@ export async function compileAgentDefinitionActions(
       migratedFrom,
     });
   }
+
+  return actions;
+}
+
+export async function compileAgentDefinitionActions(
+  entry: AgentDefinitionEntry,
+  sourceDir: string,
+  resolvedSourceDir: string,
+  realRoot: string,
+  detectedAgents: AgentId[],
+  home: string,
+  repo?: string,
+  workspace?: string,
+): Promise<AgentDefinitionsAdapterResult> {
+  const targetAgents = entry.agents.filter((agentId) =>
+    detectedAgents.includes(agentId),
+  );
+
+  if (targetAgents.length === 0) {
+    return { actions: [], warnings: [] };
+  }
+
+  const { targets: supportedTargets, warnings } = resolveSupportedTargets(
+    entry,
+    targetAgents,
+    home,
+    repo,
+    workspace,
+  );
+
+  if (supportedTargets.length === 0) {
+    return { actions: [], warnings };
+  }
+
+  // Validate the shared source file only when at least one target is active.
+  const source = path.resolve(sourceDir, entry.path);
+  await validateSourcePath(source, entry.path, resolvedSourceDir, realRoot);
+  await validateSourceFile(source, entry.path);
+
+  const actions = await createAgentDefinitionActions(
+    entry,
+    source,
+    supportedTargets,
+    home,
+    repo,
+    workspace,
+  );
 
   return { actions, warnings };
 }
