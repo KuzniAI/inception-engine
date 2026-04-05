@@ -39,6 +39,9 @@ describe("enterprise detection", () => {
     delete process.env.GITHUB_ENTERPRISE_URL;
     delete process.env.GH_ENTERPRISE_TOKEN;
     delete process.env.GITHUB_TOKEN_TYPE;
+    delete process.env.XDG_CONFIG_HOME;
+    delete process.env.LOCALAPPDATA;
+    delete process.env.APPDATA;
   });
 
   afterEach(async () => {
@@ -59,7 +62,11 @@ describe("enterprise detection", () => {
   });
 
   it("detects enterprise via hosts.json", async () => {
-    const configDir = path.join(tmpHome, ".config", "github-copilot");
+    const configDir =
+      process.platform === "win32"
+        ? path.join(tmpHome, "AppData", "Local", "github-copilot")
+        : path.join(tmpHome, ".config", "github-copilot");
+
     await mkdir(configDir, { recursive: true });
     await writeFile(
       path.join(configDir, "hosts.json"),
@@ -70,7 +77,11 @@ describe("enterprise detection", () => {
     );
 
     // Ensure we're using the mock home for config resolution
-    process.env.XDG_CONFIG_HOME = path.join(tmpHome, ".config");
+    if (process.platform === "win32") {
+      process.env.LOCALAPPDATA = path.join(tmpHome, "AppData", "Local");
+    } else {
+      process.env.XDG_CONFIG_HOME = path.join(tmpHome, ".config");
+    }
 
     const warnings = await runPreflight(baseOptions, emptyManifest, tmpHome, [
       "github-copilot",
@@ -85,7 +96,11 @@ describe("enterprise detection", () => {
   });
 
   it("emits no warning for standard github.com hosts.json", async () => {
-    const configDir = path.join(tmpHome, ".config", "github-copilot");
+    const configDir =
+      process.platform === "win32"
+        ? path.join(tmpHome, "AppData", "Local", "github-copilot")
+        : path.join(tmpHome, ".config", "github-copilot");
+
     await mkdir(configDir, { recursive: true });
     await writeFile(
       path.join(configDir, "hosts.json"),
@@ -94,7 +109,11 @@ describe("enterprise detection", () => {
       }),
     );
 
-    process.env.XDG_CONFIG_HOME = path.join(tmpHome, ".config");
+    if (process.platform === "win32") {
+      process.env.LOCALAPPDATA = path.join(tmpHome, "AppData", "Local");
+    } else {
+      process.env.XDG_CONFIG_HOME = path.join(tmpHome, ".config");
+    }
 
     const warnings = await runPreflight(baseOptions, emptyManifest, tmpHome, [
       "github-copilot",

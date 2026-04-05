@@ -775,11 +775,11 @@ describe("planDeploy", () => {
       ) as FrontmatterEmitDeployAction;
 
       assert.ok(geminiAction, "expected a gemini-cli action");
-      assert.match(geminiAction.target, /\.gemini\/settings\.json$/);
+      assert.match(geminiAction.target, /[\\/]\.gemini[\\/]settings\.json$/);
 
       assert.ok(antigravityAction, "expected an antigravity action");
       // Antigravity's target for mcpServer is .agents/rules/{name}.md
-      assert.match(antigravityAction.target, /\.agents\/rules\/my-mcp\.md$/);
+      assert.match(antigravityAction.target, /[\\/]\.agents[\\/]rules[\\/]my-mcp\.md$/);
     } finally {
       await rm(sourceDir, { recursive: true });
     }
@@ -896,8 +896,8 @@ describe("planDeploy", () => {
       assert.ok(geminiAction, "expected a geminiAction");
       assert.ok(antigravityAction, "expected an antigravityAction");
 
-      assert.match(geminiAction.target, /\.gemini\/agents\/my-agent\.md$/);
-      assert.match(antigravityAction.target, /\.agents\/rules\/my-agent\.md$/);
+      assert.match(geminiAction.target, /[\\/]\.gemini[\\/]agents[\\/]my-agent\.md$/);
+      assert.match(antigravityAction.target, /[\\/]\.agents[\\/]rules[\\/]my-agent\.md$/);
     } finally {
       await rm(sourceDir, { recursive: true });
     }
