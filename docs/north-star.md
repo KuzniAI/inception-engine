@@ -33,10 +33,10 @@ These are durable instruction surfaces loaded outside a single prompt.
 |---|---|---|---|
 | Claude Code | `CLAUDE.md` (root, folder-level) and `~/.claude/CLAUDE.md` | Confirmed by current official docs | Supports hierarchical loading; folder-specific files override root. |
 | OpenAI Codex | `AGENTS.md` (root, nested) and `~/.codex/AGENTS.md` | Confirmed by current official docs | Concatenates from root down; files closer to CWD override earlier ones. |
-| Gemini CLI | `GEMINI.md` (root, workspace) and `~/.gemini/GEMINI.md` | Confirmed by current official docs | Hierarchical loading with JIT scanning support. |
-| Antigravity | `.agents/rules/*.md` (repo-local); `GEMINI.md` used as "Agent Blueprint" (read by Antigravity but not a current deployment target) | Confirmed by current official docs | The engine deploys instructions to `{repo}/.agents/rules/{name}.md`. `GEMINI.md` is the shared Gemini-lineage surface Antigravity also reads, but inception-engine does not write to it for Antigravity — gemini-cli owns that path. |
-| OpenCode | `AGENTS.md` and `opencode.json` | Confirmed by current official docs | Project > Global > Remote precedence. |
-| GitHub Copilot | `CLAUDE.md`, `.github/copilot-instructions.md` | Confirmed by current official docs | **Claude Precedence**: Natively consumes `CLAUDE.md` as the primary instruction surface if present. |
+| Gemini CLI | `GEMINI.md` (root, workspace), `AGENTS.md`, and `~/.gemini/GEMINI.md` | Confirmed by current official docs | Hierarchical loading with JIT scanning support; configurable filenames via `settings.json`. |
+| Antigravity | `.agents/rules/*.md` (repo-local); `GEMINI.md` used as "Agent Blueprint" | Confirmed by current official docs | Deploys to `{repo}/.agents/rules/{name}.md`. Reads `GEMINI.md` for blueprint instructions. |
+| OpenCode | `AGENTS.md`, `CLAUDE.md` (fallback), and `opencode.json` | Confirmed by current official docs | Project > Global precedence. Supports Claude Code fallback. |
+| GitHub Copilot | `AGENTS.md`, `CLAUDE.md`, `.github/copilot-instructions.md`, and `.github/instructions/*.instructions.md` | Confirmed by current official docs | **Claude Precedence**: Natively consumes `CLAUDE.md`. Scoped rules via `.github/instructions/`. |
 
 ### 2. MCP Configuration
 
@@ -44,12 +44,12 @@ MCP support is standard across modern coding agents, but storage locations and s
 
 | Agent | Current surface | Confidence | Notes |
 |---|---|---|---|
-| Claude Code | `.claude/mcp.json` and `~/.claude.json` | Confirmed by current official docs | Project-level config (committed) vs user-level (global). |
+| Claude Code | `.claude/mcp.json` and `~/.claude.json` | Confirmed by current official docs | Project-level config (committed) vs user-level (global). Global config also in `~/.claude/settings.json`. |
 | OpenAI Codex | `~/.codex/config.toml` | Confirmed by current official docs | Managed via TOML. |
 | Gemini CLI | `~/.gemini/settings.json` | Confirmed by current official docs | Configured under `mcpServers` key. |
-| Antigravity | Integrated MCP config in `.agents/rules/` | Confirmed by current official docs | Extends custom agents with external tools via frontmatter. |
+| Antigravity | `mcp_config.json` and `.agents/rules/` frontmatter | Confirmed by current official docs | Extends custom agents with external tools via frontmatter or raw JSON config. |
 | OpenCode | `opencode.json` under `mcp` | Confirmed by current official docs | Supports `local` (command) and `remote` (URL) server types. |
-| GitHub Copilot | `.devcontainer/devcontainer.json` and frontmatter | Confirmed by current official docs | Supports local-to-agent tool mapping via devcontainer features. |
+| GitHub Copilot | `.vscode/mcp.json`, `devcontainer.json`, and agent frontmatter | Confirmed by current official docs | Supports workspace-level, devcontainer-level, and agent-specific tool mapping. |
 
 ### 3. Agents and Subagents
 
@@ -59,10 +59,10 @@ Agent orchestration has converged on Markdown files with YAML frontmatter for cu
 |---|---|---|---|
 | Claude Code | `.claude/agents/` or `.claude/skills/` | Confirmed by current official docs | Uses Markdown with YAML frontmatter or `SKILL.md` files. |
 | OpenAI Codex | Custom GPT-like instructions in `~/.codex/` | Confirmed by current official docs | Managed via `AGENTS.md` and `config.toml`. |
-| Gemini CLI | `.gemini/agents/` (provisional) | Confirmed by current implementation only | Moving toward explicit subagent definitions. |
-| Antigravity | `.agents/rules/*.md` | Confirmed by current official docs | Defines specialized workflows and personas. |
-| OpenCode | `.opencode/agents/*.md` | Confirmed by current official docs | Multi-agent architecture (Primary vs Subagent). |
-| GitHub Copilot | `.github/agents/*.agent.md` | Confirmed by current official docs | **Skill Mirroring**: Natively executes Claude-style skills from `.claude/skills/`. |
+| Gemini CLI | `.gemini/agents/` and `~/.gemini/agents/` | Confirmed by current official docs | Supports Markdown and TOML subagent definitions. Managed via `/agents` commands. |
+| Antigravity | `.agents/rules/*.md` and `.agents/skills/` | Confirmed by current official docs | Defines specialized workflows and personas using `SKILL.md` with frontmatter. |
+| OpenCode | `.opencode/agents/*.md` and `~/.config/opencode/agents/` | Confirmed by current official docs | Multi-agent architecture (Primary vs Subagent). |
+| GitHub Copilot | `.github/copilot/agents/*.md` | Confirmed by current official docs | **Skill Mirroring**: Natively executes Claude-style skills from `.claude/skills/`. |
 
 ### 4. Execution and Safety-Oriented Config
 
@@ -71,8 +71,8 @@ Agents expose granular controls over command execution, tool permissions, and li
 | Agent | Current surface | Confidence | Notes |
 |---|---|---|---|
 | GitHub Copilot | Agent frontmatter and binary hooks | Confirmed by current official docs | Supports pre/post-execution hooks calling external binaries via stdin/stdout. |
-| OpenCode | `opencode.json` permissions | Confirmed by current official docs | Granular permissions with wildcard support. |
-| Claude Code | `.claude/mcp.json` and session settings | Confirmed by current official docs | 4-tier decision engine; supports JS/Python lifecycle hooks. |
+| OpenCode | `opencode.json` permissions | Confirmed by current official docs | Granular permissions with wildcard support (`allow`, `ask`, `deny`). |
+| Claude Code | `.claude/settings.json` and `.claude/hooks/` | Confirmed by current official docs | Extensive lifecycle hooks (15+ events); supports JS/Python/Shell via stdout injection and exit codes. |
 | OpenAI Codex | `config.toml` approval policies | Confirmed by current official docs | Defines `approval_policy` for shell commands. |
 | Gemini CLI | `settings.json` and safe-mode flags | Confirmed by current official docs | Execution-hook parity is emerging. |
 
