@@ -18,8 +18,6 @@ Score format:
 
 ## Quality And Maintenance
 
-Ordered from highest to lowest.
-
 1. **Add explicit Windows execution coverage for repo/workspace instruction targets and frontmatter emit.**  
    Windows coverage is better than when this roadmap was first written: there are Windows deploy/revert tests for skill-dir behavior, config-patch revert integration, file-write revert integration, and cross-platform path-template resolution. The remaining gap is end-to-end execution coverage for repo/workspace `agentRules` targets and Antigravity frontmatter emit on Windows, which are still primarily exercised through platform-agnostic tests.  
    `Score 8/12 (Architecture 1, Agents 1, OS 2, Confidence 2, Safety 1, Stability 1)`
@@ -28,14 +26,7 @@ Ordered from highest to lowest.
    `init` now has broad CLI coverage for sidecar manifests, shared-surface defaults, `copilot-instructions.md`, hints for `files/` and `configs/`, and `.agents/rules/` filtering. What is still missing is a single fixture-backed test that runs against the real `limbo/` sample tree and README-shaped layouts so documentation drift is caught without reconstructing scenarios piecemeal in tests.  
    `Score 7/12 (Architecture 1, Agents 1, OS 1, Confidence 2, Safety 1, Stability 1)`
 
-3. ~~**Refactor the test suite onto shared cross-platform path assertion helpers.**  
-   New tests keep reintroducing one-off path workarounds, and those assertions regularly fail on `windows-latest` because they hard-code POSIX or Windows separators. Do a deliberate cleanup pass across the unit test suite: add a small shared helper layer for path normalization and path-aware assertions, migrate existing tests to it, and remove ad-hoc separator fixes so new coverage follows one consistent pattern. Treat this as both a refactor and a guardrail task: every test that asserts on paths should either normalize separators through the shared helper or assert via `path` utilities, and agent instructions should explicitly forbid hard-coded path-separator assertions in new tests.  
-   `Score 8/12 (Architecture 1, Agents 1, OS 2, Confidence 2, Safety 1, Stability 1)`~~
-
-
 ## Functional Features
-
-Ordered from highest to lowest.
 
 1. **Implement GitHub Copilot MCP support on the documented repo/workspace surfaces.**  
    The north star now treats GitHub Copilot MCP as a real, documented vector, while the current implementation still warns and skips it. Add adapters for workspace and repo-scoped Copilot MCP surfaces, with ownership tracking and safe revert, instead of keeping it in planned state.  
