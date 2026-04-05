@@ -231,8 +231,12 @@ export const AGENT_REGISTRY: readonly AgentConfig[] = [
         windows: ["{repo}", ".agents", "rules", "{name}.md"],
       },
     },
+    // Antigravity shares its instruction surfaces with gemini-cli (both target
+    // the same GEMINI.md paths). surfaceKind: shared-via drives deduplication
+    // when both agents appear in the same agentRules entry.
     agentRulesSupport: {
       status: "supported",
+      surfaceKind: { kind: "shared-via", via: "gemini-cli" },
       schemaLabel: "global Gemini blueprint instructions file",
       path: {
         posix: ["{home}", ".gemini", "GEMINI.md"],
@@ -241,6 +245,7 @@ export const AGENT_REGISTRY: readonly AgentConfig[] = [
     },
     agentRulesRepoSupport: {
       status: "supported",
+      surfaceKind: { kind: "shared-via", via: "gemini-cli" },
       schemaLabel: "repo-local GEMINI.md",
       path: {
         posix: ["{repo}", "GEMINI.md"],
@@ -267,6 +272,7 @@ export const AGENT_REGISTRY: readonly AgentConfig[] = [
       reason:
         "Antigravity is natively repo-local and does not expose a separate workspace-local instruction surface",
     },
+    instructionFrontmatterRequired: true,
   },
   {
     id: "opencode",
@@ -340,6 +346,7 @@ export const AGENT_REGISTRY: readonly AgentConfig[] = [
     // from `.claude/skills/` (the same path used by claude-code). Deploying
     // via the `claude-code` skills target automatically covers Copilot — no
     // separate `~/.copilot/skills/` path is needed or maintained.
+    skillsSurfaceKind: { kind: "shared-via", via: "claude-code" },
     detectPaths: {
       posix: ["{home}", ".copilot"],
       windows: ["{home}", ".copilot"],
@@ -358,17 +365,49 @@ export const AGENT_REGISTRY: readonly AgentConfig[] = [
       reason:
         "GitHub Copilot MCP support will be implemented via repo-scoped devcontainer features and agent-frontmatter mappings — surfaces that are genuinely Copilot-specific and not covered by other agent targets",
     },
+    // GitHub Copilot reads Claude-native instruction files (CLAUDE.md) without
+    // a separate deploy action. These surfaces are marked shared-via claude-code
+    // with requiresPrimary: true so deploy skips emitting a separate action
+    // when claude-code is also targeted, and emits a guidance warning when it
+    // is not (copilot cannot write to these surfaces independently).
     agentRulesSupport: {
-      status: "unsupported",
+      status: "supported",
+      surfaceKind: {
+        kind: "shared-via",
+        via: "claude-code",
+        requiresPrimary: true,
+      },
       schemaLabel: "Claude-native shared instructions",
-      reason:
-        'GitHub Copilot reads CLAUDE.md natively, so deploy via the "claude-code" agentRules target instead of a separate rules surface',
+      path: {
+        posix: ["{home}", ".claude", "CLAUDE.md"],
+        windows: ["{home}", ".claude", "CLAUDE.md"],
+      },
     },
     agentRulesRepoSupport: {
-      status: "unsupported",
+      status: "supported",
+      surfaceKind: {
+        kind: "shared-via",
+        via: "claude-code",
+        requiresPrimary: true,
+      },
       schemaLabel: "repo-local CLAUDE.md",
-      reason:
-        'GitHub Copilot reads CLAUDE.md natively, so deploy via the "claude-code" agentRules target with scope: "repo" instead of a separate rules surface',
+      path: {
+        posix: ["{repo}", "CLAUDE.md"],
+        windows: ["{repo}", "CLAUDE.md"],
+      },
+    },
+    agentRulesWorkspaceSupport: {
+      status: "supported",
+      surfaceKind: {
+        kind: "shared-via",
+        via: "claude-code",
+        requiresPrimary: true,
+      },
+      schemaLabel: "workspace-local CLAUDE.md",
+      path: {
+        posix: ["{workspace}", "CLAUDE.md"],
+        windows: ["{workspace}", "CLAUDE.md"],
+      },
     },
     permissionsSupport: {
       status: "unsupported",
@@ -384,14 +423,10 @@ export const AGENT_REGISTRY: readonly AgentConfig[] = [
         windows: ["{repo}", ".github", "agents", "{name}.agent.md"],
       },
     },
-    agentRulesWorkspaceSupport: {
-      status: "unsupported",
-      schemaLabel: "workspace-local instruction surface",
-      reason:
-        'GitHub Copilot instruction surfaces are managed at the repo, devcontainer, or organization level — deploy via the "claude-code" agentRules target with scope: "workspace" instead of a separate rules surface',
-    },
     policyNote:
       "Organization policies may override locally deployed configuration. Verify with your GitHub org admin if deployed skills or rules are not active.",
+    instructionFrontmatterRequired: true,
+    enterprisePolicyDetection: true,
   },
 ] as const;
 

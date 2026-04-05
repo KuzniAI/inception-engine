@@ -252,13 +252,15 @@ describe("compileAgentRuleActions", () => {
       assert.equal(actions.length, 0);
       assert.equal(warnings.length, 1);
       assert.equal(warnings[0]?.kind, "confidence");
+      // github-copilot is shared-via claude-code with requiresPrimary, so
+      // when claude-code is absent a guidance warning is emitted
       assert.match(
         warnings[0]?.message ?? "",
-        /Claude-native shared instructions/,
+        /reads this surface via "claude-code"/,
       );
       assert.match(
         warnings[0]?.message ?? "",
-        /deploy via the "claude-code" agentRules target/,
+        /add "claude-code" to the entry's agents list/,
       );
     } finally {
       await rm(dir, { recursive: true });
@@ -654,6 +656,76 @@ describe("compileAgentRuleActions", () => {
       assert.equal(warnings.length, 1);
       assert.equal(warnings[0]?.kind, "confidence");
       assert.match(warnings[0]?.message ?? "", /claude-code/);
+    } finally {
+      await rm(dir, { recursive: true });
+    }
+  });
+
+  it("github-copilot + claude-code: emits ONE action for claude-code only (shared-via dedup)", async () => {
+    const dir = await makeTmpDir();
+    try {
+      await writeFile(
+        path.join(dir, "rules.md"),
+        "---\nname: test-rule\ndescription: test\n---\n# Rules",
+      );
+      const realRoot = await realpath(dir);
+      const { actions, warnings } = await compileAgentRuleActions(
+        {
+          name: "my-rule",
+          agents: ["claude-code", "github-copilot"],
+          path: "rules.md",
+          scope: "global",
+        },
+        dir,
+        dir,
+        realRoot,
+        ["claude-code", "github-copilot"],
+        "/home/test",
+      );
+      // github-copilot rides claude-code's CLAUDE.md deployment; only one
+      // action should be emitted for claude-code.
+      assert.equal(actions.length, 1, "expected exactly one action");
+      assert.equal(warnings.length, 0);
+      assert.equal(actions[0]?.agent, "claude-code");
+      assert.ok(
+        normalizeSlashes(actions[0]?.target ?? "").endsWith(
+          ".claude/CLAUDE.md",
+        ),
+        `expected target to end with .claude/CLAUDE.md, got: ${actions[0]?.target}`,
+      );
+    } finally {
+      await rm(dir, { recursive: true });
+    }
+  });
+
+  it("github-copilot without claude-code: emits guidance confidence warning, no action", async () => {
+    const dir = await makeTmpDir();
+    try {
+      await writeFile(
+        path.join(dir, "rules.md"),
+        "---\nname: test-rule\ndescription: test\n---\n# Rules",
+      );
+      const realRoot = await realpath(dir);
+      const { actions, warnings } = await compileAgentRuleActions(
+        {
+          name: "my-rule",
+          agents: ["github-copilot"],
+          path: "rules.md",
+          scope: "global",
+        },
+        dir,
+        dir,
+        realRoot,
+        ["github-copilot"],
+        "/home/test",
+      );
+      assert.equal(actions.length, 0);
+      assert.equal(warnings.length, 1);
+      assert.equal(warnings[0]?.kind, "confidence");
+      assert.match(
+        warnings[0]?.message ?? "",
+        /reads this surface via "claude-code"/,
+      );
     } finally {
       await rm(dir, { recursive: true });
     }

@@ -15,7 +15,7 @@ async function detectEnterpriseManagement(
   agentId: AgentId,
   home: string,
 ): Promise<string | null> {
-  if (agentId !== "github-copilot") return null;
+  if (!AGENT_REGISTRY_BY_ID[agentId]?.enterprisePolicyDetection) return null;
 
   // Check for common GitHub Enterprise environment variables
   if (

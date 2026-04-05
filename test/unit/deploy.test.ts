@@ -409,7 +409,7 @@ describe("planDeploy", () => {
       // both agents now target the same GEMINI.md surface — warn that listing
       // both is redundant but harmless
       assert.match(ambiguity.message, /redundant but harmless/);
-      assert.match(ambiguity.message, /GEMINI\.md/);
+      assert.match(ambiguity.message, /same surface/);
     } finally {
       await rm(sourceDir, { recursive: true });
     }
@@ -441,8 +441,7 @@ describe("planDeploy", () => {
       );
       const ambiguity = warnings.find((w) => w.kind === "ambiguity");
       assert.ok(ambiguity, "expected an ambiguity warning");
-      assert.match(ambiguity.message, /shared surface/);
-      assert.match(ambiguity.message, /settings\.json/);
+      assert.match(ambiguity.message, /shared MCP surface/);
     } finally {
       await rm(sourceDir, { recursive: true });
     }
@@ -837,13 +836,15 @@ describe("planDeploy", () => {
       );
 
       assert.ok(repoWarning, "expected ambiguity warning for repo-rules");
-      assert.match(repoWarning.message, /\{repo\}\/GEMINI\.md/);
+      assert.match(repoWarning.message, /same surface/);
 
-      assert.ok(
+      // antigravity does not support workspace scope, so the paths do not
+      // match — no ambiguity warning should be emitted for workspace-rules
+      assert.equal(
         workspaceWarning,
-        "expected ambiguity warning for workspace-rules",
+        undefined,
+        "expected no ambiguity warning for workspace-rules (antigravity lacks workspace support)",
       );
-      assert.match(workspaceWarning.message, /\{workspace\}\/GEMINI\.md/);
     } finally {
       await rm(sourceDir, { recursive: true });
     }

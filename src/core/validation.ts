@@ -1,5 +1,6 @@
 import { lstat, readFile, realpath, stat } from "node:fs/promises";
 import path from "node:path";
+import { AGENT_REGISTRY_BY_ID } from "../config/agents.ts";
 import { UserError } from "../errors.ts";
 import { parseFrontmatterDocument } from "./adapters/frontmatter.ts";
 import type { AgentId } from "../schemas/manifest.ts";
@@ -389,7 +390,7 @@ export async function validateInstructionFileRequirements(
   agentId: AgentId,
 ): Promise<void> {
   const requiresFrontmatter =
-    agentId === "github-copilot" || agentId === "antigravity";
+    AGENT_REGISTRY_BY_ID[agentId]?.instructionFrontmatterRequired === true;
 
   if (!requiresFrontmatter) return;
 

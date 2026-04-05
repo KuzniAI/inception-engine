@@ -52,6 +52,7 @@ function resolveAgentTarget(
   repo: string | undefined,
   platform: "posix" | "windows",
   workspace?: string,
+  allTargetAgentIds?: AgentId[],
 ): ResolvedTarget | PlanWarning {
   const support = resolveRulesSupport(agentId, entry.scope);
   if (!support || support.status === "unsupported") {
@@ -64,6 +65,19 @@ function resolveAgentTarget(
     return {
       kind: "confidence",
       message: `agentRules: agent "${agentId}" rules support is planned via ${support.plannedSurface} — skipping "${entry.name}" until that surface is implemented`,
+    };
+  }
+  // shared-via: when requiresPrimary is set and the primary agent is absent
+  // from the target list, emit a guidance warning instead of deploying.
+  if (
+    support.surfaceKind?.kind === "shared-via" &&
+    support.surfaceKind.requiresPrimary &&
+    allTargetAgentIds &&
+    !allTargetAgentIds.includes(support.surfaceKind.via)
+  ) {
+    return {
+      kind: "confidence",
+      message: `agentRules: agent "${agentId}" reads this surface via "${support.surfaceKind.via}" — add "${support.surfaceKind.via}" to the entry's agents list to deploy to this surface, or deploy via the "${support.surfaceKind.via}" agentRules target instead`,
     };
   }
   if (entry.scope === "repo" && !repo) {
@@ -122,6 +136,7 @@ export async function compileAgentRuleActions(
       repo,
       platform,
       workspace,
+      targetAgents,
     );
     if ("kind" in result) {
       warnings.push(result);
@@ -134,12 +149,26 @@ export async function compileAgentRuleActions(
     return { actions, warnings };
   }
 
-  // Deduplicate by resolved target path — first agent in list wins.
-  // Handles cases where multiple agents share the same surface (e.g.,
-  // gemini-cli and antigravity both targeting GEMINI.md).
+  // Deduplicate: when a shared-via rider's primary is also in supportedTargets,
+  // skip the rider — the primary agent writes the shared surface. As a fallback,
+  // also dedup by resolved path so no target file is written twice.
   const seenTargetPaths = new Set<string>();
   const dedupedTargets: ResolvedTarget[] = [];
   for (const t of supportedTargets) {
+    const sup = resolveRulesSupport(t.agentId, entry.scope);
+    if (
+      sup?.status === "supported" &&
+      sup.surfaceKind?.kind === "shared-via" &&
+      supportedTargets.some(
+        (o) =>
+          o.agentId ===
+            (sup.surfaceKind as { kind: "shared-via"; via: AgentId }).via &&
+          o.target === t.target,
+      )
+    ) {
+      // Primary agent is present and writes the same target — skip rider.
+      continue;
+    }
     if (!seenTargetPaths.has(t.target)) {
       seenTargetPaths.add(t.target);
       dedupedTargets.push(t);

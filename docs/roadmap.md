@@ -24,9 +24,9 @@ Ordered from highest to lowest.
    The current implementation still treats Antigravity repo rules as a custom `.agents/rules/{name}.md` path in both adapters and `init`, even though the north-star now calls out repo-level instruction overlap that should let us remove at least part of this bespoke handling. Keep `.agents/rules/` only for genuinely Antigravity-specific surfaces such as frontmatter-driven MCP or agent-definition cases that cannot be expressed through shared rule files.
    `Score 11/12 (Architecture 2, Agents 2, OS 1, Confidence 2, Safety 2, Stability 2)`~~
 
-2. **Introduce a first-class shared-surface model in the agent registry.**  
-   Today, shared-surface behavior is encoded as one-off exceptions: GitHub Copilot rides Claude-native instructions, while Gemini CLI and Antigravity trigger ambiguity warnings because they partly share lineage but not the same target paths. Replace these ad hoc branches with explicit metadata for `native`, `shared-via`, and `agent-specific` surfaces so deploy, revert, preflight, and `init` all reason from the same model.  
-   `Score 11/12 (Architecture 2, Agents 2, OS 1, Confidence 2, Safety 2, Stability 2)`
+2. ~~**Introduce a first-class shared-surface model in the agent registry.**
+   Today, shared-surface behavior is encoded as one-off exceptions: GitHub Copilot rides Claude-native instructions, while Gemini CLI and Antigravity trigger ambiguity warnings because they partly share lineage but not the same target paths. Replace these ad hoc branches with explicit metadata for `native`, `shared-via`, and `agent-specific` surfaces so deploy, revert, preflight, and `init` all reason from the same model.
+   `Score 11/12 (Architecture 2, Agents 2, OS 1, Confidence 2, Safety 2, Stability 2)`~~
 
 3. ~~**Stop treating Antigravity `.agents/rules/` as two independent concepts unless the file shape proves it.**
    The current code uses the same Antigravity path family for both `agentRules` and `agentDefinitions`, which creates redundant configuration and collision potential. Tighten discovery and planning so one file is not silently modeled as two different portability vectors unless the north-star and file schema clearly justify that split.

@@ -123,9 +123,12 @@ export function resolveAgentSkillPathFor(
   platform: "posix" | "windows",
 ): string {
   if (!agent.skills) {
+    const hint =
+      agent.skillsSurfaceKind?.kind === "shared-via"
+        ? ` Deploy skills via the "${agent.skillsSurfaceKind.via}" target, which covers this agent natively.`
+        : "";
     throw new Error(
-      `Agent "${agent.id}" does not have a skills deployment path. ` +
-        `Deploy skills via another agent target that covers this agent natively (e.g. claude-code for github-copilot).`,
+      `Agent "${agent.id}" does not have a skills deployment path.${hint}`,
     );
   }
   return resolvePlaceholders(agent.skills[platform], skillName, home);

@@ -18,6 +18,32 @@ export type Confidence = "documented" | "implementation-only" | "provisional";
 
 export interface SupportedAgentSurface {
   status: "supported";
+  /**
+   * Declares how this agent relates to the surface:
+   * - "agent-specific" (default when absent): the agent owns this surface
+   *   independently and deploy emits a normal action.
+   * - "native": the agent reads this surface autonomously without any deploy
+   *   action from inception-engine; no action is emitted.
+   * - "shared-via": this agent rides another agent's deployment. When the
+   *   primary agent (`via`) is also in the target list, deploy skips this
+   *   agent's action (the primary writes the shared file). When the primary
+   *   is absent, a guidance warning is emitted instead.
+   */
+  surfaceKind?:
+    | { kind: "agent-specific" }
+    | { kind: "native" }
+    | {
+        kind: "shared-via";
+        via: AgentId;
+        /**
+         * When true, this agent cannot deploy to the surface independently —
+         * the primary agent (`via`) must also be in the target list. If the
+         * primary is absent, a guidance warning is emitted and no action is
+         * generated. When false or absent, the agent can deploy to the surface
+         * on its own if the primary is not present.
+         */
+        requiresPrimary?: boolean;
+      };
   path: AgentPaths;
   schemaLabel: string;
   // Override the top-level key used when patching a JSON config file.
@@ -73,6 +99,12 @@ export interface AgentConfig {
    * (e.g. GitHub Copilot reads `.claude/skills/` directly).
    */
   skills?: AgentPaths;
+  /**
+   * When `skills` is absent, this field explains why. Currently only
+   * "shared-via" is used — the agent reads skills from the `via` agent's
+   * deployment path natively and needs no separate skills deploy action.
+   */
+  skillsSurfaceKind?: { kind: "shared-via"; via: AgentId };
   detectPaths: AgentPaths;
   detectBinary: string | null;
   provenance: AgentProvenance;
@@ -94,6 +126,16 @@ export interface AgentConfig {
   // Agent-specific agent/subagent definition file surface support.
   agentDefinitionsSupport?: AgentSurfaceSupport;
   policyNote?: string;
+  /**
+   * When true, instruction files deployed to this agent must include valid
+   * YAML frontmatter. Drives validateInstructionFileRequirements without
+   * hardcoded agent-ID checks.
+   */
+  instructionFrontmatterRequired?: boolean;
+  /**
+   * When true, preflight runs enterprise-policy detection for this agent.
+   */
+  enterprisePolicyDetection?: boolean;
 }
 
 export interface PlanWarning {

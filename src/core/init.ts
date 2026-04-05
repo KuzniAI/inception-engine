@@ -1,6 +1,6 @@
 import { access, readdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
-import { AGENT_REGISTRY_BY_ID } from "../config/agents.ts";
+import { AGENT_REGISTRY, AGENT_REGISTRY_BY_ID } from "../config/agents.ts";
 import { dryRunPrefix, logger } from "../logger.ts";
 import { parseFrontmatterDocument } from "./adapters/frontmatter.ts";
 import type {
@@ -23,38 +23,67 @@ import {
 const SAFE_NAME_RE = /^[a-zA-Z0-9][a-zA-Z0-9._-]*$/;
 
 // Ordered list: first match wins. Catch-all is applied at call site.
+// Derived from the registry: group agents by the filename of their global
+// agentRulesSupport path. Agents with requiresPrimary (e.g. github-copilot)
+// are excluded because they cannot be deployed independently. The
+// copilot-instructions.md convention mapping is appended explicitly since it
+// is a well-known filename convention, not derivable from a path template.
 const AGENT_RULES_FILE_PATTERNS: Array<{
   fileNames: string[];
   agents: AgentId[];
-}> = [
-  {
-    fileNames: ["claude.md", "claude-instructions.md"],
-    agents: ["claude-code"],
-  },
-  {
-    fileNames: ["agents.md", "agents-instructions.md"],
-    agents: ["codex", "opencode"],
-  },
-  {
-    fileNames: ["gemini.md", "gemini-instructions.md"],
-    agents: ["gemini-cli", "antigravity"],
-  },
-  { fileNames: ["copilot-instructions.md"], agents: ["claude-code"] },
-];
+}> = (() => {
+  const filenameToAgents = new Map<string, AgentId[]>();
+  for (const agent of AGENT_REGISTRY) {
+    const support = agent.agentRulesSupport;
+    if (support?.status !== "supported") continue;
+    // Skip riders that require the primary — they cannot be listed independently
+    if (
+      support.surfaceKind?.kind === "shared-via" &&
+      support.surfaceKind.requiresPrimary
+    )
+      continue;
+    const filename =
+      support.path.posix[support.path.posix.length - 1]?.toLowerCase();
+    if (!filename) continue;
+    const list = filenameToAgents.get(filename) ?? [];
+    list.push(agent.id);
+    filenameToAgents.set(filename, list);
+  }
+  return [
+    ...Array.from(filenameToAgents.entries()).map(([filename, agents]) => ({
+      fileNames: [filename, filename.replace(".md", "-instructions.md")],
+      agents,
+    })),
+    // Convention mapping: copilot-instructions.md → claude-code. Copilot reads
+    // CLAUDE.md natively; this filename is a well-known convention that cannot
+    // be derived from any agent path template.
+    {
+      fileNames: ["copilot-instructions.md"],
+      agents: ["claude-code"] as AgentId[],
+    },
+  ];
+})();
 
 // Conventional subdirectory names to scan one level deep for .md files.
 const AGENT_RULES_SUBDIRS = ["rules", "instructions", ".github"];
 
 // Conventional subdirectories that contain agent definition files.
-// These are the agent-specific directories that each agent scans for
-// subagent/persona definitions at runtime.
-const AGENT_DEFINITION_SUBDIRS = [
-  ".claude/agents",
-  ".gemini/agents",
-  ".agents/rules",
-  ".opencode/agents",
-  ".github/agents",
-];
+// Derived from the registry: for each agent with a supported agentDefinitions
+// surface, extract the directory prefix from its posix path template.
+const AGENT_DEFINITION_SUBDIRS: string[] = (() => {
+  const subdirs = new Set<string>();
+  for (const agent of AGENT_REGISTRY) {
+    const support = agent.agentDefinitionsSupport;
+    if (support?.status !== "supported") continue;
+    const tmpl = support.path.posix;
+    const repoIdx = tmpl.indexOf("{repo}");
+    const nameIdx = tmpl.findIndex((s) => s.includes("{name}"));
+    if (repoIdx === -1 || nameIdx === -1 || nameIdx <= repoIdx) continue;
+    const dirSegs = tmpl.slice(repoIdx + 1, nameIdx);
+    if (dirSegs.length > 0) subdirs.add(dirSegs.join("/"));
+  }
+  return Array.from(subdirs);
+})();
 
 async function hasAntigravityMcpFrontmatter(absPath: string): Promise<boolean> {
   let raw: string;
@@ -316,37 +345,52 @@ function deriveAgentDefinitionName(
 
 /**
  * Maps a known agent-definition subdirectory to the agent IDs that own it.
- * Returns null when the subdir is not agent-specific (fall back to all agents
- * that support agentDefinitions).
+ * Derived from the registry by matching each agent's agentDefinitionsSupport
+ * path prefix. Returns null when the subdir is not recognized.
  */
 function agentsForDefinitionSubdir(subdir: string): AgentId[] | null {
-  switch (subdir) {
-    case ".claude/agents":
-      return ["claude-code"];
-    case ".gemini/agents":
-      return ["gemini-cli"];
-    case ".agents/rules":
-      return ["antigravity"];
-    case ".opencode/agents":
-      return ["opencode"];
-    case ".github/agents":
-      return ["github-copilot"];
-    default:
-      return null;
+  const matching: AgentId[] = [];
+  for (const agent of AGENT_REGISTRY) {
+    const support = agent.agentDefinitionsSupport;
+    if (support?.status !== "supported") continue;
+    const tmpl = support.path.posix;
+    const repoIdx = tmpl.indexOf("{repo}");
+    const nameIdx = tmpl.findIndex((s) => s.includes("{name}"));
+    if (repoIdx === -1 || nameIdx === -1 || nameIdx <= repoIdx) continue;
+    const agentSubdir = tmpl.slice(repoIdx + 1, nameIdx).join("/");
+    if (agentSubdir === subdir) matching.push(agent.id);
   }
+  return matching.length > 0 ? matching : null;
 }
 
-async function isSkippedAntigravityMcpFile(
+/**
+ * Returns true when a file in a definition subdir contains MCP-specific
+ * frontmatter and should be excluded from agentDefinitions discovery. Detects
+ * this by checking whether any registered agent uses the same directory as
+ * both its definition surface and its MCP surface (currently: Antigravity's
+ * .agents/rules/).
+ */
+async function isSkippedMcpFile(
   subdir: string,
   absPath: string,
   relPath: string,
 ): Promise<boolean> {
-  if (subdir !== ".agents/rules") return false;
+  const hasMcpSurfaceHere = AGENT_REGISTRY.some((agent) => {
+    const support = agent.mcpSupport;
+    if (support?.status !== "supported") return false;
+    const tmpl = support.path.posix;
+    const repoIdx = tmpl.indexOf("{repo}");
+    const nameIdx = tmpl.findIndex((s) => s.includes("{name}"));
+    if (repoIdx === -1 || nameIdx === -1 || nameIdx <= repoIdx) return false;
+    const prefix = tmpl.slice(repoIdx + 1, nameIdx).join("/");
+    return prefix === subdir;
+  });
+  if (!hasMcpSurfaceHere) return false;
   const isMcp = await hasAntigravityMcpFrontmatter(absPath);
   if (isMcp) {
     logger.warn(
       "init",
-      `Skipping "${relPath}" as agentDefinitions: frontmatter contains "mcp-servers" — file is an Antigravity MCP surface, not an agent definition`,
+      `Skipping "${relPath}" as agentDefinitions: frontmatter contains "mcp-servers" — file is an MCP surface, not an agent definition`,
     );
   }
   return isMcp;
@@ -384,7 +428,7 @@ async function scanDefinitionSubdir(
       agentRulesRelPaths.has(relPath)
     )
       continue;
-    if (await isSkippedAntigravityMcpFile(subdir, absPath, relPath)) continue;
+    if (await isSkippedMcpFile(subdir, absPath, relPath)) continue;
     const name = deriveAgentDefinitionName(relPath, entry.name);
     if (name === null) continue;
     seen.add(relPath);
@@ -715,10 +759,18 @@ export interface InitOptions {
 export async function runInit(options: InitOptions): Promise<number> {
   const { directory, dryRun, force, verbose } = options;
   const agents: AgentId[] = options.agents ?? ([...AGENT_IDS] as AgentId[]);
-  const agentRulesCapableAgents = agents.filter(
-    (id) =>
-      AGENT_REGISTRY_BY_ID[id].agentRulesSupport?.status !== "unsupported",
-  );
+  const agentRulesCapableAgents = agents.filter((id) => {
+    const support = AGENT_REGISTRY_BY_ID[id].agentRulesSupport;
+    if (!support || support.status === "unsupported") return false;
+    // Exclude riders that require the primary — they cannot operate independently
+    if (
+      support.status === "supported" &&
+      support.surfaceKind?.kind === "shared-via" &&
+      support.surfaceKind.requiresPrimary
+    )
+      return false;
+    return true;
+  });
 
   const manifestPath = path.join(directory, "inception.json");
 

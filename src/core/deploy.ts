@@ -14,7 +14,7 @@ import {
   writeFile,
 } from "node:fs/promises";
 import path from "node:path";
-import { AGENT_REGISTRY_BY_ID } from "../config/agents.ts";
+import { AGENT_REGISTRY, AGENT_REGISTRY_BY_ID } from "../config/agents.ts";
 import { UserError } from "../errors.ts";
 import { logger } from "../logger.ts";
 import type {
@@ -132,56 +132,140 @@ function detectCollisions(actions: DeployAction[]): PlanWarning[] {
   return warnings;
 }
 
-function checkAgentRuleAmbiguities(
+/**
+ * Finds all (primary, rider) pairs among detected agents where the rider has
+ * at least one surface annotated as `shared-via` the primary and the primary
+ * is also detected. Used to drive ambiguity warnings without hardcoding agent
+ * IDs.
+ */
+function findSharedSurfacePairs(
+  detectedAgents: AgentId[],
+): Array<{ primary: AgentId; rider: AgentId }> {
+  const pairs: Array<{ primary: AgentId; rider: AgentId }> = [];
+  for (const agent of AGENT_REGISTRY) {
+    if (!detectedAgents.includes(agent.id)) continue;
+    const surfaces = [
+      agent.agentRulesSupport,
+      agent.agentRulesRepoSupport,
+      agent.agentRulesWorkspaceSupport,
+      agent.mcpSupport,
+      agent.agentDefinitionsSupport,
+    ];
+    for (const surface of surfaces) {
+      if (
+        surface?.status === "supported" &&
+        surface.surfaceKind?.kind === "shared-via"
+      ) {
+        const via = surface.surfaceKind.via;
+        if (
+          detectedAgents.includes(via) &&
+          !pairs.some((p) => p.primary === via && p.rider === agent.id)
+        ) {
+          pairs.push({ primary: via, rider: agent.id });
+        }
+      }
+    }
+  }
+  return pairs;
+}
+
+function resolveAgentRulesSupportForScope(
+  agentId: AgentId,
+  scope: "global" | "repo" | "workspace",
+) {
+  const agent = AGENT_REGISTRY_BY_ID[agentId];
+  if (scope === "repo")
+    return agent?.agentRulesRepoSupport ?? agent?.agentRulesSupport;
+  if (scope === "workspace") {
+    return (
+      agent?.agentRulesWorkspaceSupport ??
+      agent?.agentRulesRepoSupport ??
+      agent?.agentRulesSupport
+    );
+  }
+  return agent?.agentRulesSupport;
+}
+
+function checkPairAgentRuleAmbiguities(
   manifest: Manifest,
-  bothAgents: (agents: AgentId[]) => boolean,
+  primary: AgentId,
+  rider: AgentId,
 ): PlanWarning[] {
   const warnings: PlanWarning[] = [];
   for (const entry of manifest.agentRules ?? []) {
-    if (bothAgents(entry.agents)) {
-      const geminiPath =
-        entry.scope === "repo"
-          ? "{repo}/GEMINI.md"
-          : entry.scope === "workspace"
-            ? "{workspace}/GEMINI.md"
-            : "~/.gemini/GEMINI.md";
+    if (!(entry.agents.includes(primary) && entry.agents.includes(rider)))
+      continue;
+    const primarySupport = resolveAgentRulesSupportForScope(
+      primary,
+      entry.scope,
+    );
+    const riderSupport = resolveAgentRulesSupportForScope(rider, entry.scope);
+    if (
+      primarySupport?.status === "supported" &&
+      riderSupport?.status === "supported" &&
+      JSON.stringify(primarySupport.path) === JSON.stringify(riderSupport.path)
+    ) {
       warnings.push({
         kind: "ambiguity",
-        message: `Both "gemini-cli" and "antigravity" are listed in agentRules entry "${entry.name}". Both now target the same ${geminiPath} surface — listing both is redundant but harmless; deduplication ensures only one write action is emitted.`,
+        message: `Both "${primary}" and "${rider}" are listed in agentRules entry "${entry.name}". Both target the same surface — listing both is redundant but harmless; deduplication ensures only one write action is emitted.`,
       });
     }
   }
   return warnings;
 }
 
-function checkMcpServerAmbiguities(
+function checkPairMcpAmbiguities(
   manifest: Manifest,
-  bothAgents: (agents: AgentId[]) => boolean,
+  primary: AgentId,
+  rider: AgentId,
 ): PlanWarning[] {
   const warnings: PlanWarning[] = [];
+  const primaryMcp = AGENT_REGISTRY_BY_ID[primary]?.mcpSupport;
+  const riderMcp = AGENT_REGISTRY_BY_ID[rider]?.mcpSupport;
+  if (primaryMcp?.status !== "supported" || riderMcp?.status !== "supported")
+    return warnings;
   for (const entry of manifest.mcpServers ?? []) {
-    if (bothAgents(entry.agents)) {
-      warnings.push({
-        kind: "ambiguity",
-        message: `Both "gemini-cli" and "antigravity" are listed in mcpServers entry "${entry.name}". "gemini-cli" writes to ~/.gemini/settings.json as a shared surface — verify that deploying to both does not produce conflicting MCP server behavior.`,
-      });
-    }
+    if (!(entry.agents.includes(primary) && entry.agents.includes(rider)))
+      continue;
+    warnings.push({
+      kind: "ambiguity",
+      message: `Both "${primary}" and "${rider}" are listed in mcpServers entry "${entry.name}". "${primary}" writes to a shared MCP surface — verify that deploying to both does not produce conflicting MCP server behavior.`,
+    });
   }
   return warnings;
 }
 
-function checkAgentDefinitionAmbiguities(
+function checkPairAgentDefinitionAmbiguities(
   manifest: Manifest,
-  bothAgents: (agents: AgentId[]) => boolean,
+  primary: AgentId,
+  rider: AgentId,
 ): PlanWarning[] {
   const warnings: PlanWarning[] = [];
   for (const entry of manifest.agentDefinitions ?? []) {
-    if (bothAgents(entry.agents)) {
-      warnings.push({
-        kind: "ambiguity",
-        message: `Both "gemini-cli" and "antigravity" are listed in agentDefinitions entry "${entry.name}". They write to distinct surfaces ("gemini-cli" → {repo}/.gemini/agents/${entry.name}.md, "antigravity" → {repo}/.agents/rules/${entry.name}.md) — verify that this behavioral divergence is intended.`,
-      });
-    }
+    if (!(entry.agents.includes(primary) && entry.agents.includes(rider)))
+      continue;
+    warnings.push({
+      kind: "ambiguity",
+      message: `Both "${primary}" and "${rider}" are listed in agentDefinitions entry "${entry.name}". They write to distinct surfaces — verify that this behavioral divergence is intended.`,
+    });
+  }
+  return warnings;
+}
+
+function detectAmbiguities(
+  detectedAgents: AgentId[],
+  manifest: Manifest,
+): PlanWarning[] {
+  const pairs = findSharedSurfacePairs(detectedAgents);
+  if (pairs.length === 0) return [];
+
+  const warnings: PlanWarning[] = [];
+  for (const { primary, rider } of pairs) {
+    warnings.push(...checkPairAgentRuleAmbiguities(manifest, primary, rider));
+    warnings.push(...checkPairMcpAmbiguities(manifest, primary, rider));
+    warnings.push(
+      ...checkPairAgentDefinitionAmbiguities(manifest, primary, rider),
+    );
   }
   return warnings;
 }
@@ -203,29 +287,6 @@ function checkAntigravityPathCollisions(manifest: Manifest): PlanWarning[] {
     }
   }
   return warnings;
-}
-
-function detectAmbiguities(
-  detectedAgents: AgentId[],
-  manifest: Manifest,
-): PlanWarning[] {
-  if (
-    !(
-      detectedAgents.includes("gemini-cli") &&
-      detectedAgents.includes("antigravity")
-    )
-  ) {
-    return [];
-  }
-
-  const bothAgents = (agents: AgentId[]) =>
-    agents.includes("gemini-cli") && agents.includes("antigravity");
-
-  return [
-    ...checkAgentRuleAmbiguities(manifest, bothAgents),
-    ...checkMcpServerAmbiguities(manifest, bothAgents),
-    ...checkAgentDefinitionAmbiguities(manifest, bothAgents),
-  ];
 }
 
 async function planSkillDirActions(

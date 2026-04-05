@@ -44,6 +44,20 @@ describe("resolveAgentSkillPath", () => {
       posixJoin("/home/user", ".gemini", "antigravity", "skills", "my-skill"),
     );
   });
+
+  it("throws with a shared-via hint for github-copilot (no skills field)", () => {
+    const copilot = getAgent("github-copilot");
+    assert.throws(
+      () => resolveAgentSkillPath(copilot, "my-skill", "/home/user"),
+      (err: Error) => {
+        assert.ok(
+          err.message.includes("claude-code"),
+          `expected hint referencing claude-code, got: ${err.message}`,
+        );
+        return true;
+      },
+    );
+  });
 });
 
 describe("resolveAgentDetectPath", () => {
