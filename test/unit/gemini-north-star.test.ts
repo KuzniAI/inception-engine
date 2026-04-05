@@ -6,6 +6,10 @@ import { runPreflight } from "../../src/core/preflight.ts";
 import { realpath, rm, writeFile } from "node:fs/promises";
 import { makeTmpDir } from "../helpers/fs.ts";
 
+function normalizeSlashes(value: string): string {
+  return value.replaceAll("\\", "/");
+}
+
 describe("Gemini CLI North Star", () => {
   it("compiles a global file-write action for gemini-cli when scope is global", async () => {
     const dir = await makeTmpDir();
@@ -35,7 +39,7 @@ describe("Gemini CLI North Star", () => {
       const action = actions[0];
       assert.equal(action.agent, "gemini-cli");
       assert.ok(
-        action.target.includes(path.join(".gemini", "agents", "my-agent.md")),
+        normalizeSlashes(action.target).endsWith(".gemini/agents/my-agent.md"),
         `expected target under .gemini/agents/my-agent.md, got: ${action.target}`,
       );
       // Verify it targets home directory
