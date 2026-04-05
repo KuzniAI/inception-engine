@@ -15,3 +15,7 @@ commit your current changes and plan your work on next 2 suggested items
 ---
 
 Start working on these items
+
+---
+
+Proceed: commit changes and expand the golden coverage
