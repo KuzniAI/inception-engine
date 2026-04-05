@@ -52,8 +52,8 @@ Before executing, the deploy command runs preflight analysis on instruction file
 | Config patch (JSON merge) | All agents via manifest and CLI | All agents |
 | MCP Servers | claude-code, gemini-cli, codex, antigravity, opencode; github-copilot repo-scoped surfaces are warned and skipped | claude-code, gemini-cli, codex, antigravity, opencode |
 | Global/Repo/Workspace Rules Files | `scope: "global"` and `scope: "repo"` are supported on the implemented agent surfaces; `scope: "workspace"` is supported for `claude-code`, `codex`, and `gemini-cli`; `github-copilot` reads Claude-native rules via `claude-code` and has no separate rules deployment target | All supported agents |
-| Permissions / Approval Config | claude-code (`~/.claude/settings.json`), codex (`~/.codex/config.toml`); other agents are warned and skipped | claude-code, codex |
-| Agent Definitions | claude-code (`{repo}/.claude/agents/{name}.md`), gemini-cli (`{repo}/.gemini/agents/{name}.md`), antigravity (`{repo}/.agents/rules/{name}.md`), opencode (`{repo}/.opencode/agents/{name}.md`), github-copilot (`{repo}/.github/agents/{name}.agent.md`); codex is warned and skipped | All supported agents |
+| Permissions / Approval Config | claude-code (`~/.claude/settings.json`), codex (`~/.codex/config.toml`), opencode (`~/.config/opencode/opencode.json` on POSIX, `%APPDATA%\\opencode\\opencode.json` on Windows); other agents are warned and skipped | claude-code, codex, opencode |
+| Agent Definitions | claude-code (`{repo}/.claude/agents/{name}.md`), gemini-cli (`{repo}/.gemini/agents/{name}.md`, plus `scope: "global"` to `~/.gemini/agents/{name}.md`), antigravity (`{repo}/.agents/rules/{name}.md`), opencode (`{repo}/.opencode/agents/{name}.md`, plus `scope: "global"` to the user config dir), github-copilot (`{repo}/.github/copilot/agents/{name}.md`, with migration from legacy `.github/agents/{name}.agent.md`); codex is warned and skipped | All supported agents |
 | `init` manifest generation | Scans `SKILL.md` directories (`skills`), `.md` files with Claude-first agent mapping (`agentRules`), `mcp-servers.json` (`mcpServers`), and agent-definition Markdown files (`agentDefinitions`); shared surfaces default to the primary deploy target instead of shared riders; emits hints for `files/` and `configs/` directories | N/A |
 | Instruction preflight analysis | Emits capability warnings for implementation-only, planned, unsupported, and shared-through surfaces used by the manifest; emits `precedence` warnings when an agent has multiple `agentRules` scopes active simultaneously or the same source file is deployed to multiple scopes; emits `budget` warnings when `agentRules` or `agentDefinitions` source files exceed 50 KB; emits GitHub Copilot enterprise-policy warnings when local configuration may be overridden | N/A |
 
@@ -236,20 +236,26 @@ Valid `approval_policy` values are `"auto"`, `"manual"`, `"suggest"`, and `"on-f
 
 Revert restores the previous config values using the undo patch recorded at deploy time.
 
-Each **agentDefinitions** entry deploys a Markdown agent-definition file to the repo-local agent-definitions directory of each targeted agent:
+Each **agentDefinitions** entry deploys a Markdown agent-definition file to the agent-definition directory of each targeted agent. `scope: "repo"` is the default, and some agents also support `scope: "global"`:
 
 - **name** - Unique identifier (same format as skill names); used as the definition filename
 - **path** - Relative path to the source Markdown file within the repo; must be a `.md` or `.markdown` file
 - **agents** - Array of agent IDs to deploy this definition to
 
-Agent-definition deployment is supported for `claude-code`, `gemini-cli`, `antigravity`, `opencode`, and `github-copilot`. For `codex`, inception-engine emits a warning and skips the entry — use `agentRules` to deploy persona instructions to Codex instead.
+Agent-definition deployment is supported for `claude-code`, `gemini-cli`, `antigravity`, `opencode`, and `github-copilot`. For `codex`, inception-engine emits a warning and skips the entry. Gemini CLI and OpenCode also support `scope: "global"` definitions; other supported agents are repo-local only.
 
-All targets are repo-local (they land inside the repository being deployed, not the user's home directory):
+Repo-local targets:
 - **claude-code**: `{repo}/.claude/agents/{name}.md`
 - **gemini-cli**: `{repo}/.gemini/agents/{name}.md`
 - **antigravity**: `{repo}/.agents/rules/{name}.md`
 - **opencode**: `{repo}/.opencode/agents/{name}.md`
-- **github-copilot**: `{repo}/.github/agents/{name}.agent.md` (note the `.agent.md` suffix)
+- **github-copilot**: `{repo}/.github/copilot/agents/{name}.md`
+
+Global targets where supported:
+- **gemini-cli**: `~/.gemini/agents/{name}.md`
+- **opencode**: `~/.config/opencode/agents/{name}.md` on POSIX, `%APPDATA%\\opencode\\agents\\{name}.md` on Windows
+
+For GitHub Copilot, deploy also records migration from the legacy `{repo}/.github/agents/{name}.agent.md` path so older installs can be cleaned up safely.
 
 Revert removes the deployed agent-definition file.
 
@@ -285,7 +291,7 @@ Current `init` behavior:
 - Reads `mcp-servers.json` from the repo root (if present) and generates `mcpServers` entries; invalid entries are warned and skipped
 - Reads `files-manifest.json` from the repo root (if present) and generates `files` entries; invalid entries are warned and skipped
 - Reads `configs-manifest.json` from the repo root (if present) and generates `configs` entries; invalid entries are warned and skipped
-- Reads `agent-definitions-manifest.json` from the repo root (if present) and generates `agentDefinitions` entries; if absent, auto-discovers agent-definition Markdown files from `.claude/agents/`, `.gemini/agents/`, `.agents/rules/`, `.opencode/agents/`, and `.github/agents/`; invalid entries are warned and skipped
+- Reads `agent-definitions-manifest.json` from the repo root (if present) and generates `agentDefinitions` entries; if absent, auto-discovers agent-definition Markdown files from `.claude/agents/`, `.gemini/agents/`, `.agents/rules/`, `.opencode/agents/`, `.github/copilot/agents/`, and legacy `.github/agents/`; invalid entries are warned and skipped
 - Emits guidance to create a sidecar manifest when a `files/` or `configs/` directory is detected but the corresponding sidecar file is absent
 
 Current `init` limitations:
@@ -347,7 +353,7 @@ Place an `agent-definitions-manifest.json` file at the repo root to have `init` 
 ]
 ```
 
-If no `agent-definitions-manifest.json` is present, `init` auto-discovers agent-definition Markdown files from five conventional subdirectories: `.claude/agents/`, `.gemini/agents/`, `.agents/rules/`, `.opencode/agents/`, and `.github/agents/`. Each discovered file is mapped to the owning agent(s). GitHub Copilot files named `{name}.agent.md` have the `.agent` infix stripped to derive the manifest name (e.g., `foo.agent.md` → name `foo`).
+If no `agent-definitions-manifest.json` is present, `init` auto-discovers agent-definition Markdown files from six conventional subdirectories: `.claude/agents/`, `.gemini/agents/`, `.agents/rules/`, `.opencode/agents/`, `.github/copilot/agents/`, and legacy `.github/agents/`. Each discovered file is mapped to the owning agent(s). GitHub Copilot files named `{name}.agent.md` in the legacy directory have the `.agent` infix stripped to derive the manifest name (e.g., `foo.agent.md` -> name `foo`).
 
 Invalid entries are warned and skipped; the rest are written into the generated manifest verbatim.
 

@@ -51,6 +51,6 @@ Ordered from highest to lowest.
    The current implementation deploys Copilot agent definitions to `.github/agents/{name}.agent.md`, while the north star now points at a different documented target. Reconcile the path, update `init` discovery, and add migration coverage so the implementation does not hard-code an outdated Copilot layout.~~  
    `Score 8/12 (Architecture 1, Agents 1, OS 1, Confidence 2, Safety 1, Stability 2)`~~
 
-~~5. **Expand Gemini CLI instruction and agent-definition coverage to match the current documented surface area.**  
-   The north star now calls out Gemini support for additional instruction filename behavior and broader agent-definition locations than the current implementation models. Evaluate which of those surfaces are safe to support directly and which should remain warning-only until ownership and revert semantics are clear.  
-   `Score 7/12 (Architecture 1, Agents 1, OS 1, Confidence 1, Safety 1, Stability 2)`~~
+5. **Finish Gemini CLI documented-surface alignment.**  
+   The implementation now supports `GEMINI.md` rules plus Markdown agent definitions in `.gemini/agents/` for both `scope: "repo"` and `scope: "global"`, and preflight explicitly warns about documented-but-not-yet-supported Gemini surfaces. What is still missing is full alignment with the documented surface area: configurable instruction filename overrides from `settings.json`, native `AGENTS.md` fallback targeting, and documented TOML subagent definitions are still warning-only, and Gemini agent definitions are still classified as implementation-only rather than fully documented.  
+   `Score 7/12 (Architecture 1, Agents 1, OS 1, Confidence 1, Safety 1, Stability 2)`
