@@ -3,6 +3,7 @@ import path from "node:path";
 import {
   type ConfigPatchRegistryEntry,
   type FileWriteRegistryEntry,
+  type FrontmatterEmitRegistryEntry,
   type Registry,
   type RegistryEntry,
   RegistrySchema,
@@ -70,7 +71,8 @@ function emptyRegistry(): Registry {
 export type RegisterEntry =
   | Omit<SkillDirRegistryEntry, "deployed">
   | Omit<FileWriteRegistryEntry, "deployed">
-  | Omit<ConfigPatchRegistryEntry, "deployed">;
+  | Omit<ConfigPatchRegistryEntry, "deployed">
+  | Omit<FrontmatterEmitRegistryEntry, "deployed">;
 
 export async function registerDeployment(
   home: string,

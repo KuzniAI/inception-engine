@@ -70,7 +70,7 @@ describe("CLI exit codes and output", () => {
       stdout.includes("inception-engine"),
       "stdout should include tool name",
     );
-    assert.ok(stdout.includes("--dry-run"), "stdout should include options");
+    assert.ok(stdout.includes("--plan"), "stdout should include options");
   });
 
   it("no args exits 0 and prints usage", async () => {
@@ -143,20 +143,20 @@ describe("CLI exit codes and output", () => {
     }
   });
 
-  it("valid manifest with --dry-run exits 0 and shows plan", async () => {
+  it("valid manifest with --plan exits 0 and shows plan", async () => {
     const dir = await makeTmpDir();
     try {
       await makeValidRepo(dir);
       const { stdout, code } = await run([
         dir,
-        "--dry-run",
+        "--plan",
         "--agents",
         "claude-code",
       ]);
       assert.equal(code, 0);
       assert.ok(
-        stdout.includes("[dry-run]"),
-        `stdout should include [dry-run]: ${stdout}`,
+        stdout.includes("[plan]"),
+        `stdout should include [plan]: ${stdout}`,
       );
     } finally {
       await rm(dir, { recursive: true });
@@ -221,7 +221,7 @@ describe("init command", () => {
     }
   });
 
-  it("--dry-run does not write inception.json", async () => {
+  it("--plan does not write inception.json", async () => {
     const dir = await makeTmpDir();
     try {
       await mkdir(path.join(dir, "my-skill"), { recursive: true });
@@ -229,11 +229,11 @@ describe("init command", () => {
         path.join(dir, "my-skill", "SKILL.md"),
         "---\nname: my-skill\ndescription: test\n---\n",
       );
-      const { stdout, code } = await run(["init", dir, "--dry-run"]);
+      const { stdout, code } = await run(["init", dir, "--plan"]);
       assert.equal(code, 0, `stdout: ${stdout}`);
       assert.ok(
-        stdout.includes("[dry-run]"),
-        `stdout should include [dry-run]: ${stdout}`,
+        stdout.includes("[plan]"),
+        `stdout should include [plan]: ${stdout}`,
       );
       // File should NOT have been written
       const { access } = await import("node:fs/promises");
@@ -243,7 +243,7 @@ describe("init command", () => {
       } catch {
         exists = false;
       }
-      assert.ok(!exists, "inception.json should not exist after dry-run");
+      assert.ok(!exists, "inception.json should not exist after plan");
     } finally {
       await rm(dir, { recursive: true });
     }

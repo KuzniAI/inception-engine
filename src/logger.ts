@@ -1,14 +1,5 @@
 import process from "node:process";
-
-const C = {
-  red: "\x1b[31m",
-  green: "\x1b[32m",
-  yellow: "\x1b[33m",
-  cyan: "\x1b[36m",
-  reset: "\x1b[0m",
-} as const;
-
-type Color = keyof typeof C;
+import { styleText } from "node:util";
 
 export interface Logger {
   fail(label: string, msg: string): void;
@@ -25,30 +16,37 @@ export interface Logger {
 
 export function createLogger(): Logger {
   let silent = false;
-  const tty = Boolean(process.stdout.isTTY);
-  const errTTY = Boolean(process.stderr.isTTY);
-
-  const c = (col: Color, text: string, onTTY: boolean): string =>
-    onTTY ? `${C[col]}${text}${C.reset}` : text;
 
   return {
     fail(label, msg) {
-      if (!silent)
-        process.stderr.write(`  ${c("red", "✗", errTTY)} ${label}: ${msg}\n`);
+      if (!silent) {
+        const icon = styleText("red", "✗");
+        process.stderr.write(`  ${icon} ${label}: ${msg}\n`);
+      }
     },
     ok(label) {
-      if (!silent) process.stdout.write(`  ${c("green", "✓", tty)} ${label}\n`);
+      if (!silent) {
+        const icon = styleText("green", "✓");
+        process.stdout.write(`  ${icon} ${label}\n`);
+      }
     },
     skip(label, note) {
-      if (!silent)
-        process.stdout.write(`  ${c("yellow", "-", tty)} ${label} ${note}\n`);
+      if (!silent) {
+        const icon = styleText("yellow", "-");
+        process.stdout.write(`  ${icon} ${label} ${note}\n`);
+      }
     },
     plan(label) {
-      if (!silent) process.stdout.write(`  ${c("cyan", "○", tty)} ${label}\n`);
+      if (!silent) {
+        const icon = styleText("cyan", "○");
+        process.stdout.write(`  ${icon} ${label}\n`);
+      }
     },
     warn(label, msg) {
-      if (!silent)
-        process.stdout.write(`  ${c("yellow", "!", tty)} ${label}: ${msg}\n`);
+      if (!silent) {
+        const icon = styleText("yellow", "!");
+        process.stdout.write(`  ${icon} ${label}: ${msg}\n`);
+      }
     },
     info(msg) {
       if (!silent) process.stdout.write(`${msg}\n`);
@@ -72,5 +70,5 @@ export const logger = createLogger();
 
 export function dryRunPrefix(dryRun: boolean): string {
   if (!dryRun) return "";
-  return process.stdout.isTTY ? `\x1b[36m[dry-run]\x1b[0m ` : `[dry-run] `;
+  return styleText("cyan", "[plan] ");
 }

@@ -12,9 +12,10 @@ import { resolveHome } from "./core/resolve.ts";
 import { executeRevert, planRevert, planRevertAll } from "./core/revert.ts";
 import type { ErrorCode } from "./errors.ts";
 import { UserError } from "./errors.ts";
+import { formatDryRunPlan } from "./formatters.ts";
 import { dryRunPrefix, logger } from "./logger.ts";
 import { AgentListSchema } from "./schemas/manifest.ts";
-import type { AgentId, CliOptions, Manifest, PlannedChange } from "./types.ts";
+import type { AgentId, CliOptions, Manifest } from "./types.ts";
 
 const USAGE = `
 inception-engine - Deploy AI agent skills
@@ -30,7 +31,7 @@ Commands:
   init <directory>    Scan a directory for skill folders and generate inception.json
 
 Options:
-  --dry-run        Show what would be done without doing it
+  --plan           Show what would be done without doing it (alias: --dry-run)
   --agents <list>  Comma-separated list of agent IDs to target
   --force          (init only) Overwrite an existing inception.json
   --verbose        Show detailed output
@@ -62,6 +63,7 @@ function parseCLI(argv: string[]): CliOptions {
       args,
       allowPositionals: true,
       options: {
+        plan: { type: "boolean", default: false },
         "dry-run": { type: "boolean", default: false },
         verbose: { type: "boolean", default: false },
         debug: { type: "boolean", default: false },
@@ -121,7 +123,7 @@ function parseCLI(argv: string[]): CliOptions {
   return {
     command,
     directory: path.resolve(rawDir),
-    dryRun: values["dry-run"] as boolean,
+    dryRun: (values.plan || values["dry-run"]) as boolean,
     agents,
     verbose: values.verbose as boolean,
     debug: values.debug as boolean,
@@ -154,21 +156,6 @@ async function main(): Promise<number> {
     return runDeploy(options, manifest, home);
   }
   return runRevert(options, manifest, home);
-}
-
-function renderDryRunPlan(planned: PlannedChange[]): void {
-  for (const change of planned) {
-    logger.plan(`[${change.agent}] ${change.verb}  ${change.skill}`);
-    if (change.source !== undefined) {
-      logger.detail(`source: ${change.source}`);
-    }
-    logger.detail(`target: ${change.target}`);
-    if (change.verb === "patch-config" && change.patch !== undefined) {
-      logger.detail(`patch:  ${JSON.stringify(change.patch)}`);
-    } else if (change.verb === "unapply-patch" && change.patch !== undefined) {
-      logger.detail(`undo:   ${JSON.stringify(change.patch)}`);
-    }
-  }
 }
 
 async function runDeploy(
@@ -233,9 +220,8 @@ async function runDeploy(
 
   if (options.dryRun) {
     logger.info("");
-    renderDryRunPlan(planned);
-    logger.info("");
-    logger.info(`${planned.length} action(s) would be applied (dry-run)`);
+    logger.info(formatDryRunPlan(planned));
+    logger.info(`${planned.length} action(s) would be applied (plan)`);
     return 0;
   }
 
@@ -273,9 +259,8 @@ async function runRevert(
 
   if (options.dryRun) {
     logger.info("");
-    renderDryRunPlan(planned);
-    logger.info("");
-    logger.info(`${planned.length} action(s) would be removed (dry-run)`);
+    logger.info(formatDryRunPlan(planned));
+    logger.info(`${planned.length} action(s) would be removed (plan)`);
     return 0;
   }
 

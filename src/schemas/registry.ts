@@ -27,10 +27,18 @@ const ConfigPatchRegistryEntrySchema = z.object({
   deployed: z.string(),
 });
 
+const FrontmatterEmitRegistryEntrySchema = z.object({
+  kind: z.literal("frontmatter-emit"),
+  skill: z.string(),
+  agent: AgentIdSchema,
+  deployed: z.string(),
+});
+
 export const RegistryEntrySchema = z.discriminatedUnion("kind", [
   SkillDirRegistryEntrySchema,
   FileWriteRegistryEntrySchema,
   ConfigPatchRegistryEntrySchema,
+  FrontmatterEmitRegistryEntrySchema,
 ]);
 
 export const RegistrySchema = z.object({
@@ -44,6 +52,9 @@ export type FileWriteRegistryEntry = z.infer<
 >;
 export type ConfigPatchRegistryEntry = z.infer<
   typeof ConfigPatchRegistryEntrySchema
+>;
+export type FrontmatterEmitRegistryEntry = z.infer<
+  typeof FrontmatterEmitRegistryEntrySchema
 >;
 export type RegistryEntry = z.infer<typeof RegistryEntrySchema>;
 export type Registry = z.infer<typeof RegistrySchema>;

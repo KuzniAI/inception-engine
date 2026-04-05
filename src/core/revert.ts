@@ -225,11 +225,9 @@ export async function executeRevert(
   failed: Array<{ action: RevertAction; error: string }>;
   planned: PlannedChange[];
 }> {
-  let succeeded = 0;
-  let skipped = 0;
   const failed: Array<{ action: RevertAction; error: string }> = [];
   const planned: PlannedChange[] = [];
-  const counts = { succeeded, skipped };
+  const counts = { succeeded: 0, skipped: 0 };
 
   for (const action of actions) {
     let result: RevertOutcome;
@@ -291,18 +289,21 @@ export async function executeRevert(
           deps,
         );
         break;
-      default:
+      default: {
         throw new Error(
           `Unhandled revert action kind: ${(action as RevertAction).kind}`,
         );
+      }
     }
     recordOutcome(result, action, counts, failed);
   }
 
-  succeeded = counts.succeeded;
-  skipped = counts.skipped;
-
-  return { succeeded, skipped, failed, planned };
+  return {
+    succeeded: counts.succeeded,
+    skipped: counts.skipped,
+    failed,
+    planned,
+  };
 }
 
 interface RevertDependencies {

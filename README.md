@@ -276,7 +276,7 @@ Current `init` behavior:
 - Uses the directory name as the manifest skill name
 - Applies either the `--agents` list or all currently known agent IDs
 - Refuses to overwrite an existing `inception.json` unless `--force` is provided
-- Supports `--dry-run` so you can inspect the generated manifest before writing it
+- Supports `--plan` (or `--dry-run`) so you can inspect the generated manifest before writing it
 - Discovers agent-rules Markdown files in the root and conventional subdirectories (`rules/`, `instructions/`, `.github/`, `.agents/rules/`), mapping them to agents using Claude-first portability conventions: `copilot-instructions.md` maps to `claude-code` (Copilot reads `CLAUDE.md` natively), and the fallback for unrecognized files excludes agents whose agentRules surface is unsupported
 - Reads `mcp-servers.json` from the repo root (if present) and generates `mcpServers` entries; invalid entries are warned and skipped
 - Reads `files-manifest.json` from the repo root (if present) and generates `files` entries; invalid entries are warned and skipped
@@ -367,7 +367,7 @@ inception-engine init <directory> [options]
 
 | Option | Description |
 |---|---|
-| `--dry-run` | Show what would be done without making changes |
+| `--plan` | Show what would be done without making changes (alias: `--dry-run`) |
 | `--agents <list>` | Comma-separated list of agent IDs to target (overrides deploy detection; restricts revert) |
 | `--force` | `init` only; overwrite an existing `inception.json` |
 | `--verbose` | Show detailed output including file paths |
@@ -381,7 +381,7 @@ inception-engine init <directory> [options]
 npx @kuznai/inception-engine ./my-skills-repo
 
 # Preview what would be deployed
-npx @kuznai/inception-engine ./my-skills-repo --dry-run
+npx @kuznai/inception-engine ./my-skills-repo --plan
 
 # Deploy only to Claude Code and Codex
 npx @kuznai/inception-engine ./my-skills-repo --agents claude-code,codex
@@ -390,13 +390,13 @@ npx @kuznai/inception-engine ./my-skills-repo --agents claude-code,codex
 npx @kuznai/inception-engine revert ./my-skills-repo
 
 # Preview what would be removed
-npx @kuznai/inception-engine revert ./my-skills-repo --dry-run
+npx @kuznai/inception-engine revert ./my-skills-repo --plan
 
 # Generate a starter manifest from discovered skill folders
 npx @kuznai/inception-engine init ./my-skills-repo
 
 # Preview the generated manifest without writing it
-npx @kuznai/inception-engine init ./my-skills-repo --dry-run
+npx @kuznai/inception-engine init ./my-skills-repo --plan
 ```
 
 ## Sample Skills
@@ -406,8 +406,8 @@ The `limbo/` directory contains exceptional sample skills for testing purposes o
 Try them out:
 
 ```bash
-npx @kuznai/inception-engine init limbo --dry-run
-npx @kuznai/inception-engine limbo --dry-run
+npx @kuznai/inception-engine init limbo --plan
+npx @kuznai/inception-engine limbo --plan
 ```
 
 ## Agent Detection

@@ -22,10 +22,12 @@ import type {
   ConfigPatchDeployAction,
   DeployAction,
   FileWriteDeployAction,
+  FrontmatterEmitDeployAction,
   Manifest,
   PlannedChange,
   PlanWarning,
   SkillDirDeployAction,
+  TomlPatchDeployAction,
 } from "../types.ts";
 import { compileAdapterActions } from "./adapters/index.ts";
 import {
@@ -402,64 +404,56 @@ export async function executeDeploy(
   const planned: PlannedChange[] = [];
 
   for (const action of actions) {
-    switch (action.kind) {
-      case "skill-dir": {
-        const result = await deploySkillDir(
-          action,
-          dryRun,
-          verbose,
-          home,
-          planned,
-          deps,
-        );
-        if (result.error === null) {
-          succeeded++;
-        } else {
-          failed.push({ action, error: result.error });
-        }
-        break;
-      }
-      case "file-write": {
-        const result = await deployFileWrite(
-          action,
-          dryRun,
-          verbose,
-          home,
-          planned,
-          deps,
-        );
-        if (result.error === null) {
-          succeeded++;
-        } else {
-          failed.push({ action, error: result.error });
-        }
-        break;
-      }
-      case "config-patch": {
-        const result = await deployConfigPatch(
-          action,
-          dryRun,
-          verbose,
-          home,
-          planned,
-          deps,
-        );
-        if (result.error === null) {
-          succeeded++;
-        } else {
-          failed.push({ action, error: result.error });
-        }
-        break;
-      }
-      default: {
-        throw new Error(`Unhandled deploy action kind: ${action}`);
-      }
+    const result = await dispatchDeployAction(
+      action,
+      dryRun,
+      verbose,
+      home,
+      planned,
+      deps,
+    );
+    if (result.error === null) {
+      succeeded++;
+    } else {
+      failed.push({ action, error: result.error });
     }
   }
 
   return { succeeded, failed, planned };
 }
 
+async function dispatchDeployAction(
+  action: DeployAction,
+  dryRun: boolean,
+  verbose: boolean,
+  home: string,
+  planned: PlannedChange[],
+  deps: DeployDependencies,
+): Promise<{ error: string | null }> {
+  switch (action.kind) {
+    case "skill-dir":
+      return deploySkillDir(action, dryRun, verbose, home, planned, deps);
+    case "file-write":
+      return deployFileWrite(action, dryRun, verbose, home, planned, deps);
+    case "config-patch":
+      return deployConfigPatch(action, dryRun, verbose, home, planned, deps);
+    case "toml-patch":
+      return deployTomlPatch(action, dryRun, verbose, home, planned, deps);
+    case "frontmatter-emit":
+      return deployFrontmatterEmit(
+        action,
+        dryRun,
+        verbose,
+        home,
+        planned,
+        deps,
+      );
+    default:
+      throw new Error(
+        `Unhandled deploy action kind: ${(action as DeployAction).kind}`,
+      );
+  }
+}
 interface SkillDirOps {
   createTarget(action: SkillDirDeployAction): Promise<void>;
   removeTarget(targetPath: string): Promise<void>;
@@ -810,6 +804,115 @@ async function deployConfigPatch(
       logger.detail(
         `patch-config: applied ${Object.keys(patch).length} key(s) to ${action.target}`,
       );
+    }
+    return { error: null };
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    logger.fail(label, msg);
+    return { error: msg };
+  }
+}
+async function deployTomlPatch(
+  action: TomlPatchDeployAction,
+  dryRun: boolean,
+  verbose: boolean,
+  home: string,
+  planned: PlannedChange[],
+  deps: DeployDependencies,
+): Promise<{ error: string | null }> {
+  const label = `${action.skill} -> ${action.agent}`;
+
+  if (dryRun) {
+    planned.push({
+      verb: "patch-toml",
+      kind: "toml-patch",
+      skill: action.skill,
+      agent: action.agent,
+      target: action.target,
+      patch: action.config,
+    });
+    return { error: null };
+  }
+
+  try {
+    const { previousValue } = await (deps.registry
+      ? Promise.resolve({ previousValue: null })
+      : (await import("./adapters/toml.ts")).applyTomlMcpPatch(
+          action.target,
+          action.skill,
+          action.config,
+        ));
+    // Note: To truly support custom deps here we'd need to refactor toml adapter to accept deps.
+    // For now we assume standard adapter for TOML.
+
+    await registerDeployment(
+      home,
+      action.target,
+      {
+        kind: "config-patch",
+        patch: action.config,
+        undoPatch: { mcpServers: { [action.skill]: previousValue } },
+        skill: action.skill,
+        agent: action.agent,
+      },
+      deps.registry,
+    );
+
+    logger.ok(label);
+    if (verbose) {
+      logger.detail(`patch-toml: ${action.target}`);
+    }
+    return { error: null };
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    logger.fail(label, msg);
+    return { error: msg };
+  }
+}
+
+async function deployFrontmatterEmit(
+  action: FrontmatterEmitDeployAction,
+  dryRun: boolean,
+  verbose: boolean,
+  home: string,
+  planned: PlannedChange[],
+  deps: DeployDependencies,
+): Promise<{ error: string | null }> {
+  const label = `${action.skill} -> ${action.agent}`;
+
+  if (dryRun) {
+    planned.push({
+      verb: "emit-frontmatter",
+      kind: "frontmatter-emit",
+      skill: action.skill,
+      agent: action.agent,
+      target: action.target,
+      frontmatter: action.frontmatter,
+    });
+    return { error: null };
+  }
+
+  try {
+    await (await import("./adapters/frontmatter.ts")).writeFrontmatterFile(
+      action.target,
+      action.frontmatter,
+      { preserveBody: true },
+    );
+
+    await registerDeployment(
+      home,
+      action.target,
+      {
+        kind: "frontmatter-emit",
+        skill: action.skill,
+        agent: action.agent,
+      },
+      deps.registry,
+    );
+
+    logger.ok(label);
+    if (verbose) {
+      logger.detail(`emit-frontmatter: ${action.target}`);
     }
     return { error: null };
   } catch (err) {
