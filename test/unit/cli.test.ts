@@ -163,14 +163,14 @@ describe("CLI exit codes and output", () => {
     }
   });
 
-  it("revert --dry-run with valid manifest exits 0", async () => {
+  it("revert --plan with valid manifest exits 0", async () => {
     const dir = await makeTmpDir();
     try {
       await makeValidRepo(dir);
       const { code } = await run([
         "revert",
         dir,
-        "--dry-run",
+        "--plan",
         "--agents",
         "claude-code",
       ]);
@@ -182,7 +182,7 @@ describe("CLI exit codes and output", () => {
 
   it("missing <directory> argument exits 2", async () => {
     // Passing only a valid option but no positional directory
-    const { stderr, code } = await run(["--dry-run"]);
+    const { stderr, code } = await run(["--plan"]);
     assert.equal(code, 2);
     assert.ok(
       stderr.includes("Error:"),

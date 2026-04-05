@@ -276,7 +276,7 @@ Current `init` behavior:
 - Uses the directory name as the manifest skill name
 - Applies either the `--agents` list or all currently known agent IDs
 - Refuses to overwrite an existing `inception.json` unless `--force` is provided
-- Supports `--plan` (or `--dry-run`) so you can inspect the generated manifest before writing it
+- Supports `--plan` so you can inspect the generated manifest before writing it
 - Discovers agent-rules Markdown files in the root and conventional subdirectories (`rules/`, `instructions/`, `.github/`, `.agents/rules/`), mapping them to agents using Claude-first portability conventions: `copilot-instructions.md` maps to `claude-code` (Copilot reads `CLAUDE.md` natively), and the fallback for unrecognized files excludes agents whose agentRules surface is unsupported
 - Reads `mcp-servers.json` from the repo root (if present) and generates `mcpServers` entries; invalid entries are warned and skipped
 - Reads `files-manifest.json` from the repo root (if present) and generates `files` entries; invalid entries are warned and skipped
@@ -367,7 +367,7 @@ inception-engine init <directory> [options]
 
 | Option | Description |
 |---|---|
-| `--plan` | Show what would be done without making changes (alias: `--dry-run`) |
+| `--plan` | Show what would be done without making changes |
 | `--agents <list>` | Comma-separated list of agent IDs to target (overrides deploy detection; restricts revert) |
 | `--force` | `init` only; overwrite an existing `inception.json` |
 | `--verbose` | Show detailed output including file paths |

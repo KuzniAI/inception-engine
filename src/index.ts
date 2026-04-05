@@ -31,7 +31,7 @@ Commands:
   init <directory>    Scan a directory for skill folders and generate inception.json
 
 Options:
-  --plan           Show what would be done without doing it (alias: --dry-run)
+  --plan           Show what would be done without doing it
   --agents <list>  Comma-separated list of agent IDs to target
   --force          (init only) Overwrite an existing inception.json
   --verbose        Show detailed output
@@ -64,7 +64,6 @@ function parseCLI(argv: string[]): CliOptions {
       allowPositionals: true,
       options: {
         plan: { type: "boolean", default: false },
-        "dry-run": { type: "boolean", default: false },
         verbose: { type: "boolean", default: false },
         debug: { type: "boolean", default: false },
         help: { type: "boolean", default: false },
