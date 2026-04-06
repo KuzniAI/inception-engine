@@ -50,7 +50,7 @@ Before executing, the deploy command runs preflight analysis on instruction file
 | Skills (SKILL.md) | All agents via manifest and CLI | All agents |
 | File write | All agents via manifest and CLI | All agents |
 | Config patch (JSON merge) | All agents via manifest and CLI | All agents |
-| MCP Servers | claude-code, gemini-cli, codex, antigravity, opencode; github-copilot repo-scoped surfaces are warned and skipped | claude-code, gemini-cli, codex, antigravity, opencode |
+| MCP Servers | claude-code, gemini-cli, codex, antigravity, opencode; github-copilot with `scope: "repo"` deploys to `{repo}/.vscode/mcp.json` and `scope: "workspace"` deploys to `{workspace}/.vscode/mcp.json`; github-copilot with `scope: "global"` (default) is unsupported and warns | claude-code, gemini-cli, codex, antigravity, opencode, github-copilot |
 | Global/Repo/Workspace Rules Files | `scope: "global"` and `scope: "repo"` are supported on the implemented agent surfaces; `scope: "workspace"` is supported for `claude-code`, `codex`, and `gemini-cli`; `github-copilot` reads Claude-native rules via `claude-code` and has no separate rules deployment target | All supported agents |
 | Permissions / Approval Config | claude-code (`~/.claude/settings.json`), codex (`~/.codex/config.toml`), opencode (`~/.config/opencode/opencode.json` on POSIX, `%APPDATA%\\opencode\\opencode.json` on Windows); other agents are warned and skipped | claude-code, codex, opencode |
 | Agent Definitions | claude-code (`{repo}/.claude/agents/{name}.md`), gemini-cli (`{repo}/.gemini/agents/{name}.md`, plus `scope: "global"` to `~/.gemini/agents/{name}.md`), antigravity (`{repo}/.agents/rules/{name}.md`), opencode (`{repo}/.opencode/agents/{name}.md`, plus `scope: "global"` to the user config dir), github-copilot (`{repo}/.github/copilot/agents/{name}.md`, with migration from legacy `.github/agents/{name}.agent.md`); codex is warned and skipped | All supported agents |
@@ -95,6 +95,12 @@ Create an `inception.json` file at the root of your skills directory:
       "name": "my-server",
       "agents": ["claude-code", "gemini-cli"],
       "config": { "command": "npx", "args": ["-y", "my-mcp-server"] }
+    },
+    {
+      "name": "my-server",
+      "agents": ["github-copilot"],
+      "scope": "repo",
+      "config": { "type": "stdio", "command": "npx", "args": ["-y", "my-mcp-server"] }
     }
   ],
   "agentRules": [
@@ -160,9 +166,15 @@ Each **mcpServer** entry registers an MCP server into the agent's config file by
 - **name** - Unique identifier (same format as skill names); used as the server's key in the config
 - **agents** - Array of agent IDs to register this server with
 - **config** - Raw server descriptor object. For the currently supported JSON-backed adapters, inception-engine requires at least one non-empty `command` or `url` field, validates `args` as an array of strings when present, and validates `env` as a string-to-string object when present. Additional keys are passed through verbatim.
+- **scope** - `"global"` (default), `"repo"`, or `"workspace"`. For most agents this field is ignored (they have only a single user-level config path). For `github-copilot`, `scope` selects the target file:
+  - `"global"` — unsupported; emits a warning and is skipped
+  - `"repo"` — deploys to `{repo}/.vscode/mcp.json` under the `servers` key
+  - `"workspace"` — deploys to `{workspace}/.vscode/mcp.json` under the `servers` key
 
-MCP server registration is supported for all agents except GitHub Copilot. Inception-engine automatically uses the correct adapter for each agent's configuration schema:
-- **JSON (Merge Patch)**: `claude-code` (`~/.claude.json`), `gemini-cli` (`~/.gemini/settings.json`), and `opencode` (`~/.config/opencode/opencode.json` using the custom `"mcp"` key).
+  GitHub Copilot's `.vscode/mcp.json` uses `servers` (not `mcpServers`) as the top-level key and optionally accepts a `type` field (`"stdio"` | `"sse"` | `"http"`) in the server descriptor, which is passed through verbatim.
+
+MCP server registration is supported for all agents. Inception-engine automatically uses the correct adapter for each agent's configuration schema:
+- **JSON (Merge Patch)**: `claude-code` (`~/.claude.json`), `gemini-cli` (`~/.gemini/settings.json`), `opencode` (`~/.config/opencode/opencode.json` using the custom `"mcp"` key), and `github-copilot` (`{repo}/.vscode/mcp.json` or `{workspace}/.vscode/mcp.json` using the `"servers"` key).
 - **TOML (Patch)**: `codex` (`~/.codex/config.toml`).
 - **Markdown Frontmatter (Emit)**: `antigravity` (repo-local `.agents/rules/{name}.md` files).
 
@@ -170,7 +182,7 @@ For Markdown frontmatter targets, inception-engine now records patch-level prove
 
 Because Antigravity currently reuses `.agents/rules/{name}.md` for both MCP frontmatter emit and agent-definition files, planning now rejects a manifest when an `mcpServers` entry and an `agentDefinitions` entry would resolve to the same Antigravity target.
 
-Revert removes the registered server entry from the respective configuration file or frontmatter block. GitHub Copilot, which uses repo-scoped MCP surfaces not yet implemented by inception-engine, continues to emit a schema-aware warning and is skipped.
+Revert removes the registered server entry from the respective configuration file or frontmatter block.
 
 Each **agentRules** entry deploys a Markdown instruction file to an agent's supported instruction file location:
 

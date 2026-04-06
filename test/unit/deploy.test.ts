@@ -30,7 +30,7 @@ import type {
   Manifest,
 } from "../../src/types.ts";
 import { exists, makeTmpDir } from "../helpers/fs.ts";
-import { assertPathEndsWith, } from "../helpers/path.ts";
+import { assertPathEndsWith } from "../helpers/path.ts";
 
 logger.silence();
 
@@ -664,7 +664,7 @@ describe("planDeploy", () => {
       assert.equal(actions.length, 0);
       assert.equal(warnings.length, 1);
       assert.equal(warnings[0]?.kind, "confidence");
-      assert.match(warnings[0]?.message ?? "", /planned/);
+      assert.match(warnings[0]?.message ?? "", /unsupported/);
     } finally {
       await rm(sourceDir, { recursive: true });
     }

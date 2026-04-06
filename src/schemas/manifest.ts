@@ -101,6 +101,12 @@ export const McpServerEntrySchema = z.object({
   // Raw server descriptor passed verbatim to each agent adapter.
   // Adapters are responsible for validating the shape they need.
   config: z.record(z.string(), z.unknown()),
+  // Deployment scope: "global" (default) targets the agent's user-level MCP
+  // config file. "repo" and "workspace" target repo- or workspace-relative
+  // config files for agents that support them (e.g. GitHub Copilot's
+  // .vscode/mcp.json). For agents without scope-specific surfaces the
+  // adapter falls back to the global surface or emits a warning.
+  scope: z.enum(["global", "repo", "workspace"]).default("global"),
 });
 
 export const AgentRuleEntrySchema = z.object({

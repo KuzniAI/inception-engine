@@ -67,12 +67,13 @@ describe("compileMcpServerActions", () => {
     );
   });
 
-  it("returns a planned-surface warning and no action for github-copilot MCP", () => {
+  it("returns an unsupported warning and no action for github-copilot MCP with default (global) scope", () => {
     const { actions, warnings } = compileMcpServerActions(
       {
         name: "my-mcp",
         agents: ["github-copilot"],
         config: { command: "s" },
+        scope: "global",
       },
       ["github-copilot"],
       "/home/test",
@@ -81,8 +82,65 @@ describe("compileMcpServerActions", () => {
     assert.equal(warnings.length, 1);
     assert.equal(warnings[0]?.kind, "confidence");
     assert.match(warnings[0]?.message ?? "", /github-copilot/);
-    assert.match(warnings[0]?.message ?? "", /planned/);
-    assert.match(warnings[0]?.message ?? "", /devcontainer|agent-frontmatter/);
+    assert.match(warnings[0]?.message ?? "", /unsupported/);
+  });
+
+  it("returns a config-patch action for github-copilot MCP with scope: repo", () => {
+    const repo = "/repo/test";
+    const { actions, warnings } = compileMcpServerActions(
+      {
+        name: "my-mcp",
+        agents: ["github-copilot"],
+        config: { command: "s" },
+        scope: "repo",
+      },
+      ["github-copilot"],
+      "/home/test",
+      repo,
+    );
+    assert.equal(actions.length, 1);
+    assert.equal(warnings.length, 0);
+    const action = actions[0] as ConfigPatchDeployAction;
+    assert.equal(action.kind, "config-patch");
+    assert.equal(action.agent, "github-copilot");
+    assertPathEndsWith(
+      action.target,
+      ".vscode/mcp.json",
+      `expected target to end with .vscode/mcp.json, got: ${action.target}`,
+    );
+    assert.deepEqual(action.patch, {
+      servers: { "my-mcp": { command: "s" } },
+    });
+    assert.equal(action.confidence, "documented");
+  });
+
+  it("returns a config-patch action for github-copilot MCP with scope: workspace", () => {
+    const workspace = "/workspace/test";
+    const { actions, warnings } = compileMcpServerActions(
+      {
+        name: "my-mcp",
+        agents: ["github-copilot"],
+        config: { command: "s" },
+        scope: "workspace",
+      },
+      ["github-copilot"],
+      "/home/test",
+      undefined,
+      workspace,
+    );
+    assert.equal(actions.length, 1);
+    assert.equal(warnings.length, 0);
+    const action = actions[0] as ConfigPatchDeployAction;
+    assert.equal(action.kind, "config-patch");
+    assert.equal(action.agent, "github-copilot");
+    assertPathEndsWith(
+      action.target,
+      ".vscode/mcp.json",
+      `expected target to end with .vscode/mcp.json, got: ${action.target}`,
+    );
+    assert.deepEqual(action.patch, {
+      servers: { "my-mcp": { command: "s" } },
+    });
   });
 
   it("returns a frontmatter-emit action for antigravity MCP", () => {

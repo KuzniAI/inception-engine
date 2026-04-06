@@ -65,6 +65,22 @@ function resolveAgentRulesSupport(
   return agent?.agentRulesSupport;
 }
 
+function resolveMcpSupport(
+  agentId: AgentId,
+  scope: CapabilityScope,
+): AgentSurfaceSupport | undefined {
+  const agent = AGENT_REGISTRY_BY_ID[agentId];
+  if (scope === "repo") {
+    return agent?.mcpRepoSupport ?? agent?.mcpSupport;
+  }
+  if (scope === "workspace") {
+    return (
+      agent?.mcpWorkspaceSupport ?? agent?.mcpRepoSupport ?? agent?.mcpSupport
+    );
+  }
+  return agent?.mcpSupport;
+}
+
 function resolveAgentDefinitionsSupport(
   agentId: AgentId,
   scope: CapabilityScope,
@@ -156,7 +172,7 @@ function getSurfaceRecordAndConfidence(
   const agent = AGENT_REGISTRY_BY_ID[agentId];
   if (capability === "mcpServers") {
     return {
-      supportRecord: agent.mcpSupport,
+      supportRecord: resolveMcpSupport(agentId, scope),
       confidence: agent.provenance.mcpConfig,
     };
   }

@@ -102,6 +102,7 @@ export function compileMcpServerActions(
       capability: "mcpServers",
       entryName: entry.name,
       targetAgentIds: entry.agents,
+      scope: entry.scope,
     });
     if (plan.outcome === "warn") {
       warnings.push(plan.warning);
@@ -109,7 +110,11 @@ export function compileMcpServerActions(
     }
     if (plan.outcome === "native" || plan.outcome === "redundant") continue;
 
-    const support = resolveCapabilitySurface(agentId, "mcpServers").support;
+    const support = resolveCapabilitySurface(
+      agentId,
+      "mcpServers",
+      entry.scope,
+    ).support;
     if (!support) continue;
 
     validateMcpServerConfigShape(entry.config, entry.name, agentId);
@@ -157,7 +162,11 @@ export function compileMcpServerReverts(
 
   for (const agentId of entry.agents) {
     if (agentFilter && !agentFilter.includes(agentId)) continue;
-    const support = resolveCapabilitySurface(agentId, "mcpServers").support;
+    const support = resolveCapabilitySurface(
+      agentId,
+      "mcpServers",
+      entry.scope,
+    ).support;
     if (!support) continue;
 
     const rawTarget = resolvePlaceholders(

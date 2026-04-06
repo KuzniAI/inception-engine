@@ -28,9 +28,9 @@ Score format:
 
 ## Functional Features
 
-1. **Implement GitHub Copilot MCP support on the documented repo/workspace surfaces.**  
+1. ~~**Implement GitHub Copilot MCP support on the documented repo/workspace surfaces.**  
    The north star now treats GitHub Copilot MCP as a real, documented vector, while the current implementation still warns and skips it. Add adapters for workspace and repo-scoped Copilot MCP surfaces, with ownership tracking and safe revert, instead of keeping it in planned state.  
-   `Score 8/12 (Architecture 1, Agents 2, OS 1, Confidence 2, Safety 1, Stability 1)`
+   `Score 8/12 (Architecture 1, Agents 2, OS 1, Confidence 2, Safety 1, Stability 1)`~~
 
 2. **Add Claude Code project-level MCP support via `.claude/mcp.json`.**  
    Current MCP support only targets the global Claude JSON surface, but the north star now calls out a documented project-level config as well. Supporting both levels is necessary before Claude MCP can be considered aligned with the target portability model.  

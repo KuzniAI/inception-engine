@@ -105,7 +105,7 @@ describe("runPreflight", () => {
     assert.match(info?.message ?? "", /via "claude-code"/);
   });
 
-  it("emits planned-surface warning when manifest uses github-copilot MCP", async () => {
+  it("emits unsupported warning when manifest uses github-copilot MCP with global scope", async () => {
     const manifest: Manifest = {
       ...emptyManifest,
       mcpServers: [
@@ -113,6 +113,7 @@ describe("runPreflight", () => {
           name: "my-mcp",
           agents: ["github-copilot"],
           config: { command: "npx", args: ["-y", "my-mcp"] },
+          scope: "global",
         },
       ],
     };
@@ -120,8 +121,33 @@ describe("runPreflight", () => {
       "github-copilot",
     ]);
     const info = warnings.find((w) => w.kind === "info");
-    assert.ok(info, "expected a planned-surface info warning");
-    assert.match(info?.message ?? "", /planned/);
+    assert.ok(info, "expected an unsupported-surface info warning");
+    assert.match(info?.message ?? "", /unsupported/);
+  });
+
+  it("emits no capability warning when manifest uses github-copilot MCP with scope: repo", async () => {
+    const manifest: Manifest = {
+      ...emptyManifest,
+      mcpServers: [
+        {
+          name: "my-mcp",
+          agents: ["github-copilot"],
+          config: { command: "npx", args: ["-y", "my-mcp"] },
+          scope: "repo",
+        },
+      ],
+    };
+    const warnings = await runPreflight(baseOptions, manifest, "/home/test", [
+      "github-copilot",
+    ]);
+    const capabilityWarning = warnings.find(
+      (w) => w.kind === "info" && /mcpServers/.test(w.message),
+    );
+    assert.equal(
+      capabilityWarning,
+      undefined,
+      `expected no MCP capability warning, got: ${capabilityWarning?.message}`,
+    );
   });
 
   it("emits config-authority warning when manifest uses implementation-only agentDefinitions", async () => {

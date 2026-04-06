@@ -43,12 +43,37 @@ describe("capabilities planner", () => {
     assert.equal(plan.outcome, "redundant");
   });
 
-  it("reports planned MCP support for github-copilot", () => {
+  it("reports unsupported for github-copilot MCP with global scope (no user-level config)", () => {
     const confidence = describeCapabilityConfidence(
       "github-copilot",
       "mcpServers",
+      "global",
     );
-    assert.match(confidence.message ?? "", /planned via/);
+    assert.match(confidence.message ?? "", /unsupported/);
+  });
+
+  it("reports supported for github-copilot MCP with scope: repo", () => {
+    const plan = planCapabilityForDeploy({
+      agentId: "github-copilot",
+      capability: "mcpServers",
+      entryName: "my-mcp",
+      targetAgentIds: ["github-copilot"],
+      scope: "repo",
+    });
+    assert.equal(plan.outcome, "action");
+    if (plan.outcome !== "action") return;
+    assert.equal(plan.confidence, "documented");
+  });
+
+  it("reports supported for github-copilot MCP with scope: workspace", () => {
+    const plan = planCapabilityForDeploy({
+      agentId: "github-copilot",
+      capability: "mcpServers",
+      entryName: "my-mcp",
+      targetAgentIds: ["github-copilot"],
+      scope: "workspace",
+    });
+    assert.equal(plan.outcome, "action");
   });
 
   it("reports implementation-only confidence for gemini-cli agentDefinitions", () => {

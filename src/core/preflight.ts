@@ -307,6 +307,7 @@ function collectManifestCapabilityWarnings(
       entry.agents.filter((agentId) => detectedAgents.includes(agentId)),
       "mcpServers",
       entry.name,
+      entry.scope,
     );
   }
   for (const entry of manifest.agentRules ?? []) {

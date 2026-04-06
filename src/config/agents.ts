@@ -398,14 +398,31 @@ export const AGENT_REGISTRY: readonly AgentConfig[] = [
       detectPaths: "documented",
       detectBinary: "documented",
       agentDefinitions: "documented",
+      mcpConfig: "documented",
     },
     mcpSupport: {
-      status: "planned",
-      schemaLabel: "repo-scoped MCP surfaces",
-      plannedSurface:
-        "devcontainer (.devcontainer/devcontainer.json) and agent-frontmatter (.github/copilot/agents/*.md)",
+      status: "unsupported",
+      schemaLabel: "global MCP config",
       reason:
-        "GitHub Copilot MCP support will be implemented via repo-scoped devcontainer features and agent-frontmatter mappings — surfaces that are genuinely Copilot-specific and not covered by other agent targets",
+        'GitHub Copilot has no user-level MCP config file; use scope: "repo" or scope: "workspace" to target .vscode/mcp.json instead',
+    },
+    mcpRepoSupport: {
+      status: "supported",
+      schemaLabel: "repo-local .vscode/mcp.json",
+      mcpPatchKey: "servers",
+      path: {
+        posix: ["{repo}", ".vscode", "mcp.json"],
+        windows: ["{repo}", ".vscode", "mcp.json"],
+      },
+    },
+    mcpWorkspaceSupport: {
+      status: "supported",
+      schemaLabel: "workspace-local .vscode/mcp.json",
+      mcpPatchKey: "servers",
+      path: {
+        posix: ["{workspace}", ".vscode", "mcp.json"],
+        windows: ["{workspace}", ".vscode", "mcp.json"],
+      },
     },
     // GitHub Copilot reads Claude-native instruction files (CLAUDE.md) without
     // a separate deploy action. These surfaces are marked shared-via claude-code

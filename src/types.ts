@@ -119,6 +119,12 @@ export interface AgentConfig {
   // explicitly so adapter warnings can explain whether support is blocked by
   // TOML, frontmatter, repo-scoped files, or other non-JSON schemas.
   mcpSupport?: AgentSurfaceSupport;
+  // Repo-local MCP surface (scope: "repo"). When absent, the adapter falls
+  // back to mcpSupport.
+  mcpRepoSupport?: AgentSurfaceSupport;
+  // Workspace-local MCP surface (scope: "workspace"). When absent, falls back
+  // to mcpRepoSupport then mcpSupport.
+  mcpWorkspaceSupport?: AgentSurfaceSupport;
   // Agent-specific persistent instruction/rules surface support.
   agentRulesSupport?: AgentSurfaceSupport;
   // Repo-local instruction/rules surface (scope: "repo"). When absent, the
