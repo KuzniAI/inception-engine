@@ -28,18 +28,6 @@ Score format:
 
 ## Functional Features
 
-1. ~~**Implement GitHub Copilot MCP support on the documented repo/workspace surfaces.**  
-   The north star now treats GitHub Copilot MCP as a real, documented vector, while the current implementation still warns and skips it. Add adapters for workspace and repo-scoped Copilot MCP surfaces, with ownership tracking and safe revert, instead of keeping it in planned state.  
-   `Score 8/12 (Architecture 1, Agents 2, OS 1, Confidence 2, Safety 1, Stability 1)`~~
-
-2. ~~**Add Claude Code project-level MCP support via `.claude/mcp.json`.**  
-   Current MCP support only targets the global Claude JSON surface, but the north star now calls out a documented project-level config as well. Supporting both levels is necessary before Claude MCP can be considered aligned with the target portability model.  
-   `Score 8/12 (Architecture 1, Agents 1, OS 1, Confidence 2, Safety 1, Stability 2)`~~
-
-3. **Finish Gemini CLI documented instruction-surface alignment.**  
-   Gemini CLI is much closer to the north star than it was when this item was first written: `GEMINI.md` rules are supported for `scope: "global"`, `scope: "repo"`, and `scope: "workspace"`; Gemini agent definitions are now treated as documented; and both Markdown and TOML files in `.gemini/agents/` deploy correctly for `scope: "global"` and `scope: "repo"`. The remaining gap is instruction-surface authority: inception-engine still always deploys rules to `GEMINI.md`, while the documented surface area also includes `settings.json`-driven `instructionFilename` overrides and native `AGENTS.md` fallback loading. Preflight warns when `instructionFilename` disagrees with the deploy target, but deploy cannot yet target the configured filename or intentionally route to the documented fallback surface without colliding with other agents that own `AGENTS.md`.  
-   `Score 8/12 (Architecture 1, Agents 2, OS 1, Confidence 2, Safety 1, Stability 1)`
-
-4. **Extend GitHub Copilot MCP support to the remaining documented surfaces.**  
+1. **Extend GitHub Copilot MCP support to the remaining documented surfaces.**  
    The repo/workspace `.vscode/mcp.json` surfaces are now implemented with merge-patch deploy and safe revert, so the earlier MCP gap is closed. What still remains from the north star is the rest of Copilot's documented MCP area: devcontainer-scoped configuration and agent-level tool/frontmatter mapping are not yet modeled in the manifest, planner, or ownership system. Add those surfaces only if they can be represented without weakening current dry-run clarity or creating ambiguous overlap with existing instruction and agent-definition flows.  
    `Score 6/12 (Architecture 1, Agents 2, OS 1, Confidence 1, Safety 0, Stability 1)`
