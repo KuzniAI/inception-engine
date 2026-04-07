@@ -10,15 +10,15 @@ describe("skill-dir deploy and revert (Windows)", {
 }, () => {
   registerSharedSkillDirDeployScenarios({
     method: "copy",
-    assertManagedTarget(target, _source, expectedSkillMd) {
-      assertCopyTarget(target, expectedSkillMd);
+    async assertManagedTarget(target, _source, expectedSkillMd) {
+      await assertCopyTarget(target, expectedSkillMd);
     },
   });
 
   registerSharedSkillDirRevertScenarios({
     method: "copy",
-    assertManagedTarget(target, _source, expectedSkillMd) {
-      assertCopyTarget(target, expectedSkillMd);
+    async assertManagedTarget(target, _source, expectedSkillMd) {
+      await assertCopyTarget(target, expectedSkillMd);
     },
   });
 });

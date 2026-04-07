@@ -16,7 +16,12 @@ import { assertPathEndsWith, normalizeSlashes } from "../helpers/path.ts";
 describe("compileMcpServerActions", () => {
   it("returns zero actions and warnings when no detectedAgents overlap", () => {
     const { actions, warnings } = compileMcpServerActions(
-      { name: "my-mcp", agents: ["claude-code"], config: { command: "s" } },
+      {
+        name: "my-mcp",
+        agents: ["claude-code"],
+        config: { command: "s" },
+        scope: "global",
+      },
       ["codex"],
       "/home/test",
     );
@@ -31,6 +36,7 @@ describe("compileMcpServerActions", () => {
         name: "my-mcp",
         agents: ["claude-code"],
         config: { command: "my-server", args: ["--verbose"] },
+        scope: "global",
       },
       ["claude-code"],
       home,
@@ -112,7 +118,12 @@ describe("compileMcpServerActions", () => {
   it("returns a config-patch action for gemini-cli with correct target", () => {
     const home = "/home/test";
     const { actions } = compileMcpServerActions(
-      { name: "my-mcp", agents: ["gemini-cli"], config: { url: "http://x" } },
+      {
+        name: "my-mcp",
+        agents: ["gemini-cli"],
+        config: { url: "http://x" },
+        scope: "global",
+      },
       ["gemini-cli"],
       home,
     );
@@ -204,7 +215,12 @@ describe("compileMcpServerActions", () => {
   it("returns a frontmatter-emit action for antigravity MCP", () => {
     const home = "/home/test";
     const { actions, warnings } = compileMcpServerActions(
-      { name: "my-mcp", agents: ["antigravity"], config: { command: "s" } },
+      {
+        name: "my-mcp",
+        agents: ["antigravity"],
+        config: { command: "s" },
+        scope: "global",
+      },
       ["antigravity"],
       home,
       "/repo/test",
@@ -228,6 +244,7 @@ describe("compileMcpServerActions", () => {
             name: "my-mcp",
             agents: ["claude-code"],
             config: { args: ["--verbose"] },
+            scope: "global",
           },
           ["claude-code"],
           "/home/test",
@@ -242,6 +259,7 @@ describe("compileMcpServerActions", () => {
         name: "my-mcp",
         agents: ["claude-code", "gemini-cli"],
         config: { command: "s" },
+        scope: "global",
       },
       ["claude-code", "gemini-cli"],
       "/home/test",

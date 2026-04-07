@@ -158,6 +158,7 @@ describe("runPreflight", () => {
           name: "my-agent",
           path: "agents/my-agent.md",
           agents: ["gemini-cli"],
+          scope: "repo",
         },
       ],
     };
@@ -404,6 +405,7 @@ describe("instruction budget warnings", () => {
             name: "big-agent",
             path: "agents/big-agent.md",
             agents: ["claude-code"],
+            scope: "repo",
           },
         ],
       };

@@ -37,6 +37,8 @@ const testManifest: Manifest = {
   configs: [],
   mcpServers: [],
   agentRules: [],
+  permissions: [],
+  agentDefinitions: [],
 };
 
 describe("planRevert", () => {
@@ -67,6 +69,8 @@ describe("planRevertAll", () => {
       configs: [],
       mcpServers: [],
       agentRules: [],
+      permissions: [],
+      agentDefinitions: [],
     };
     const actions = planRevertAll(multiAgentManifest, "/home/test");
     assert.equal(actions.length, 3);
@@ -95,6 +99,8 @@ describe("planRevertAll", () => {
       configs: [],
       mcpServers: [],
       agentRules: [],
+      permissions: [],
+      agentDefinitions: [],
     };
     const actions = planRevertAll(manifest, "/home/test");
     assert.equal(actions.length, 5);
@@ -939,14 +945,19 @@ describe("planRevert — mcpServers and agentRules", () => {
   it("produces a config-patch action for an mcpServer matched to a detected agent", () => {
     const manifest: Manifest = {
       skills: [],
+      files: [],
+      configs: [],
       mcpServers: [
         {
           name: "my-mcp",
           agents: ["claude-code"],
           config: { command: "npx", args: ["-y", "my-mcp"] },
+          scope: "global",
         },
       ],
       agentRules: [],
+      permissions: [],
+      agentDefinitions: [],
     };
     const actions = planRevert(manifest, ["claude-code"], home);
     assert.equal(actions.length, 1);
@@ -958,14 +969,19 @@ describe("planRevert — mcpServers and agentRules", () => {
   it("skips mcpServer agents not in detectedAgents", () => {
     const manifest: Manifest = {
       skills: [],
+      files: [],
+      configs: [],
       mcpServers: [
         {
           name: "my-mcp",
           agents: ["claude-code"],
           config: { command: "npx" },
+          scope: "global",
         },
       ],
       agentRules: [],
+      permissions: [],
+      agentDefinitions: [],
     };
     const actions = planRevert(manifest, ["codex"], home);
     assert.equal(actions.length, 0);
@@ -974,10 +990,19 @@ describe("planRevert — mcpServers and agentRules", () => {
   it("produces a file-write action for an agentRule matched to a detected agent", () => {
     const manifest: Manifest = {
       skills: [],
+      files: [],
+      configs: [],
       mcpServers: [],
       agentRules: [
-        { name: "my-rules", path: "rules/CLAUDE.md", agents: ["claude-code"] },
+        {
+          name: "my-rules",
+          path: "rules/CLAUDE.md",
+          agents: ["claude-code"],
+          scope: "global",
+        },
       ],
+      permissions: [],
+      agentDefinitions: [],
     };
     const actions = planRevert(manifest, ["claude-code"], home);
     assert.equal(actions.length, 1);
@@ -989,10 +1014,19 @@ describe("planRevert — mcpServers and agentRules", () => {
   it("skips agentRule agents not in detectedAgents", () => {
     const manifest: Manifest = {
       skills: [],
+      files: [],
+      configs: [],
       mcpServers: [],
       agentRules: [
-        { name: "my-rules", path: "rules/CLAUDE.md", agents: ["claude-code"] },
+        {
+          name: "my-rules",
+          path: "rules/CLAUDE.md",
+          agents: ["claude-code"],
+          scope: "global",
+        },
       ],
+      permissions: [],
+      agentDefinitions: [],
     };
     const actions = planRevert(manifest, ["codex"], home);
     assert.equal(actions.length, 0);
@@ -1005,14 +1039,19 @@ describe("planRevertAll — mcpServers and agentRules", () => {
   it("includes mcpServer actions for all listed agents regardless of detection", () => {
     const manifest: Manifest = {
       skills: [],
+      files: [],
+      configs: [],
       mcpServers: [
         {
           name: "my-mcp",
           agents: ["claude-code", "gemini-cli"],
           config: { command: "npx" },
+          scope: "global",
         },
       ],
       agentRules: [],
+      permissions: [],
+      agentDefinitions: [],
     };
     const actions = planRevertAll(manifest, home);
     assert.equal(actions.length, 2);
@@ -1024,14 +1063,19 @@ describe("planRevertAll — mcpServers and agentRules", () => {
   it("includes agentRule actions for all listed agents regardless of detection", () => {
     const manifest: Manifest = {
       skills: [],
+      files: [],
+      configs: [],
       mcpServers: [],
       agentRules: [
         {
           name: "my-rules",
           path: "rules/CLAUDE.md",
           agents: ["claude-code", "codex"],
+          scope: "global",
         },
       ],
+      permissions: [],
+      agentDefinitions: [],
     };
     const actions = planRevertAll(manifest, home);
     assert.equal(actions.length, 2);

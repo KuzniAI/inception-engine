@@ -10,15 +10,15 @@ describe("skill-dir deploy and revert (POSIX)", {
 }, () => {
   registerSharedSkillDirDeployScenarios({
     method: "symlink",
-    assertManagedTarget(target, source) {
-      assertSymlinkTarget(target, source);
+    async assertManagedTarget(target, source) {
+      await assertSymlinkTarget(target, source);
     },
   });
 
   registerSharedSkillDirRevertScenarios({
     method: "symlink",
-    assertManagedTarget(target, source) {
-      assertSymlinkTarget(target, source);
+    async assertManagedTarget(target, source) {
+      await assertSymlinkTarget(target, source);
     },
   });
 });

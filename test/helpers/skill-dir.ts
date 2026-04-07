@@ -30,6 +30,8 @@ export const testSkillManifest: Manifest = {
   configs: [],
   mcpServers: [],
   agentRules: [],
+  permissions: [],
+  agentDefinitions: [],
 };
 
 export function createFailingRegistryPersistence(
