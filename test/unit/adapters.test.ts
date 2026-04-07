@@ -51,6 +51,64 @@ describe("compileMcpServerActions", () => {
     assert.equal(action.confidence, "documented");
   });
 
+  it("returns a config-patch action for claude-code MCP with scope: repo", () => {
+    const repo = "/repo/test";
+    const { actions, warnings } = compileMcpServerActions(
+      {
+        name: "my-mcp",
+        agents: ["claude-code"],
+        config: { command: "s" },
+        scope: "repo",
+      },
+      ["claude-code"],
+      "/home/test",
+      repo,
+    );
+    assert.equal(actions.length, 1);
+    assert.equal(warnings.length, 0);
+    const action = actions[0] as ConfigPatchDeployAction;
+    assert.equal(action.kind, "config-patch");
+    assert.equal(action.agent, "claude-code");
+    assertPathEndsWith(
+      action.target,
+      ".claude/mcp.json",
+      `expected target to end with .claude/mcp.json, got: ${action.target}`,
+    );
+    assert.deepEqual(action.patch, {
+      mcpServers: { "my-mcp": { command: "s" } },
+    });
+    assert.equal(action.confidence, "documented");
+  });
+
+  it("returns a config-patch action for claude-code MCP with scope: workspace", () => {
+    const workspace = "/workspace/test";
+    const { actions, warnings } = compileMcpServerActions(
+      {
+        name: "my-mcp",
+        agents: ["claude-code"],
+        config: { command: "s" },
+        scope: "workspace",
+      },
+      ["claude-code"],
+      "/home/test",
+      undefined,
+      workspace,
+    );
+    assert.equal(actions.length, 1);
+    assert.equal(warnings.length, 0);
+    const action = actions[0] as ConfigPatchDeployAction;
+    assert.equal(action.kind, "config-patch");
+    assert.equal(action.agent, "claude-code");
+    assertPathEndsWith(
+      action.target,
+      ".claude/mcp.json",
+      `expected target to end with .claude/mcp.json, got: ${action.target}`,
+    );
+    assert.deepEqual(action.patch, {
+      mcpServers: { "my-mcp": { command: "s" } },
+    });
+  });
+
   it("returns a config-patch action for gemini-cli with correct target", () => {
     const home = "/home/test";
     const { actions } = compileMcpServerActions(

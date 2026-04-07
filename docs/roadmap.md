@@ -32,9 +32,9 @@ Score format:
    The north star now treats GitHub Copilot MCP as a real, documented vector, while the current implementation still warns and skips it. Add adapters for workspace and repo-scoped Copilot MCP surfaces, with ownership tracking and safe revert, instead of keeping it in planned state.  
    `Score 8/12 (Architecture 1, Agents 2, OS 1, Confidence 2, Safety 1, Stability 1)`~~
 
-2. **Add Claude Code project-level MCP support via `.claude/mcp.json`.**  
+2. ~~**Add Claude Code project-level MCP support via `.claude/mcp.json`.**  
    Current MCP support only targets the global Claude JSON surface, but the north star now calls out a documented project-level config as well. Supporting both levels is necessary before Claude MCP can be considered aligned with the target portability model.  
-   `Score 8/12 (Architecture 1, Agents 1, OS 1, Confidence 2, Safety 1, Stability 2)`
+   `Score 8/12 (Architecture 1, Agents 1, OS 1, Confidence 2, Safety 1, Stability 2)`~~
 
 3. **Finish Gemini CLI documented-surface alignment.**  
    The implementation now supports `GEMINI.md` rules plus Markdown agent definitions in `.gemini/agents/` for both `scope: "repo"` and `scope: "global"`, and preflight explicitly warns about documented-but-not-yet-supported Gemini surfaces. What is still missing is full alignment with the documented surface area: configurable instruction filename overrides from `settings.json`, native `AGENTS.md` fallback targeting, and documented TOML subagent definitions are still warning-only, and Gemini agent definitions are still classified as implementation-only rather than fully documented.  

@@ -30,6 +30,22 @@ export const AGENT_REGISTRY: readonly AgentConfig[] = [
         windows: ["{home}", ".claude.json"],
       },
     },
+    mcpRepoSupport: {
+      status: "supported",
+      schemaLabel: "repo-local .claude/mcp.json",
+      path: {
+        posix: ["{repo}", ".claude", "mcp.json"],
+        windows: ["{repo}", ".claude", "mcp.json"],
+      },
+    },
+    mcpWorkspaceSupport: {
+      status: "supported",
+      schemaLabel: "workspace-local .claude/mcp.json",
+      path: {
+        posix: ["{workspace}", ".claude", "mcp.json"],
+        windows: ["{workspace}", ".claude", "mcp.json"],
+      },
+    },
     agentRulesSupport: {
       status: "supported",
       schemaLabel: "global Markdown rules file",
