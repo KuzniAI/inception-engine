@@ -150,7 +150,7 @@ describe("runPreflight", () => {
     );
   });
 
-  it("emits config-authority warning when manifest uses implementation-only agentDefinitions", async () => {
+  it("emits no config-authority warning for gemini-cli agentDefinitions (surface is now documented)", async () => {
     const manifest: Manifest = {
       ...emptyManifest,
       agentDefinitions: [
@@ -164,10 +164,15 @@ describe("runPreflight", () => {
     const warnings = await runPreflight(baseOptions, manifest, "/home/test", [
       "gemini-cli",
     ]);
-    const authority = warnings.find((w) => w.kind === "config-authority");
-    assert.ok(authority, "expected a config-authority warning");
-    assert.match(authority?.message ?? "", /implementation-only/);
-    assert.match(authority?.message ?? "", /agent-definitions/);
+    const implementationOnlyWarning = warnings.find(
+      (w) =>
+        w.kind === "config-authority" && /implementation-only/.test(w.message),
+    );
+    assert.equal(
+      implementationOnlyWarning,
+      undefined,
+      `expected no implementation-only warning, got: ${implementationOnlyWarning?.message}`,
+    );
   });
 });
 

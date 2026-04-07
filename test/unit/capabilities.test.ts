@@ -76,12 +76,12 @@ describe("capabilities planner", () => {
     assert.equal(plan.outcome, "action");
   });
 
-  it("reports implementation-only confidence for gemini-cli agentDefinitions", () => {
+  it("reports documented confidence for gemini-cli agentDefinitions (surface is now fully documented)", () => {
     const confidence = describeCapabilityConfidence(
       "gemini-cli",
       "agentDefinitions",
     );
-    assert.equal(confidence.confidence, "implementation-only");
-    assert.match(confidence.message ?? "", /implementation-only/);
+    assert.equal(confidence.confidence, "documented");
+    assert.equal(confidence.message, null);
   });
 });

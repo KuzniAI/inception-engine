@@ -1,10 +1,12 @@
 import path from "node:path";
+import { AGENT_REGISTRY_BY_ID } from "../../config/agents.ts";
 import type { AgentDefinitionEntry } from "../../schemas/manifest.ts";
 import type {
   AgentId,
   FileWriteDeployAction,
   FileWriteRevertAction,
   PlanWarning,
+  SupportedAgentSurface,
 } from "../../types.ts";
 import {
   planCapabilityForDeploy,
@@ -26,19 +28,64 @@ export interface AgentDefinitionsAdapterResult {
 /**
  * Compiles deploy actions for agentDefinitions manifest entries.
  *
- * Agent definition files are Markdown files (typically with YAML frontmatter)
- * that define custom agents or subagents for a given platform. Unlike
- * agentRules (which target a single shared global file per agent), each
- * definition entry produces a separate file named after the entry in the
- * agent's dedicated agent-definitions directory (repo-local).
+ * Agent definition files are Markdown (typically with YAML frontmatter) or
+ * TOML files that define custom agents or subagents for a given platform.
+ * Unlike agentRules (which target a single shared global file per agent),
+ * each definition entry produces a separate file named after the entry in
+ * the agent's dedicated agent-definitions directory.
  *
  * Target paths use the `{repo}` placeholder so definitions land in the
  * repository being deployed, not the user's home directory.
+ *
+ * TOML source files (e.g. Gemini CLI `.gemini/agents/*.toml`) bypass
+ * Markdown-specific validation and are deployed verbatim.
  */
+
+/**
+ * Returns the TOML-specific surface for an agent (global or repo-local),
+ * or undefined when the agent has no TOML definition surface.
+ */
+function resolveTomlDefinitionsSurface(
+  agentId: AgentId,
+  scope: AgentDefinitionEntry["scope"],
+): SupportedAgentSurface | undefined {
+  const agent = AGENT_REGISTRY_BY_ID[agentId];
+  if (!agent) return undefined;
+  const tomlSupport =
+    scope === "repo"
+      ? (agent.agentDefinitionsTomlRepoSupport ??
+        agent.agentDefinitionsTomlSupport)
+      : agent.agentDefinitionsTomlSupport;
+  if (!tomlSupport || tomlSupport.status !== "supported") return undefined;
+  return tomlSupport;
+}
+
 interface SupportedTarget {
   agentId: AgentId;
   confidence: FileWriteDeployAction["confidence"];
   target: string;
+}
+
+/** Returns a warning when the requested scope cannot be resolved, or null when it is fine. */
+function scopeAvailabilityWarning(
+  entry: AgentDefinitionEntry,
+  agentId: AgentId,
+  repo?: string,
+  workspace?: string,
+): PlanWarning | null {
+  if (entry.scope === "repo" && !repo) {
+    return {
+      kind: "confidence",
+      message: `agentDefinitions: scope "repo" requires a repository path but none was resolved — skipping "${entry.name}" for agent "${agentId}"`,
+    };
+  }
+  if (entry.scope === "workspace" && !workspace && !repo) {
+    return {
+      kind: "confidence",
+      message: `agentDefinitions: scope "workspace" requires a workspace or repository path but none was resolved — skipping "${entry.name}" for agent "${agentId}"`,
+    };
+  }
+  return null;
 }
 
 function resolveSupportedTargets(
@@ -51,6 +98,7 @@ function resolveSupportedTargets(
   const targets: SupportedTarget[] = [];
   const warnings: PlanWarning[] = [];
   const platform = getPlatformKey();
+  const isToml = path.extname(entry.path).toLowerCase() === ".toml";
 
   for (const agentId of targetAgents) {
     const plan = planCapabilityForDeploy({
@@ -66,25 +114,22 @@ function resolveSupportedTargets(
     }
     if (plan.outcome === "native" || plan.outcome === "redundant") continue;
 
-    const support = resolveCapabilitySurface(
-      agentId,
-      "agentDefinitions",
-      entry.scope,
-    ).support;
+    // For TOML sources, use the agent's TOML-specific surface instead of the
+    // default Markdown surface. Agents without a TOML surface are skipped.
+    const support = isToml
+      ? resolveTomlDefinitionsSurface(agentId, entry.scope)
+      : resolveCapabilitySurface(agentId, "agentDefinitions", entry.scope)
+          .support;
     if (!support) continue;
 
-    if (entry.scope === "repo" && !repo) {
-      warnings.push({
-        kind: "confidence",
-        message: `agentDefinitions: scope "repo" requires a repository path but none was resolved — skipping "${entry.name}" for agent "${agentId}"`,
-      });
-      continue;
-    }
-    if (entry.scope === "workspace" && !workspace && !repo) {
-      warnings.push({
-        kind: "confidence",
-        message: `agentDefinitions: scope "workspace" requires a workspace or repository path but none was resolved — skipping "${entry.name}" for agent "${agentId}"`,
-      });
+    const scopeWarning = scopeAvailabilityWarning(
+      entry,
+      agentId,
+      repo,
+      workspace,
+    );
+    if (scopeWarning) {
+      warnings.push(scopeWarning);
       continue;
     }
 
@@ -113,14 +158,18 @@ async function createAgentDefinitionActions(
   workspace?: string,
 ): Promise<FileWriteDeployAction[]> {
   const actions: FileWriteDeployAction[] = [];
+  const isToml = path.extname(entry.path).toLowerCase() === ".toml";
 
   for (const target of supportedTargets) {
-    validateAgentRuleMarkdownPath(entry.path, target.agentId);
-    await validateInstructionFileRequirements(
-      source,
-      entry.path,
-      target.agentId,
-    );
+    // TOML definition files have no YAML frontmatter — skip Markdown validation.
+    if (!isToml) {
+      validateAgentRuleMarkdownPath(entry.path, target.agentId);
+      await validateInstructionFileRequirements(
+        source,
+        entry.path,
+        target.agentId,
+      );
+    }
 
     let migratedFrom: string[] | undefined;
     if (target.agentId === "github-copilot") {
@@ -205,16 +254,16 @@ export function compileAgentDefinitionReverts(
 ): FileWriteRevertAction[] {
   const actions: FileWriteRevertAction[] = [];
   const platform = getPlatformKey();
+  const isToml = path.extname(entry.path).toLowerCase() === ".toml";
 
   for (const agentId of entry.agents) {
     if (agentFilter && !agentFilter.includes(agentId)) continue;
-    const surface = resolveCapabilitySurface(
-      agentId,
-      "agentDefinitions",
-      entry.scope,
-    );
-    const support = surface.support;
-    if (!support || surface.supportStatus !== "supported") continue;
+
+    const support = isToml
+      ? resolveTomlDefinitionsSurface(agentId, entry.scope)
+      : resolveCapabilitySurface(agentId, "agentDefinitions", entry.scope)
+          .support;
+    if (!support) continue;
 
     if (entry.scope === "repo" && !repo) continue;
     if (entry.scope === "workspace" && !workspace && !repo) continue;

@@ -142,6 +142,10 @@ export interface AgentConfig {
   agentDefinitionsRepoSupport?: AgentSurfaceSupport;
   // Workspace-local agent/subagent definition file surface support.
   agentDefinitionsWorkspaceSupport?: AgentSurfaceSupport;
+  // TOML subagent definition file surface support (e.g. Gemini CLI .gemini/agents/*.toml).
+  agentDefinitionsTomlSupport?: AgentSurfaceSupport;
+  // Repo-local TOML subagent definition file surface support.
+  agentDefinitionsTomlRepoSupport?: AgentSurfaceSupport;
   policyNote?: string;
   /**
    * A list of documented surfaces that are currently not safe to support directly.

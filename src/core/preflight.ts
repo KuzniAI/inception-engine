@@ -63,6 +63,43 @@ async function detectEnterpriseManagement(
   return null;
 }
 
+/**
+ * Reads ~/.gemini/settings.json and warns when `instructionFilename` is set
+ * to a value other than "GEMINI.md". If the override is in effect, inception-
+ * engine's agentRules deployment to GEMINI.md will be silently ignored by the
+ * agent at runtime.
+ */
+async function detectGeminiCustomInstructionFilename(
+  home: string,
+): Promise<PreflightWarning | null> {
+  const settingsPath = path.join(home, ".gemini", "settings.json");
+  try {
+    const raw = await readFile(settingsPath, "utf8");
+    const parsed: unknown = JSON.parse(raw);
+    if (
+      typeof parsed === "object" &&
+      parsed !== null &&
+      typeof (parsed as Record<string, unknown>).instructionFilename ===
+        "string"
+    ) {
+      const configured = (parsed as Record<string, unknown>)
+        .instructionFilename as string;
+      if (configured !== "GEMINI.md") {
+        return {
+          kind: "config-authority",
+          message: `Agent "gemini-cli": settings.json sets instructionFilename to "${configured}" but inception-engine deploys agentRules to "GEMINI.md". The deployed rules file may not be loaded by the agent. Remove the override or align the deploy target.`,
+        };
+      }
+    }
+  } catch (err) {
+    const code = (err as NodeJS.ErrnoException).code;
+    if (code !== "ENOENT" && code !== "EACCES" && code !== "EPERM") {
+      throw err;
+    }
+  }
+  return null;
+}
+
 function groupRulesByPath(rulesForAgent: Manifest["agentRules"]) {
   const entriesByPath = new Map<
     string,
@@ -347,6 +384,58 @@ function detectCapabilityPlanningWarnings(
   return collectManifestCapabilityWarnings(manifest, detectedAgents);
 }
 
+async function collectAgentWarnings(
+  agentId: AgentId,
+  manifest: Manifest,
+  home: string,
+): Promise<PreflightWarning[]> {
+  const agent = AGENT_REGISTRY_BY_ID[agentId];
+  if (!agent) return [];
+
+  const warnings: PreflightWarning[] = [];
+
+  const skillConfidence = describeCapabilityConfidence(agentId, "skills");
+  if (
+    skillConfidence.confidence === "implementation-only" ||
+    skillConfidence.confidence === "provisional"
+  ) {
+    warnings.push({
+      kind: "config-authority",
+      message:
+        skillConfidence.message ??
+        `Agent "${agentId}" skill support is ${skillConfidence.confidence}.`,
+    });
+  }
+
+  const enterpriseWarning = await detectEnterpriseManagement(agentId, home);
+  if (enterpriseWarning) {
+    warnings.push({
+      kind: "policy",
+      message: `Agent "${agentId}": ${enterpriseWarning}`,
+    });
+  } else if (
+    agent.policyNote &&
+    !agent.policyNote.includes("Organization policies may override")
+  ) {
+    warnings.push({
+      kind: "policy",
+      message: `Agent "${agentId}": ${agent.policyNote}`,
+    });
+  }
+
+  if (agentId === "gemini-cli") {
+    const hasGeminiRules = (manifest.agentRules ?? []).some((e) =>
+      e.agents.includes("gemini-cli"),
+    );
+    if (hasGeminiRules) {
+      const filenameWarning = await detectGeminiCustomInstructionFilename(home);
+      if (filenameWarning) warnings.push(filenameWarning);
+    }
+  }
+
+  return warnings;
+}
+
 export async function runPreflight(
   options: CliOptions,
   manifest: Manifest,
@@ -356,37 +445,7 @@ export async function runPreflight(
   const warnings: PreflightWarning[] = [];
 
   for (const agentId of detectedAgents) {
-    const agent = AGENT_REGISTRY_BY_ID[agentId];
-    if (!agent) continue;
-
-    const skillConfidence = describeCapabilityConfidence(agentId, "skills");
-    if (
-      skillConfidence.confidence === "implementation-only" ||
-      skillConfidence.confidence === "provisional"
-    ) {
-      warnings.push({
-        kind: "config-authority",
-        message:
-          skillConfidence.message ??
-          `Agent "${agentId}" skill support is ${skillConfidence.confidence}.`,
-      });
-    }
-
-    const enterpriseWarning = await detectEnterpriseManagement(agentId, home);
-    if (enterpriseWarning) {
-      warnings.push({
-        kind: "policy",
-        message: `Agent "${agentId}": ${enterpriseWarning}`,
-      });
-    } else if (
-      agent.policyNote &&
-      !agent.policyNote.includes("Organization policies may override")
-    ) {
-      warnings.push({
-        kind: "policy",
-        message: `Agent "${agentId}": ${agent.policyNote}`,
-      });
-    }
+    warnings.push(...(await collectAgentWarnings(agentId, manifest, home)));
   }
 
   warnings.push(...detectCapabilityPlanningWarnings(manifest, detectedAgents));

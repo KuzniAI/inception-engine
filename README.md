@@ -53,9 +53,9 @@ Before executing, the deploy command runs preflight analysis on instruction file
 | MCP Servers | claude-code (`scope: "global"` → `~/.claude.json`; `scope: "repo"` → `{repo}/.claude/mcp.json`; `scope: "workspace"` → `{workspace}/.claude/mcp.json`), gemini-cli, codex, antigravity, opencode; github-copilot with `scope: "repo"` deploys to `{repo}/.vscode/mcp.json` and `scope: "workspace"` deploys to `{workspace}/.vscode/mcp.json`; github-copilot with `scope: "global"` (default) is unsupported and warns | claude-code, gemini-cli, codex, antigravity, opencode, github-copilot |
 | Global/Repo/Workspace Rules Files | `scope: "global"` and `scope: "repo"` are supported on the implemented agent surfaces; `scope: "workspace"` is supported for `claude-code`, `codex`, and `gemini-cli`; `github-copilot` reads Claude-native rules via `claude-code` and has no separate rules deployment target | All supported agents |
 | Permissions / Approval Config | claude-code (`~/.claude/settings.json`), codex (`~/.codex/config.toml`), opencode (`~/.config/opencode/opencode.json` on POSIX, `%APPDATA%\\opencode\\opencode.json` on Windows); other agents are warned and skipped | claude-code, codex, opencode |
-| Agent Definitions | claude-code (`{repo}/.claude/agents/{name}.md`), gemini-cli (`{repo}/.gemini/agents/{name}.md`, plus `scope: "global"` to `~/.gemini/agents/{name}.md`), antigravity (`{repo}/.agents/rules/{name}.md`), opencode (`{repo}/.opencode/agents/{name}.md`, plus `scope: "global"` to the user config dir), github-copilot (`{repo}/.github/copilot/agents/{name}.md`, with migration from legacy `.github/agents/{name}.agent.md`); codex is warned and skipped | All supported agents |
+| Agent Definitions | claude-code (`{repo}/.claude/agents/{name}.md`), gemini-cli (`{repo}/.gemini/agents/{name}.md` or `.toml`, plus `scope: "global"` to `~/.gemini/agents/{name}.md` or `.toml`), antigravity (`{repo}/.agents/rules/{name}.md`), opencode (`{repo}/.opencode/agents/{name}.md`, plus `scope: "global"` to the user config dir), github-copilot (`{repo}/.github/copilot/agents/{name}.md`, with migration from legacy `.github/agents/{name}.agent.md`); codex is warned and skipped | All supported agents |
 | `init` manifest generation | Scans `SKILL.md` directories (`skills`), `.md` files with Claude-first agent mapping (`agentRules`), `mcp-servers.json` (`mcpServers`), and agent-definition Markdown files (`agentDefinitions`); shared surfaces default to the primary deploy target instead of shared riders; emits hints for `files/` and `configs/` directories | N/A |
-| Instruction preflight analysis | Emits capability warnings for implementation-only, planned, unsupported, and shared-through surfaces used by the manifest; emits `precedence` warnings when an agent has multiple `agentRules` scopes active simultaneously or the same source file is deployed to multiple scopes; emits `budget` warnings when `agentRules` or `agentDefinitions` source files exceed 50 KB; emits GitHub Copilot enterprise-policy warnings when local configuration may be overridden | N/A |
+| Instruction preflight analysis | Emits capability warnings for implementation-only, planned, unsupported, and shared-through surfaces used by the manifest; emits `precedence` warnings when an agent has multiple `agentRules` scopes active simultaneously or the same source file is deployed to multiple scopes; emits `budget` warnings when `agentRules` or `agentDefinitions` source files exceed 50 KB; emits GitHub Copilot enterprise-policy warnings when local configuration may be overridden; emits a `config-authority` warning when Gemini CLI's `settings.json` contains an `instructionFilename` override that differs from the deploy target | N/A |
 
 Features that depend on agent-specific config surfaces are intentionally conservative: deploy and preflight now classify each surface through the same planner. If a target path or schema is implementation-only, planned, unsupported, or only shared through another agent, inception-engine warns and either routes through the primary surface or skips it rather than guessing.
 
@@ -248,23 +248,25 @@ Valid `approval_policy` values are `"auto"`, `"manual"`, `"suggest"`, and `"on-f
 
 Revert restores the previous config values using the undo patch recorded at deploy time.
 
-Each **agentDefinitions** entry deploys a Markdown agent-definition file to the agent-definition directory of each targeted agent. `scope: "repo"` is the default, and some agents also support `scope: "global"`:
+Each **agentDefinitions** entry deploys an agent-definition file to the agent-definition directory of each targeted agent. `scope: "repo"` is the default, and some agents also support `scope: "global"`:
 
 - **name** - Unique identifier (same format as skill names); used as the definition filename
-- **path** - Relative path to the source Markdown file within the repo; must be a `.md` or `.markdown` file
+- **path** - Relative path to the source file within the repo; `.md` or `.markdown` for Markdown definitions, `.toml` for Gemini CLI TOML subagent definitions
 - **agents** - Array of agent IDs to deploy this definition to
 
 Agent-definition deployment is supported for `claude-code`, `gemini-cli`, `antigravity`, `opencode`, and `github-copilot`. For `codex`, inception-engine emits a warning and skips the entry. Gemini CLI and OpenCode also support `scope: "global"` definitions; other supported agents are repo-local only.
 
+Gemini CLI supports two definition formats: Markdown (`.md`) files deploy to `{scope}/.gemini/agents/{name}.md`, and TOML (`.toml`) subagent configuration files deploy to `{scope}/.gemini/agents/{name}.toml`. TOML files are deployed verbatim without frontmatter validation. Agents other than `gemini-cli` that do not have a TOML definition surface silently produce no action when a `.toml` source is specified.
+
 Repo-local targets:
 - **claude-code**: `{repo}/.claude/agents/{name}.md`
-- **gemini-cli**: `{repo}/.gemini/agents/{name}.md`
+- **gemini-cli**: `{repo}/.gemini/agents/{name}.md` (Markdown) or `{repo}/.gemini/agents/{name}.toml` (TOML)
 - **antigravity**: `{repo}/.agents/rules/{name}.md`
 - **opencode**: `{repo}/.opencode/agents/{name}.md`
 - **github-copilot**: `{repo}/.github/copilot/agents/{name}.md`
 
 Global targets where supported:
-- **gemini-cli**: `~/.gemini/agents/{name}.md`
+- **gemini-cli**: `~/.gemini/agents/{name}.md` or `~/.gemini/agents/{name}.toml`
 - **opencode**: `~/.config/opencode/agents/{name}.md` on POSIX, `%APPDATA%\\opencode\\agents\\{name}.md` on Windows
 
 For GitHub Copilot, deploy also records migration from the legacy `{repo}/.github/agents/{name}.agent.md` path so older installs can be cleaned up safely.

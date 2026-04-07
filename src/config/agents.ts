@@ -171,7 +171,7 @@ export const AGENT_REGISTRY: readonly AgentConfig[] = [
       detectBinary: "documented",
       mcpConfig: "documented",
       agentRules: "documented",
-      agentDefinitions: "implementation-only",
+      agentDefinitions: "documented",
     },
     mcpSupport: {
       status: "supported",
@@ -181,6 +181,9 @@ export const AGENT_REGISTRY: readonly AgentConfig[] = [
         windows: ["{home}", ".gemini", "settings.json"],
       },
     },
+    // NOTE: Gemini CLI also reads AGENTS.md as a fallback when GEMINI.md is absent.
+    // inception-engine intentionally targets GEMINI.md to avoid ownership collisions
+    // with codex and opencode, which also write AGENTS.md.
     agentRulesSupport: {
       status: "supported",
       schemaLabel: "global Markdown rules file",
@@ -219,29 +222,22 @@ export const AGENT_REGISTRY: readonly AgentConfig[] = [
         windows: ["{repo}", ".gemini", "agents", "{name}.md"],
       },
     },
-    unsupportedSurfaces: [
-      {
-        status: "planned",
-        schemaLabel: "TOML subagent definitions",
-        plannedSurface: "TOML agent configuration via .gemini/agents/",
-        reason:
-          "TOML subagent definitions are documented but require clear ownership and revert semantics before they can be safely supported",
+    agentDefinitionsTomlSupport: {
+      status: "supported",
+      schemaLabel: "global agent definition TOML file",
+      path: {
+        posix: ["{home}", ".gemini", "agents", "{name}.toml"],
+        windows: ["{home}", ".gemini", "agents", "{name}.toml"],
       },
-      {
-        status: "planned",
-        schemaLabel: "configurable instruction filenames via settings.json",
-        plannedSurface: "dynamic GEMINI.md fallback target from settings.json",
-        reason:
-          "Instruction filename overrides are documented but cannot be reliably targeted yet",
+    },
+    agentDefinitionsTomlRepoSupport: {
+      status: "supported",
+      schemaLabel: "repo-local agent definition TOML file",
+      path: {
+        posix: ["{repo}", ".gemini", "agents", "{name}.toml"],
+        windows: ["{repo}", ".gemini", "agents", "{name}.toml"],
       },
-      {
-        status: "planned",
-        schemaLabel: "AGENTS.md instructions fallback",
-        plannedSurface: "AGENTS.md file in the workspace or global path",
-        reason:
-          "Gemini CLI loads AGENTS.md natively, but inception-engine targets GEMINI.md to avoid collisions with other agents",
-      },
-    ],
+    },
     agentRulesWorkspaceSupport: {
       status: "supported",
       schemaLabel: "workspace-local GEMINI.md",
