@@ -1,9 +1,9 @@
 import assert from "node:assert/strict";
+import { mkdir, realpath, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { describe, it } from "node:test";
 import { compileAgentDefinitionActions } from "../../src/core/adapters/agent-definitions.ts";
 import { runPreflight } from "../../src/core/preflight.ts";
-import { mkdir, realpath, rm, writeFile } from "node:fs/promises";
 import { makeTmpDir } from "../helpers/fs.ts";
 import { assertPathEndsWith } from "../helpers/path.ts";
 
