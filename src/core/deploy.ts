@@ -172,7 +172,7 @@ function checkPairAgentRuleAmbiguities(
     ) {
       warnings.push({
         kind: "ambiguity",
-        message: `Both "${primary}" and "${rider}" are listed in agentRules entry "${entry.name}". Both target the same surface — listing both is redundant but harmless; deduplication ensures only one write action is emitted.`,
+        message: `Both "${primary}" and "${rider}" are listed in agentRules entry "${entry.name}". Both target the same surface - listing both is redundant but harmless; deduplication ensures only one write action is emitted.`,
       });
     }
   }
@@ -194,7 +194,7 @@ function checkPairMcpAmbiguities(
       continue;
     warnings.push({
       kind: "ambiguity",
-      message: `Both "${primary}" and "${rider}" are listed in mcpServers entry "${entry.name}". "${primary}" writes to a shared MCP surface — verify that deploying to both does not produce conflicting MCP server behavior.`,
+      message: `Both "${primary}" and "${rider}" are listed in mcpServers entry "${entry.name}". "${primary}" writes to a shared MCP surface - verify that deploying to both does not produce conflicting MCP server behavior.`,
     });
   }
   return warnings;
@@ -211,7 +211,7 @@ function checkPairAgentDefinitionAmbiguities(
       continue;
     warnings.push({
       kind: "ambiguity",
-      message: `Both "${primary}" and "${rider}" are listed in agentDefinitions entry "${entry.name}". They write to distinct surfaces — verify that this behavioral divergence is intended.`,
+      message: `Both "${primary}" and "${rider}" are listed in agentDefinitions entry "${entry.name}". They write to distinct surfaces - verify that this behavioral divergence is intended.`,
     });
   }
   return warnings;
@@ -247,7 +247,7 @@ function checkAntigravityPathCollisions(manifest: Manifest): PlanWarning[] {
     if (defNames.has(entry.name)) {
       warnings.push({
         kind: "collision",
-        message: `agentDefinitions entry "${entry.name}" and mcpServers entry "${entry.name}" for agent "antigravity" both resolve to {repo}/.agents/rules/${entry.name}.md — one will silently overwrite the other; use different names or remove one entry`,
+        message: `agentDefinitions entry "${entry.name}" and mcpServers entry "${entry.name}" for agent "antigravity" both resolve to {repo}/.agents/rules/${entry.name}.md - one will silently overwrite the other; use different names or remove one entry`,
       });
     }
   }
@@ -621,7 +621,7 @@ async function backupManagedFileWriteTarget(
   );
   if (!isOwned) {
     throw new Error(
-      `Target "${action.target}" exists but is not managed by inception-engine — refusing to overwrite`,
+      `Target "${action.target}" exists but is not managed by inception-engine - refusing to overwrite`,
     );
   }
 
@@ -840,7 +840,7 @@ async function deployConfigPatch(
         existingEntry.agent !== action.agent)
     ) {
       throw new Error(
-        `Config "${action.target}" is already patched by skill "${existingEntry.skill}" for agent "${existingEntry.agent}" — refusing to double-patch`,
+        `Config "${action.target}" is already patched by skill "${existingEntry.skill}" for agent "${existingEntry.agent}" - refusing to double-patch`,
       );
     }
 
@@ -992,7 +992,7 @@ async function deployFrontmatterEmit(
         existingEntry.agent !== action.agent)
     ) {
       throw new Error(
-        `Frontmatter target "${action.target}" is already patched by skill "${existingEntry.skill}" for agent "${existingEntry.agent}" — refusing to double-patch`,
+        `Frontmatter target "${action.target}" is already patched by skill "${existingEntry.skill}" for agent "${existingEntry.agent}" - refusing to double-patch`,
       );
     }
 
@@ -1134,7 +1134,7 @@ async function assertTargetAbsent(targetPath: string): Promise<void> {
   } catch (err) {
     if (err instanceof Error && err.message.startsWith("Target path appeared"))
       throw err;
-    // ENOENT is expected — target should not exist after backup
+    // ENOENT is expected - target should not exist after backup
   }
 }
 
@@ -1235,7 +1235,7 @@ async function backupExisting(
     ))
   ) {
     throw new Error(
-      `Target "${targetPath}" exists but is not managed by inception-engine — refusing to overwrite`,
+      `Target "${targetPath}" exists but is not managed by inception-engine - refusing to overwrite`,
     );
   }
 

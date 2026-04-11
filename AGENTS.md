@@ -10,3 +10,4 @@
 8. Treat test path handling as cross-platform by default. When adding or updating tests that assert on paths, do not hard-code POSIX or Windows separators in expected strings.
 9. Prefer the shared helpers in `test/helpers/path.ts` (`normalizeSlashes`, `assertPathEndsWith`) for path assertions. Do not define local normalization functions in individual test files.
 10. Before handing off any test changes that touch paths, review the assertions for `windows-latest` compatibility. Normalize separators or assert on path segments/suffixes so the same test logic passes on Windows and POSIX runners.
+11. Do not use em dashes (—, U+2014) or en dashes (–, U+2013). Use ASCII hyphens (-) instead.
