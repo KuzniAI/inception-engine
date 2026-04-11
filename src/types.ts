@@ -146,6 +146,10 @@ export interface AgentConfig {
   agentDefinitionsTomlSupport?: AgentSurfaceSupport;
   // Repo-local TOML subagent definition file surface support.
   agentDefinitionsTomlRepoSupport?: AgentSurfaceSupport;
+  // Devcontainer-scoped MCP surface for agents that support
+  // customizations.vscode.mcp in devcontainer.json. When present and planned,
+  // preflight emits a forward-looking notice instead of silence.
+  mcpDevcontainerSupport?: AgentSurfaceSupport;
   policyNote?: string;
   /**
    * A list of documented surfaces that are currently not safe to support directly.

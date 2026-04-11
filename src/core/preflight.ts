@@ -255,6 +255,36 @@ function pushCapabilityWarning(
   acc.warnings.push({ kind, message });
 }
 
+function collectPlannedSurfaceWarnings(
+  acc: CapabilityWarningAccumulator,
+  agentId: AgentId,
+  capability: string,
+): void {
+  const agent = AGENT_REGISTRY_BY_ID[agentId];
+  if (
+    !agent?.unsupportedSurfaces ||
+    (capability !== "mcpServers" && capability !== "permissions")
+  ) {
+    return;
+  }
+
+  for (const surface of agent.unsupportedSurfaces) {
+    if (surface.status === "planned") {
+      pushCapabilityWarning(
+        acc,
+        "info",
+        `Agent "${agentId}": ${surface.reason ?? surface.plannedSurface}`,
+      );
+    } else if (surface.status === "unsupported") {
+      pushCapabilityWarning(
+        acc,
+        "config-authority",
+        `Agent "${agentId}": ${surface.reason ?? surface.schemaLabel}`,
+      );
+    }
+  }
+}
+
 function collectCapabilityWarningsForAgent(
   acc: CapabilityWarningAccumulator,
   agentId: AgentId,
@@ -280,32 +310,14 @@ function collectCapabilityWarningsForAgent(
     return;
   }
 
-  // Evaluate undocumented/planned surfaces warning
-  const agent = AGENT_REGISTRY_BY_ID[agentId];
-  if (agent?.unsupportedSurfaces) {
-    for (const surface of agent.unsupportedSurfaces) {
-      if (surface.status === "planned") {
-        pushCapabilityWarning(
-          acc,
-          "info",
-          `Agent "${agentId}": ${surface.reason ?? surface.plannedSurface}`,
-        );
-      } else if (surface.status === "unsupported") {
-        pushCapabilityWarning(
-          acc,
-          "config-authority",
-          `Agent "${agentId}": ${surface.reason ?? surface.schemaLabel}`,
-        );
-      }
+  if (capability !== "skills") {
+    const confidence = describeCapabilityConfidence(agentId, capability, scope);
+    if (confidence.message) {
+      pushCapabilityWarning(acc, "config-authority", confidence.message);
     }
   }
 
-  if (capability === "skills") return;
-
-  const confidence = describeCapabilityConfidence(agentId, capability, scope);
-  if (confidence.message) {
-    pushCapabilityWarning(acc, "config-authority", confidence.message);
-  }
+  collectPlannedSurfaceWarnings(acc, agentId, capability);
 }
 
 function collectCapabilityWarningsForTargets(
@@ -426,7 +438,9 @@ async function collectAgentWarnings(
     });
   } else if (
     agent.policyNote &&
-    !agent.policyNote.includes("Organization policies may override")
+    !agent.policyNote
+      .toLowerCase()
+      .includes("organization policies may override")
   ) {
     warnings.push({
       kind: "policy",

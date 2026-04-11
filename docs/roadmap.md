@@ -28,6 +28,6 @@ Score format:
 
 ## Functional Features
 
-1. **Extend GitHub Copilot MCP support to the remaining documented surfaces.**  
-   The repo/workspace `.vscode/mcp.json` surfaces are now implemented with merge-patch deploy and safe revert, so the earlier MCP gap is closed. What still remains from the north star is the rest of Copilot's documented MCP area: devcontainer-scoped configuration and agent-level tool/frontmatter mapping are not yet modeled in the manifest, planner, or ownership system. Add those surfaces only if they can be represented without weakening current dry-run clarity or creating ambiguous overlap with existing instruction and agent-definition flows.  
-   `Score 6/12 (Architecture 1, Agents 2, OS 1, Confidence 1, Safety 0, Stability 1)`
+1. ~~**Extend GitHub Copilot MCP support to the remaining documented surfaces.**~~  
+   ~~The repo/workspace `.vscode/mcp.json` surfaces are now implemented with merge-patch deploy and safe revert, so the earlier MCP gap is closed. What still remains from the north star is the rest of Copilot's documented MCP area: devcontainer-scoped configuration and agent-level tool/frontmatter mapping are not yet modeled in the manifest, planner, or ownership system. Add those surfaces only if they can be represented without weakening current dry-run clarity or creating ambiguous overlap with existing instruction and agent-definition flows.~~  
+   ~~`Score 6/12 (Architecture 1, Agents 2, OS 1, Confidence 1, Safety 0, Stability 1)`~~ status: completed

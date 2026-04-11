@@ -177,6 +177,38 @@ describe("runPreflight", () => {
   });
 });
 
+describe("github-copilot planned surfaces", () => {
+  it("emits a planned surface info notice for devcontainer MCP when Copilot is detected and MCP is targeted", async () => {
+    const manifestWithMcp: Manifest = {
+      ...emptyManifest,
+      mcpServers: [
+        {
+          name: "test-mcp",
+          scope: "repo",
+          agents: ["github-copilot"],
+          config: { command: "node", args: ["server.js"] },
+        },
+      ],
+    };
+    const warnings = await runPreflight(
+      baseOptions,
+      manifestWithMcp,
+      "/home/test",
+      ["github-copilot"],
+    );
+    const plannedWarning = warnings.find(
+      (w) =>
+        w.kind === "info" &&
+        /devcontainer\.json MCP support is planned/.test(w.message),
+    );
+    assert.ok(
+      plannedWarning,
+      "expected a planned surface warning for Copilot devcontainer when MCP is targeted",
+    );
+    assert.match(plannedWarning.message, /planned/);
+  });
+});
+
 describe("instruction precedence warnings", () => {
   it("emits duplicate-content precedence warning when same source used in both global and repo scope for an agent", async () => {
     const sourceDir = await makeTmpDir();

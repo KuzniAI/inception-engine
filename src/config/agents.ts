@@ -480,6 +480,13 @@ export const AGENT_REGISTRY: readonly AgentConfig[] = [
         windows: ["{workspace}", "CLAUDE.md"],
       },
     },
+    mcpDevcontainerSupport: {
+      status: "planned",
+      schemaLabel: "devcontainer.json MCP surface",
+      plannedSurface: "devcontainer.json customizations.vscode.mcp.servers",
+      reason:
+        'devcontainer.json MCP support is planned — use scope: "repo" or scope: "workspace" to target .vscode/mcp.json in the meantime',
+    },
     permissionsSupport: {
       status: "unsupported",
       schemaLabel: "global permissions surface",
@@ -496,6 +503,15 @@ export const AGENT_REGISTRY: readonly AgentConfig[] = [
     },
     policyNote:
       "Organization policies may override locally deployed configuration. Verify with your GitHub org admin if deployed skills or rules are not active.",
+    unsupportedSurfaces: [
+      {
+        status: "planned",
+        schemaLabel: "devcontainer.json MCP surface",
+        plannedSurface: "devcontainer.json customizations.vscode.mcp.servers",
+        reason:
+          'devcontainer.json MCP support is planned — use scope: "repo" or scope: "workspace" to target .vscode/mcp.json in the meantime',
+      },
+    ],
     instructionFrontmatterRequired: true,
     enterprisePolicyDetection: true,
   },
