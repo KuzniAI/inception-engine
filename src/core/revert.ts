@@ -15,6 +15,7 @@ import type {
   SkillDirRevertAction,
   TomlPatchRevertAction,
 } from "../types.ts";
+import * as frontmatterAdapter from "./adapters/frontmatter.ts";
 import {
   compileAgentDefinitionReverts,
   compileAgentRuleReverts,
@@ -29,7 +30,6 @@ import {
   unregisterDeployment,
 } from "./ownership.ts";
 import { resolveAgentSkillPath } from "./resolve.ts";
-import * as frontmatterAdapter from "./adapters/frontmatter.ts";
 import { resolveTargetTemplate } from "./runtime-paths.ts";
 
 function buildSkillDirReverts(

@@ -29,7 +29,9 @@ import type {
   SkillDirDeployAction,
   TomlPatchDeployAction,
 } from "../types.ts";
+import * as frontmatterAdapter from "./adapters/frontmatter.ts";
 import { compileAdapterActions } from "./adapters/index.ts";
+import { applyTomlMcpPatch } from "./adapters/toml.ts";
 import { planCapabilityForDeploy } from "./capabilities.ts";
 import {
   applyMergePatch,
@@ -50,8 +52,6 @@ import {
   validateSourceFile,
   validateSourcePath,
 } from "./validation.ts";
-import { applyTomlMcpPatch } from "./adapters/toml.ts";
-import * as frontmatterAdapter from "./adapters/frontmatter.ts";
 
 async function readJsonConfigFile(
   filePath: string,
