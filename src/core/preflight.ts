@@ -219,12 +219,23 @@ async function detectInstructionBudgetRisk(
     }
   }
 
+  const entries: Array<{ path: string; label: string; agents: AgentId[] }> = [];
   for (const entry of manifest.agentRules ?? []) {
-    await checkEntry(entry.path, "agentRules", entry.agents);
+    entries.push({
+      path: entry.path,
+      label: "agentRules",
+      agents: entry.agents,
+    });
   }
   for (const entry of manifest.agentDefinitions ?? []) {
-    await checkEntry(entry.path, "agentDefinitions", entry.agents);
+    entries.push({
+      path: entry.path,
+      label: "agentDefinitions",
+      agents: entry.agents,
+    });
   }
+
+  await Promise.all(entries.map((e) => checkEntry(e.path, e.label, e.agents)));
 
   return warnings;
 }

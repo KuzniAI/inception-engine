@@ -41,6 +41,17 @@ export interface AdapterResult {
   warnings: PlanWarning[];
 }
 
+async function compileAll<T>(
+  entries: T[],
+  fn: (entry: T) => Promise<AdapterResult> | AdapterResult,
+): Promise<AdapterResult> {
+  const results = await Promise.all(entries.map(fn));
+  return {
+    actions: results.flatMap((r) => r.actions),
+    warnings: results.flatMap((r) => r.warnings),
+  };
+}
+
 export async function compileAdapterActions(
   mcpServers: McpServerEntry[],
   agentRules: AgentRuleEntry[],
@@ -57,53 +68,51 @@ export async function compileAdapterActions(
   const actions: AdapterAction[] = [];
   const warnings: PlanWarning[] = [];
 
-  for (const entry of mcpServers) {
-    const r = compileMcpServerActions(
-      entry,
-      detectedAgents,
-      home,
-      repo,
-      workspace,
-    );
-    actions.push(...r.actions);
-    warnings.push(...r.warnings);
-  }
+  const [mcp, rules, perms, defs] = await Promise.all([
+    compileAll(mcpServers, (entry) =>
+      compileMcpServerActions(entry, detectedAgents, home, repo, workspace),
+    ),
+    compileAll(agentRules, (entry) =>
+      compileAgentRuleActions(
+        entry,
+        sourceDir,
+        resolvedSourceDir,
+        realRoot,
+        detectedAgents,
+        home,
+        repo,
+        workspace,
+      ),
+    ),
+    compileAll(permissions, (entry) =>
+      compilePermissionsActions(entry, detectedAgents, home),
+    ),
+    compileAll(agentDefinitions ?? [], (entry) =>
+      compileAgentDefinitionActions(
+        entry,
+        sourceDir,
+        resolvedSourceDir,
+        realRoot,
+        detectedAgents,
+        home,
+        repo,
+        workspace,
+      ),
+    ),
+  ]);
 
-  for (const entry of agentRules) {
-    const r = await compileAgentRuleActions(
-      entry,
-      sourceDir,
-      resolvedSourceDir,
-      realRoot,
-      detectedAgents,
-      home,
-      repo,
-      workspace,
-    );
-    actions.push(...r.actions);
-    warnings.push(...r.warnings);
-  }
-
-  for (const entry of permissions) {
-    const r = compilePermissionsActions(entry, detectedAgents, home);
-    actions.push(...r.actions);
-    warnings.push(...r.warnings);
-  }
-
-  for (const entry of agentDefinitions ?? []) {
-    const r = await compileAgentDefinitionActions(
-      entry,
-      sourceDir,
-      resolvedSourceDir,
-      realRoot,
-      detectedAgents,
-      home,
-      repo,
-      workspace,
-    );
-    actions.push(...r.actions);
-    warnings.push(...r.warnings);
-  }
+  actions.push(
+    ...mcp.actions,
+    ...rules.actions,
+    ...perms.actions,
+    ...defs.actions,
+  );
+  warnings.push(
+    ...mcp.warnings,
+    ...rules.warnings,
+    ...perms.warnings,
+    ...defs.warnings,
+  );
 
   return { actions, warnings };
 }

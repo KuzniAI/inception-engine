@@ -5,26 +5,21 @@ import { AGENT_REGISTRY } from "../config/agents.ts";
 import type { AgentConfig, AgentId } from "../types.ts";
 import { resolveAgentDetectPath } from "./resolve.ts";
 
-const execFileAsync = promisify(execFile);
-
 // Injectable executor for testing: receives a command and its arguments and
 // must throw on non-zero exit (same contract as the promisified execFile).
 export type ExecFn = (cmd: string, args: readonly string[]) => Promise<void>;
+
+const execFileAsync = promisify(execFile);
 
 const defaultExecFn: ExecFn = async (cmd, args) => {
   await execFileAsync(cmd, args as string[]);
 };
 
 export async function detectInstalledAgents(home: string): Promise<AgentId[]> {
-  const detected: AgentId[] = [];
-
-  for (const agent of AGENT_REGISTRY) {
-    if (await isAgentInstalled(agent, home)) {
-      detected.push(agent.id);
-    }
-  }
-
-  return detected;
+  const results = await Promise.all(
+    AGENT_REGISTRY.map((agent) => isAgentInstalled(agent, home)),
+  );
+  return AGENT_REGISTRY.filter((_, i) => results[i]).map((a) => a.id);
 }
 
 async function isAgentInstalled(

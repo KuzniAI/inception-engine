@@ -29,6 +29,7 @@ import {
   unregisterDeployment,
 } from "./ownership.ts";
 import { resolveAgentSkillPath } from "./resolve.ts";
+import * as frontmatterAdapter from "./adapters/frontmatter.ts";
 import { resolveTargetTemplate } from "./runtime-paths.ts";
 
 function buildSkillDirReverts(
@@ -320,7 +321,6 @@ async function applyFrontmatterRevert(
   action: RevertAction,
   frontmatterEntry: FrontmatterEmitRegistryEntry,
 ): Promise<{ shouldDeleteFile: boolean }> {
-  const frontmatterAdapter = await import("./adapters/frontmatter.ts");
   const current = await frontmatterAdapter.readFrontmatterDocumentFile(
     action.target,
   );

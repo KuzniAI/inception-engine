@@ -50,6 +50,8 @@ import {
   validateSourceFile,
   validateSourcePath,
 } from "./validation.ts";
+import { applyTomlMcpPatch } from "./adapters/toml.ts";
+import * as frontmatterAdapter from "./adapters/frontmatter.ts";
 
 async function readJsonConfigFile(
   filePath: string,
@@ -312,9 +314,7 @@ async function planSkillDirActions(
     }
   }
 
-  for (const skill of manifest.skills) {
-    await planSkillEntry(skill);
-  }
+  await Promise.all(manifest.skills.map(planSkillEntry));
   return { actions, warnings };
 }
 
@@ -329,33 +329,40 @@ async function planFileWriteActions(
   workspace?: string,
 ): Promise<FileWriteDeployAction[]> {
   const actions: FileWriteDeployAction[] = [];
-  for (const fileEntry of manifest.files ?? []) {
-    const targetAgents = fileEntry.agents.filter((agentId) =>
-      detectedAgents.includes(agentId),
-    );
-    if (targetAgents.length === 0) continue;
+  await Promise.all(
+    (manifest.files ?? []).map(async (fileEntry) => {
+      const targetAgents = fileEntry.agents.filter((agentId) =>
+        detectedAgents.includes(agentId),
+      );
+      if (targetAgents.length === 0) return;
 
-    const source = path.resolve(sourceDir, fileEntry.path);
-    await validateSourcePath(
-      source,
-      fileEntry.path,
-      resolvedSourceDir,
-      realRoot,
-    );
-    await validateSourceFile(source, fileEntry.path);
-    for (const agentId of targetAgents) {
-      const agent = AGENT_REGISTRY_BY_ID[agentId];
-      if (!agent) continue;
-      actions.push({
-        kind: "file-write",
-        skill: fileEntry.name,
-        agent: agentId,
+      const source = path.resolve(sourceDir, fileEntry.path);
+      await validateSourcePath(
         source,
-        target: resolveTargetTemplate(fileEntry.target, home, repo, workspace),
-        confidence: agent.provenance.skills,
-      });
-    }
-  }
+        fileEntry.path,
+        resolvedSourceDir,
+        realRoot,
+      );
+      await validateSourceFile(source, fileEntry.path);
+      for (const agentId of targetAgents) {
+        const agent = AGENT_REGISTRY_BY_ID[agentId];
+        if (!agent) continue;
+        actions.push({
+          kind: "file-write",
+          skill: fileEntry.name,
+          agent: agentId,
+          source,
+          target: resolveTargetTemplate(
+            fileEntry.target,
+            home,
+            repo,
+            workspace,
+          ),
+          confidence: "implementation-only",
+        });
+      }
+    }),
+  );
   return actions;
 }
 
@@ -915,11 +922,7 @@ async function deployTomlPatch(
   try {
     const { previousValue } = await (deps.registry
       ? Promise.resolve({ previousValue: null })
-      : (await import("./adapters/toml.ts")).applyTomlMcpPatch(
-          action.target,
-          action.skill,
-          action.config,
-        ));
+      : applyTomlMcpPatch(action.target, action.skill, action.config));
     // Note: To truly support custom deps here we'd need to refactor toml adapter to accept deps.
     // For now we assume standard adapter for TOML.
 
@@ -993,7 +996,6 @@ async function deployFrontmatterEmit(
       );
     }
 
-    const frontmatterAdapter = await import("./adapters/frontmatter.ts");
     const existing = await frontmatterAdapter.readFrontmatterDocumentFile(
       action.target,
     );
