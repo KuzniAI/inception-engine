@@ -707,12 +707,13 @@ async function manifestExists(manifestPath: string): Promise<boolean> {
 
 function logPathAgentEntries(
   label: string,
-  entries: Array<{ name: string; path: string; agents: AgentId[] }>,
+  entries: Array<{ name: string; path: string; agents?: AgentId[] }>,
 ): void {
   if (entries.length === 0) return;
   logger.detail(`${label}:`);
   for (const e of entries) {
-    logger.detail(`  ${e.name}  →  ${e.path}  [${e.agents.join(", ")}]`);
+    const entryAgents = e.agents ?? [];
+    logger.detail(`  ${e.name}  →  ${e.path}  [${entryAgents.join(", ")}]`);
   }
 }
 
