@@ -271,6 +271,8 @@ Global targets where supported:
 
 For GitHub Copilot, deploy also records migration from the legacy `{repo}/.github/agents/{name}.agent.md` path so older installs can be cleaned up safely.
 
+For GitHub Copilot, the `tools` YAML frontmatter field in agent definition files declares which MCP tools and built-in Copilot tools the agent has access to (agent-level tool mapping). Inception-engine validates that `tools`, when present, is an array of strings. Deploy agent-level tool mappings through `agentDefinitions` by including the `tools` field in your source file's frontmatter - no separate manifest section is needed.
+
 Revert removes the deployed agent-definition file.
 
 ## Creating Skills

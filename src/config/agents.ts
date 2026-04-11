@@ -501,6 +501,18 @@ export const AGENT_REGISTRY: readonly AgentConfig[] = [
         windows: ["{repo}", ".github", "copilot", "agents", "{name}.md"],
       },
     },
+    // GitHub Copilot agent definitions declare MCP tool access via a top-level
+    // 'tools' array in YAML frontmatter. This surface is deployed through
+    // agentDefinitions - no separate deploy action is emitted.
+    mcpAgentFrontmatterSupport: {
+      status: "supported",
+      schemaLabel: "agent definition frontmatter tools field",
+      surfaceKind: { kind: "native" },
+      path: {
+        posix: ["{repo}", ".github", "copilot", "agents", "{name}.md"],
+        windows: ["{repo}", ".github", "copilot", "agents", "{name}.md"],
+      },
+    },
     policyNote:
       "Organization policies may override locally deployed configuration. Verify with your GitHub org admin if deployed skills or rules are not active.",
     unsupportedSurfaces: [

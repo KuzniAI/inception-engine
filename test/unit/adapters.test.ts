@@ -1469,6 +1469,126 @@ describe("compileAgentDefinitionActions", () => {
     }
   });
 
+  it("accepts github-copilot tools as empty array", async () => {
+    const compile = await getAdapter();
+    const dir = await makeTmpDir();
+    try {
+      await writeFile(
+        path.join(dir, "agent.md"),
+        "---\nname: test\ndescription: test\ntools: []\n---\n# Agent",
+      );
+      const realRoot = await realpath(dir);
+      const result = await compile(
+        {
+          name: "agent",
+          agents: ["github-copilot"],
+          path: "agent.md",
+          scope: "repo",
+        },
+        dir,
+        dir,
+        realRoot,
+        ["github-copilot"],
+        "/home/test",
+        "/repo/test",
+      );
+      assert.ok(result.actions.length > 0, "expected at least one action");
+    } finally {
+      await rm(dir, { recursive: true });
+    }
+  });
+
+  it("accepts github-copilot tools as array of strings", async () => {
+    const compile = await getAdapter();
+    const dir = await makeTmpDir();
+    try {
+      await writeFile(
+        path.join(dir, "agent.md"),
+        "---\nname: test\ndescription: test\ntools:\n  - github\n  - codebase\n---\n# Agent",
+      );
+      const realRoot = await realpath(dir);
+      const result = await compile(
+        {
+          name: "agent",
+          agents: ["github-copilot"],
+          path: "agent.md",
+          scope: "repo",
+        },
+        dir,
+        dir,
+        realRoot,
+        ["github-copilot"],
+        "/home/test",
+        "/repo/test",
+      );
+      assert.ok(result.actions.length > 0, "expected at least one action");
+    } finally {
+      await rm(dir, { recursive: true });
+    }
+  });
+
+  it("throws for github-copilot when tools is not an array", async () => {
+    const compile = await getAdapter();
+    const dir = await makeTmpDir();
+    try {
+      await writeFile(
+        path.join(dir, "bad-tools.md"),
+        "---\nname: test\ndescription: test\ntools: not-an-array\n---\n# Bad",
+      );
+      const realRoot = await realpath(dir);
+      await assert.rejects(
+        compile(
+          {
+            name: "bad",
+            agents: ["github-copilot"],
+            path: "bad-tools.md",
+            scope: "repo",
+          },
+          dir,
+          dir,
+          realRoot,
+          ["github-copilot"],
+          "/home/test",
+          "/repo/test",
+        ),
+        /"tools" field that must be an array/,
+      );
+    } finally {
+      await rm(dir, { recursive: true });
+    }
+  });
+
+  it("throws for github-copilot when tools contains a non-string entry", async () => {
+    const compile = await getAdapter();
+    const dir = await makeTmpDir();
+    try {
+      await writeFile(
+        path.join(dir, "bad-tools.md"),
+        "---\nname: test\ndescription: test\ntools:\n  - github\n  - 123\n---\n# Bad",
+      );
+      const realRoot = await realpath(dir);
+      await assert.rejects(
+        compile(
+          {
+            name: "bad",
+            agents: ["github-copilot"],
+            path: "bad-tools.md",
+            scope: "repo",
+          },
+          dir,
+          dir,
+          realRoot,
+          ["github-copilot"],
+          "/home/test",
+          "/repo/test",
+        ),
+        /"tools" entry that must be a string/,
+      );
+    } finally {
+      await rm(dir, { recursive: true });
+    }
+  });
+
   it("throws for antigravity when mcp-servers is malformed", async () => {
     const compile = await getAdapter();
     const dir = await makeTmpDir();

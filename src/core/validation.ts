@@ -372,6 +372,23 @@ function validateGithubCopilotRequirements(
       `Instruction file "${manifestPath}" for agent "github-copilot" must define "tools" or "instructions" in frontmatter`,
     );
   }
+  if (hasTools) {
+    const tools = attributes.tools;
+    if (!Array.isArray(tools)) {
+      throw new UserError(
+        "DEPLOY_FAILED",
+        `Instruction file "${manifestPath}" for agent "github-copilot" has a "tools" field that must be an array`,
+      );
+    }
+    for (const tool of tools) {
+      if (typeof tool !== "string") {
+        throw new UserError(
+          "DEPLOY_FAILED",
+          `Instruction file "${manifestPath}" for agent "github-copilot" has a "tools" entry that must be a string`,
+        );
+      }
+    }
+  }
 }
 
 function validateAntigravityRequirements(

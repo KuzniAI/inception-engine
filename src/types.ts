@@ -150,6 +150,11 @@ export interface AgentConfig {
   // customizations.vscode.mcp in devcontainer.json. When present and planned,
   // preflight emits a forward-looking notice instead of silence.
   mcpDevcontainerSupport?: AgentSurfaceSupport;
+  // Agent-definition-level MCP surface for agents that support declaring MCP
+  // tool access directly in agent definition file frontmatter (e.g. GitHub
+  // Copilot's `tools` array). When present, this surface is deployed via
+  // `agentDefinitions` - no separate manifest section is needed.
+  mcpAgentFrontmatterSupport?: AgentSurfaceSupport;
   policyNote?: string;
   /**
    * A list of documented surfaces that are currently not safe to support directly.
