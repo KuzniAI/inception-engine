@@ -1,0 +1,10 @@
+[
+  {
+    "name": "my-mcp-server",
+    "agents": ["claude-code", "codex", "gemini-cli", "opencode"],
+    "config": {
+      "command": "npx",
+      "args": ["-y", "@example/mcp-server"]
+    }
+  }
+]
