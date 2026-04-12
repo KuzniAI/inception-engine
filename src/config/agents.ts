@@ -20,6 +20,7 @@ export const AGENT_REGISTRY: readonly AgentConfig[] = [
       mcpConfig: "documented",
       agentRules: "documented",
       permissions: "documented",
+      hooks: "documented",
       agentDefinitions: "documented",
     },
     mcpSupport: {
@@ -70,6 +71,14 @@ export const AGENT_REGISTRY: readonly AgentConfig[] = [
         windows: ["{home}", ".claude", "settings.json"],
       },
     },
+    hooksSupport: {
+      status: "supported",
+      schemaLabel: "JSON hooks config",
+      path: {
+        posix: ["{home}", ".claude", "settings.json"],
+        windows: ["{home}", ".claude", "settings.json"],
+      },
+    },
     agentDefinitionsRepoSupport: {
       status: "supported",
       schemaLabel: "repo-local agent definition Markdown file",
@@ -105,6 +114,7 @@ export const AGENT_REGISTRY: readonly AgentConfig[] = [
       detectBinary: "documented",
       agentRules: "documented",
       permissions: "documented",
+      hooks: "provisional",
     },
     mcpSupport: {
       status: "supported",
@@ -137,6 +147,12 @@ export const AGENT_REGISTRY: readonly AgentConfig[] = [
         posix: ["{home}", ".codex", "config.toml"],
         windows: ["{home}", ".codex", "config.toml"],
       },
+    },
+    hooksSupport: {
+      status: "unsupported",
+      schemaLabel: "global hooks surface",
+      reason:
+        "OpenAI Codex does not expose a documented lifecycle-hook config surface in config.toml",
     },
     agentDefinitionsRepoSupport: {
       status: "unsupported",
@@ -171,6 +187,7 @@ export const AGENT_REGISTRY: readonly AgentConfig[] = [
       detectBinary: "documented",
       mcpConfig: "documented",
       agentRules: "documented",
+      hooks: "provisional",
       agentDefinitions: "documented",
     },
     mcpSupport: {
@@ -205,6 +222,12 @@ export const AGENT_REGISTRY: readonly AgentConfig[] = [
       schemaLabel: "global permissions surface",
       reason:
         "Gemini CLI does not expose a documented global per-user permission or approval config surface",
+    },
+    hooksSupport: {
+      status: "planned",
+      schemaLabel: "global hooks surface",
+      plannedSurface: "settings.json hooks field",
+      reason: "Gemini CLI execution hooks are emerging and not yet settled",
     },
     agentDefinitionsSupport: {
       status: "supported",
@@ -309,6 +332,12 @@ export const AGENT_REGISTRY: readonly AgentConfig[] = [
       reason:
         "Antigravity does not expose a documented global per-user permission or approval config surface",
     },
+    hooksSupport: {
+      status: "unsupported",
+      schemaLabel: "global hooks surface",
+      reason:
+        "Antigravity does not expose a documented global per-user hook config surface",
+    },
     agentDefinitionsRepoSupport: {
       status: "supported",
       schemaLabel: "repo-local agent definition Markdown file",
@@ -344,6 +373,7 @@ export const AGENT_REGISTRY: readonly AgentConfig[] = [
       agentRules: "documented",
       agentDefinitions: "documented",
       permissions: "documented",
+      hooks: "provisional",
     },
     mcpSupport: {
       status: "supported",
@@ -377,6 +407,11 @@ export const AGENT_REGISTRY: readonly AgentConfig[] = [
         posix: ["{xdg_config}", "opencode", "opencode.json"],
         windows: ["{appdata}", "opencode", "opencode.json"],
       },
+    },
+    hooksSupport: {
+      status: "unsupported",
+      schemaLabel: "global hooks surface",
+      reason: "OpenCode does not expose a documented lifecycle-hook surface",
     },
     agentDefinitionsSupport: {
       status: "supported",
@@ -419,6 +454,7 @@ export const AGENT_REGISTRY: readonly AgentConfig[] = [
       detectBinary: "documented",
       agentDefinitions: "documented",
       mcpConfig: "documented",
+      hooks: "provisional",
     },
     mcpSupport: {
       status: "unsupported",
@@ -500,6 +536,13 @@ export const AGENT_REGISTRY: readonly AgentConfig[] = [
       schemaLabel: "global permissions surface",
       reason:
         "GitHub Copilot permissions are managed via organization policy, not a deployable per-user config surface",
+    },
+    hooksSupport: {
+      status: "planned",
+      schemaLabel: "binary execution hooks",
+      plannedSurface: "agent frontmatter pre_exec/post_exec hooks",
+      reason:
+        "GitHub Copilot binary hook support is planned and requires further validation of the stdin/stdout contract",
     },
     agentDefinitionsRepoSupport: {
       status: "supported",

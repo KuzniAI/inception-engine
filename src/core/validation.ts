@@ -272,6 +272,15 @@ export function validatePermissionsConfigShape(
   }
 }
 
+export function validateHookConfigShape(
+  _config: Record<string, unknown>,
+  _entryName: string,
+  _agentId: string,
+): void {
+  // Placeholder for agent-specific hook validation logic.
+  // Currently allows any record as a hook payload.
+}
+
 export function validateAgentRuleMarkdownPath(
   manifestPath: string,
   agentId: string,

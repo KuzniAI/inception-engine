@@ -5,6 +5,7 @@ export type {
   AgentId,
   ConfigEntry,
   FileEntry,
+  HookEntry,
   Manifest,
   SkillEntry,
 } from "./schemas/manifest.ts";
@@ -21,6 +22,7 @@ export type CapabilityKind =
   | "mcpServers"
   | "agentRules"
   | "permissions"
+  | "hooks"
   | "agentDefinitions";
 
 export interface SupportedAgentSurface {
@@ -94,6 +96,7 @@ export interface AgentProvenance {
   mcpConfig?: Confidence;
   agentRules?: Confidence;
   permissions?: Confidence;
+  hooks?: Confidence;
   agentDefinitions?: Confidence;
 }
 
@@ -136,6 +139,12 @@ export interface AgentConfig {
   agentRulesWorkspaceSupport?: AgentSurfaceSupport;
   // Agent-specific execution/safety permission and approval surface support.
   permissionsSupport?: AgentSurfaceSupport;
+  // Agent-specific lifecycle hook and execution surface support.
+  hooksSupport?: AgentSurfaceSupport;
+  // Repo-local lifecycle hook surface (scope: "repo").
+  hooksRepoSupport?: AgentSurfaceSupport;
+  // Workspace-local lifecycle hook surface (scope: "workspace").
+  hooksWorkspaceSupport?: AgentSurfaceSupport;
   // Agent-specific agent/subagent definition file surface support.
   agentDefinitionsSupport?: AgentSurfaceSupport;
   // Repo-local agent/subagent definition file surface support.

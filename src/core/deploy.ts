@@ -458,6 +458,7 @@ export async function planDeploy(
     repoDir,
     manifest.agentDefinitions ?? [],
     workspace,
+    manifest.hooks ?? [],
   );
   actions.push(...adapterResult.actions);
 

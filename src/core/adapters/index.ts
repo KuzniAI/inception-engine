@@ -1,6 +1,7 @@
 import type {
   AgentDefinitionEntry,
   AgentRuleEntry,
+  HookEntry,
   McpServerEntry,
   PermissionsEntry,
 } from "../../schemas/manifest.ts";
@@ -16,6 +17,7 @@ import {
   compileAgentDefinitionActions,
   compileAgentDefinitionReverts,
 } from "./agent-definitions.ts";
+import { compileHookActions, compileHookReverts } from "./hooks.ts";
 import { compileMcpServerActions, compileMcpServerReverts } from "./mcp.ts";
 import {
   compilePermissionsActions,
@@ -26,6 +28,7 @@ import { compileAgentRuleActions, compileAgentRuleReverts } from "./rules.ts";
 export {
   compileAgentDefinitionReverts,
   compileAgentRuleReverts,
+  compileHookReverts,
   compileMcpServerReverts,
   compilePermissionsReverts,
 };
@@ -64,11 +67,12 @@ export async function compileAdapterActions(
   repo?: string,
   agentDefinitions?: AgentDefinitionEntry[],
   workspace?: string,
+  hooks: HookEntry[] = [],
 ): Promise<AdapterResult> {
   const actions: AdapterAction[] = [];
   const warnings: PlanWarning[] = [];
 
-  const [mcp, rules, perms, defs] = await Promise.all([
+  const [mcp, rules, perms, defs, hookResults] = await Promise.all([
     compileAll(mcpServers, (entry) =>
       compileMcpServerActions(entry, detectedAgents, home, repo, workspace),
     ),
@@ -99,6 +103,9 @@ export async function compileAdapterActions(
         workspace,
       ),
     ),
+    compileAll(hooks, (entry) =>
+      compileHookActions(entry, detectedAgents, home),
+    ),
   ]);
 
   actions.push(
@@ -106,12 +113,14 @@ export async function compileAdapterActions(
     ...rules.actions,
     ...perms.actions,
     ...defs.actions,
+    ...hookResults.actions,
   );
   warnings.push(
     ...mcp.warnings,
     ...rules.warnings,
     ...perms.warnings,
     ...defs.warnings,
+    ...hookResults.warnings,
   );
 
   return { actions, warnings };

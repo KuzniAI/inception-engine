@@ -53,6 +53,7 @@ Before executing, the deploy command runs preflight analysis on instruction file
 | MCP Servers | claude-code (`scope: "global"` → `~/.claude.json`; `scope: "repo"` → `{repo}/.claude/mcp.json`; `scope: "workspace"` → `{workspace}/.claude/mcp.json`), gemini-cli, codex, antigravity (`scope: "global"` → `~/.gemini/antigravity/mcp_config.json`; `scope: "repo"` → `{repo}/.agents/rules/{name}.md`), opencode; github-copilot with `scope: "repo"` deploys to `{repo}/.vscode/mcp.json` and `scope: "workspace"` deploys to `{workspace}/.vscode/mcp.json`; github-copilot with `scope: "global"` (default) is unsupported and warns | claude-code, gemini-cli, codex, antigravity, opencode, github-copilot |
 | Global/Repo/Workspace Rules Files | `scope: "global"` and `scope: "repo"` are supported on the implemented agent surfaces; `scope: "workspace"` is supported for `claude-code`, `codex`, and `gemini-cli`; `github-copilot` reads Claude-native rules via `claude-code` and has no separate rules deployment target | All supported agents |
 | Permissions / Approval Config | claude-code (`~/.claude/settings.json`), codex (`~/.codex/config.toml`), opencode (`~/.config/opencode/opencode.json` on POSIX, `%APPDATA%\\opencode\\opencode.json` on Windows); other agents are warned and skipped | claude-code, codex, opencode |
+| Execution Hooks | claude-code (`~/.claude/settings.json`), github-copilot (`planned`); other agents are warned and skipped | claude-code |
 | Agent Definitions | claude-code (`{repo}/.claude/agents/{name}.md`), gemini-cli (`{repo}/.gemini/agents/{name}.md` or `.toml`, plus `scope: "global"` to `~/.gemini/agents/{name}.md` or `.toml`), antigravity (`{repo}/.agents/rules/{name}.md`), opencode (`{repo}/.opencode/agents/{name}.md`, plus `scope: "global"` to the user config dir), github-copilot (`{repo}/.github/copilot/agents/{name}.md`, with migration from legacy `.github/agents/{name}.agent.md`); codex is warned and skipped | All supported agents |
 | `init` manifest generation | Scans `SKILL.md` directories (`skills`), `.md` files with Claude-first agent mapping (`agentRules`), `mcp-servers.json` (`mcpServers`), and agent-definition Markdown files (`agentDefinitions`); shared surfaces default to the primary deploy target instead of shared riders; emits hints for `files/` and `configs/` directories | N/A |
 | Instruction preflight analysis | Emits capability warnings for implementation-only, planned, unsupported, and shared-through surfaces used by the manifest; emits `precedence` warnings when an agent has multiple `agentRules` scopes active simultaneously or the same source file is deployed to multiple scopes; emits `budget` warnings when `agentRules` or `agentDefinitions` source files exceed 50 KB; emits GitHub Copilot enterprise-policy warnings when local configuration may be overridden; emits a `config-authority` warning when Gemini CLI's `settings.json` contains an `instructionFilename` override that differs from the deploy target | N/A |
@@ -134,6 +135,17 @@ Create an `inception.json` file at the root of your skills directory:
       "name": "code-reviewer",
       "path": "agents/code-reviewer.md",
       "agents": ["claude-code", "opencode", "github-copilot"]
+    }
+  ],
+  "hooks": [
+    {
+      "name": "pre-exec-check",
+      "agents": ["claude-code"],
+      "config": {
+        "hooks": {
+          "pre_exec": "scripts/check-env.sh"
+        }
+      }
     }
   ]
 }
@@ -245,6 +257,31 @@ For `codex`, the config is merged into `~/.codex/config.toml`. Only the `approva
 ```
 
 Valid `approval_policy` values are `"auto"`, `"manual"`, `"suggest"`, and `"on-failure"`.
+
+Revert restores the previous config values using the undo patch recorded at deploy time.
+
+Each **hooks** entry deploys lifecycle-binding configurations to an agent's execution hook surface:
+
+- **name** - Unique identifier (same format as skill names)
+- **agents** - Array of agent IDs to deploy this entry to
+- **config** - Hook configuration payload; shape is validated per agent (see below)
+
+Hook deployment is currently supported for `claude-code`. For `github-copilot`, it is marked as `planned`. Other agents emit a warning and are skipped.
+
+For `claude-code`, the config is merged into `~/.claude/settings.json`. Only the `hooks` key is accepted:
+
+```json
+{
+  "name": "pre-exec-check",
+  "agents": ["claude-code"],
+  "config": {
+    "hooks": {
+      "pre_exec": "scripts/check-env.sh",
+      "post_exec": "scripts/notify.sh"
+    }
+  }
+}
+```
 
 Revert restores the previous config values using the undo patch recorded at deploy time.
 

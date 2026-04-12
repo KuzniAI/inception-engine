@@ -61,6 +61,7 @@ const testManifest: Manifest = {
   agentRules: [],
   permissions: [],
   agentDefinitions: [],
+  hooks: [],
 };
 
 describe("planDeploy", () => {

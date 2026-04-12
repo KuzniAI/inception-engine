@@ -71,6 +71,7 @@ describe("planRevertAll", () => {
       agentRules: [],
       permissions: [],
       agentDefinitions: [],
+      hooks: [],
     };
     const actions = planRevertAll(multiAgentManifest, "/home/test");
     assert.equal(actions.length, 3);
@@ -101,6 +102,7 @@ describe("planRevertAll", () => {
       agentRules: [],
       permissions: [],
       agentDefinitions: [],
+      hooks: [],
     };
     const actions = planRevertAll(manifest, "/home/test");
     assert.equal(actions.length, 5);
@@ -958,6 +960,7 @@ describe("planRevert — mcpServers and agentRules", () => {
       agentRules: [],
       permissions: [],
       agentDefinitions: [],
+      hooks: [],
     };
     const actions = planRevert(manifest, ["claude-code"], home);
     assert.equal(actions.length, 1);
@@ -982,6 +985,7 @@ describe("planRevert — mcpServers and agentRules", () => {
       agentRules: [],
       permissions: [],
       agentDefinitions: [],
+      hooks: [],
     };
     const actions = planRevert(manifest, ["codex"], home);
     assert.equal(actions.length, 0);
@@ -1003,6 +1007,7 @@ describe("planRevert — mcpServers and agentRules", () => {
       ],
       permissions: [],
       agentDefinitions: [],
+      hooks: [],
     };
     const actions = planRevert(manifest, ["claude-code"], home);
     assert.equal(actions.length, 1);
@@ -1027,6 +1032,7 @@ describe("planRevert — mcpServers and agentRules", () => {
       ],
       permissions: [],
       agentDefinitions: [],
+      hooks: [],
     };
     const actions = planRevert(manifest, ["codex"], home);
     assert.equal(actions.length, 0);
@@ -1052,6 +1058,7 @@ describe("planRevertAll — mcpServers and agentRules", () => {
       agentRules: [],
       permissions: [],
       agentDefinitions: [],
+      hooks: [],
     };
     const actions = planRevertAll(manifest, home);
     assert.equal(actions.length, 2);
@@ -1076,6 +1083,7 @@ describe("planRevertAll — mcpServers and agentRules", () => {
       ],
       permissions: [],
       agentDefinitions: [],
+      hooks: [],
     };
     const actions = planRevertAll(manifest, home);
     assert.equal(actions.length, 2);

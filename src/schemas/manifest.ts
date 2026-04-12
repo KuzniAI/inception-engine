@@ -146,6 +146,14 @@ export const AgentDefinitionEntrySchema = z.object({
   scope: z.enum(["global", "repo", "workspace"]).default("repo"),
 });
 
+export const HookEntrySchema = z.object({
+  name: nameField,
+  agents: agentsField,
+  // Raw hook config payload validated per agent by the hooks adapter.
+  // Supports lifecycle-binding hooks (e.g. pre-exec, post-exec) for various agents.
+  config: z.record(z.string(), z.unknown()),
+});
+
 export const ManifestSchema = z.object({
   skills: z.array(SkillEntrySchema).superRefine((skills, ctx) => {
     const seen = new Set<string>();
@@ -166,6 +174,7 @@ export const ManifestSchema = z.object({
   agentRules: z.array(AgentRuleEntrySchema).default([]),
   permissions: z.array(PermissionsEntrySchema).default([]),
   agentDefinitions: z.array(AgentDefinitionEntrySchema).default([]),
+  hooks: z.array(HookEntrySchema).optional(),
 });
 
 export type SkillEntry = z.infer<typeof SkillEntrySchema>;
@@ -175,6 +184,7 @@ export type McpServerEntry = z.infer<typeof McpServerEntrySchema>;
 export type AgentRuleEntry = z.infer<typeof AgentRuleEntrySchema>;
 export type PermissionsEntry = z.infer<typeof PermissionsEntrySchema>;
 export type AgentDefinitionEntry = z.infer<typeof AgentDefinitionEntrySchema>;
+export type HookEntry = z.infer<typeof HookEntrySchema>;
 export type Manifest = z.infer<typeof ManifestSchema>;
 
 // Parses the --agents CLI flag: comma-separated agent IDs → AgentId[]
