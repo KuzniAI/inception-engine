@@ -379,14 +379,21 @@ async function isSkippedMcpFile(
   relPath: string,
 ): Promise<boolean> {
   const hasMcpSurfaceHere = AGENT_REGISTRY.some((agent) => {
-    const support = agent.mcpSupport;
-    if (support?.status !== "supported") return false;
-    const tmpl = support.path.posix;
-    const repoIdx = tmpl.indexOf("{repo}");
-    const nameIdx = tmpl.findIndex((s) => s.includes("{name}"));
-    if (repoIdx === -1 || nameIdx === -1 || nameIdx <= repoIdx) return false;
-    const prefix = tmpl.slice(repoIdx + 1, nameIdx).join("/");
-    return prefix === subdir;
+    const supports = [
+      agent.mcpSupport,
+      agent.mcpRepoSupport,
+      agent.mcpWorkspaceSupport,
+    ];
+    for (const support of supports) {
+      if (support?.status !== "supported") continue;
+      const tmpl = support.path.posix;
+      const repoIdx = tmpl.indexOf("{repo}");
+      const nameIdx = tmpl.findIndex((s) => s.includes("{name}"));
+      if (repoIdx === -1 || nameIdx === -1 || nameIdx <= repoIdx) continue;
+      const prefix = tmpl.slice(repoIdx + 1, nameIdx).join("/");
+      if (prefix === subdir) return true;
+    }
+    return false;
   });
   if (!hasMcpSurfaceHere) return false;
   const isMcp = await hasAntigravityMcpFrontmatter(absPath);

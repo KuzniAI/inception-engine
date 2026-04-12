@@ -212,14 +212,14 @@ describe("compileMcpServerActions", () => {
     });
   });
 
-  it("returns a frontmatter-emit action for antigravity MCP", () => {
+  it("returns a frontmatter-emit action for antigravity MCP with scope: repo", () => {
     const home = "/home/test";
     const { actions, warnings } = compileMcpServerActions(
       {
         name: "my-mcp",
         agents: ["antigravity"],
         config: { command: "s" },
-        scope: "global",
+        scope: "repo",
       },
       ["antigravity"],
       home,
@@ -233,6 +233,29 @@ describe("compileMcpServerActions", () => {
       actions[0]?.target ?? "",
       ".agents/rules/my-mcp.md",
       `expected target to end with .agents/rules/my-mcp.md, got ${actions[0]?.target}`,
+    );
+  });
+
+  it("returns a config-patch action for antigravity MCP with scope: global", () => {
+    const home = "/home/test";
+    const { actions, warnings } = compileMcpServerActions(
+      {
+        name: "my-mcp",
+        agents: ["antigravity"],
+        config: { command: "s" },
+        scope: "global",
+      },
+      ["antigravity"],
+      home,
+    );
+    assert.equal(actions.length, 1);
+    assert.equal(warnings.length, 0);
+    assert.equal(actions[0]?.kind, "config-patch");
+    assert.equal(actions[0]?.agent, "antigravity");
+    assertPathEndsWith(
+      actions[0]?.target ?? "",
+      ".gemini/antigravity/mcp_config.json",
+      `expected target to end with .gemini/antigravity/mcp_config.json, got ${actions[0]?.target}`,
     );
   });
 

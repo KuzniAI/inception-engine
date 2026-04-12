@@ -849,10 +849,11 @@ describe("planDeploy", () => {
       assert.match(geminiAction.target, /[\\/]\.gemini[\\/]settings\.json$/);
 
       assert.ok(antigravityAction, "expected an antigravity action");
-      // Antigravity's target for mcpServer is .agents/rules/{name}.md
+      // Antigravity's target for global mcpServer is .gemini/antigravity/mcp_config.json
+      assert.equal(antigravityAction.kind, "config-patch");
       assert.match(
         antigravityAction.target,
-        /[\\/]\.agents[\\/]rules[\\/]my-mcp\.md$/,
+        /[\\/]\.gemini[\\/]antigravity[\\/]mcp_config\.json$/,
       );
     } finally {
       await rm(sourceDir, { recursive: true });
@@ -1084,7 +1085,7 @@ describe("planDeploy", () => {
           name: "my-tool",
           agents: ["antigravity"],
           config: { command: "npx", args: ["-y", "my-tool"] },
-          scope: "global",
+          scope: "repo",
         },
       ],
       agentRules: [],

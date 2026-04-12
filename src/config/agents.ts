@@ -268,6 +268,14 @@ export const AGENT_REGISTRY: readonly AgentConfig[] = [
     },
     mcpSupport: {
       status: "supported",
+      schemaLabel: "global mcp_config.json",
+      path: {
+        posix: ["{home}", ".gemini", "antigravity", "mcp_config.json"],
+        windows: ["{home}", ".gemini", "antigravity", "mcp_config.json"],
+      },
+    },
+    mcpRepoSupport: {
+      status: "supported",
       schemaLabel: "repo-local frontmatter-emit MCP rules",
       path: {
         posix: ["{repo}", ".agents", "rules", "{name}.md"],
