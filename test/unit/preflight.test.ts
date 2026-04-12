@@ -177,14 +177,14 @@ describe("runPreflight", () => {
   });
 });
 
-describe("github-copilot planned surfaces", () => {
-  it("emits a planned surface info notice for devcontainer MCP when Copilot is detected and MCP is targeted", async () => {
+describe("github-copilot devcontainer support", () => {
+  it("emits no capability warning for devcontainer MCP when Copilot is detected and devcontainer scope is targeted", async () => {
     const manifestWithMcp: Manifest = {
       ...emptyManifest,
       mcpServers: [
         {
           name: "test-mcp",
-          scope: "repo",
+          scope: "devcontainer",
           agents: ["github-copilot"],
           config: { command: "node", args: ["server.js"] },
         },
@@ -196,16 +196,14 @@ describe("github-copilot planned surfaces", () => {
       "/home/test",
       ["github-copilot"],
     );
-    const plannedWarning = warnings.find(
-      (w) =>
-        w.kind === "info" &&
-        /devcontainer\.json MCP support is planned/.test(w.message),
+    const capabilityWarning = warnings.find(
+      (w) => w.kind === "info" && /mcpServers/.test(w.message),
     );
-    assert.ok(
-      plannedWarning,
-      "expected a planned surface warning for Copilot devcontainer when MCP is targeted",
+    assert.equal(
+      capabilityWarning,
+      undefined,
+      `expected no MCP capability warning for devcontainer scope, got: ${capabilityWarning?.message}`,
     );
-    assert.match(plannedWarning.message, /planned/);
   });
 });
 

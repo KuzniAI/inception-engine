@@ -178,15 +178,16 @@ Each **mcpServer** entry registers an MCP server into the agent's config file by
 - **name** - Unique identifier (same format as skill names); used as the server's key in the config
 - **agents** - Array of agent IDs to register this server with
 - **config** - Raw server descriptor object. For the currently supported JSON-backed adapters, inception-engine requires at least one non-empty `command` or `url` field, validates `args` as an array of strings when present, and validates `env` as a string-to-string object when present. Additional keys are passed through verbatim.
-- **scope** - `"global"` (default), `"repo"`, or `"workspace"`. For most agents this field is ignored (they have only a single user-level config path). For `github-copilot`, `scope` selects the target file:
+- **scope** - `"global"` (default), `"repo"`, `"workspace"`, or `"devcontainer"`. For most agents this field is ignored (they have only a single user-level config path). For `github-copilot`, `scope` selects the target file:
   - `"global"` — unsupported; emits a warning and is skipped
   - `"repo"` — deploys to `{repo}/.vscode/mcp.json` under the `servers` key
   - `"workspace"` — deploys to `{workspace}/.vscode/mcp.json` under the `servers` key
+  - `"devcontainer"` — deploys to `{repo}/.devcontainer/devcontainer.json` under the `customizations.vscode.mcp.servers` key
 
   GitHub Copilot's `.vscode/mcp.json` uses `servers` (not `mcpServers`) as the top-level key and optionally accepts a `type` field (`"stdio"` | `"sse"` | `"http"`) in the server descriptor, which is passed through verbatim.
 
 MCP server registration is supported for all agents. Inception-engine automatically uses the correct adapter for each agent's configuration schema:
-- **JSON (Merge Patch)**: `claude-code` (`~/.claude.json` for `scope: "global"`; `{repo}/.claude/mcp.json` for `scope: "repo"`; `{workspace}/.claude/mcp.json` for `scope: "workspace"`), `gemini-cli` (`~/.gemini/settings.json`), `antigravity` (`~/.gemini/antigravity/mcp_config.json` for `scope: "global"`), `opencode` (`~/.config/opencode/opencode.json` using the custom `"mcp"` key), and `github-copilot` (`{repo}/.vscode/mcp.json` or `{workspace}/.vscode/mcp.json` using the `"servers"` key).
+- **JSON (Merge Patch)**: `claude-code` (`~/.claude.json` for `scope: "global"`; `{repo}/.claude/mcp.json` for `scope: "repo"`; `{workspace}/.claude/mcp.json` for `scope: "workspace"`), `gemini-cli` (`~/.gemini/settings.json`), `antigravity` (`~/.gemini/antigravity/mcp_config.json` for `scope: "global"`), `opencode` (`~/.config/opencode/opencode.json` using the custom `"mcp"` key), and `github-copilot` (`{repo}/.vscode/mcp.json`, `{workspace}/.vscode/mcp.json`, or `{repo}/.devcontainer/devcontainer.json`).
 - **TOML (Patch)**: `codex` (`~/.codex/config.toml`).
 - **Markdown Frontmatter (Emit)**: `antigravity` (`{repo}/.agents/rules/{name}.md` for `scope: "repo"`).
 
