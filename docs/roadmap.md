@@ -16,18 +16,18 @@ Maximum score: `12`
 Score format:
 `Score X/12 (Architecture A, Agents B, OS C, Confidence D, Safety E, Stability F)`
 
-~~1. **Add GitHub Copilot devcontainer MCP support.**  
-   The north star still lists `devcontainer.json` as part of GitHub Copilot's documented MCP surface, and the agent registry still marks this as planned rather than supported. Add manifest/planner/adapter support only if it can preserve current ownership tracking, dry-run visibility, and safe revert semantics for nested JSON patching under `customizations.vscode.mcp.servers`.  
-   `Score 7/12 (Architecture 1, Agents 2, OS 1, Confidence 2, Safety 0, Stability 1)`~~
+1. **Model folder-aware and nested instruction surfaces instead of only one file per scope.**  
+   The current `agentRules` model supports `global`, `repo`, and `workspace`, but it does not represent the hierarchical instruction loading that `docs/north-star.md` still calls out for Claude Code (`CLAUDE.md` at folder-level), Codex (`AGENTS.md` nested from repo root down), or GitHub Copilot's `.github/instructions/*.instructions.md` surface. Add explicit manifest and planner support only if the engine can target these additional files without introducing ownership ambiguity between overlapping parent and child instruction files.  
+   `Score 8/12 (Architecture 2, Agents 2, OS 1, Confidence 2, Safety 0, Stability 1)`
 
-~~2. **Add Antigravity raw `mcp_config.json` support.**  
-   The implemented Antigravity MCP path is the repo-local `.agents/rules/{name}.md` frontmatter emit flow, but the north star also calls out a raw `mcp_config.json` surface that is not modeled in the manifest, planner, or ownership system. Add this only if the engine can track ownership and revert behavior as safely as the existing config-patch and frontmatter-emit adapters, and only if the raw JSON surface can coexist cleanly with the current `.agents/rules/` path without ambiguous precedence.  
-   `Score 6/12 (Architecture 1, Agents 1, OS 1, Confidence 2, Safety 0, Stability 1)`~~
+2. **Add explicit GitHub Copilot scoped-instructions support beyond Claude-shared `CLAUDE.md`.**  
+   GitHub Copilot's shared-via-Claude handling is correct for `CLAUDE.md`, but the north star still lists `.github/copilot-instructions.md` and `.github/instructions/*.instructions.md` as native Copilot instruction surfaces. Today `init` maps `copilot-instructions.md` back to `claude-code`, and there is no deploy surface for the `.github/instructions/` directory at all. Add a dedicated Copilot instructions capability only if it can coexist cleanly with the Claude-first path and preflight can explain precedence when both are present.  
+   `Score 9/12 (Architecture 2, Agents 2, OS 1, Confidence 2, Safety 1, Stability 1)`
 
-~~3. **Expand execution and safety-oriented config beyond today's `permissions` surface.**  
-   The north star still includes broader execution-control surfaces such as Claude hooks, GitHub Copilot binary hooks, and Gemini safe-mode or hook-adjacent settings, but the current manifest only models `permissions`. Add new execution-oriented manifest surfaces only when they can be represented with explicit ownership, dry-run visibility, and narrow revert semantics instead of broad file replacement.  
-   `Score 8/12 (Architecture 2, Agents 2, OS 1, Confidence 1, Safety 0, Stability 2)`~~
+3. **Tighten hook support from generic config patching into validated agent-specific adapters.**  
+   The manifest now has a separate `hooks` section, but the implementation currently treats it as an unvalidated record and writes it through the same generic config-patch path. That is enough for basic ownership and revert behavior, but it is not enough to claim that Claude's hook surface is implemented properly or to safely expand toward GitHub Copilot's planned binary hooks. Add schema validation and narrower adapters before expanding hook coverage further.  
+   `Score 9/12 (Architecture 2, Agents 2, OS 1, Confidence 2, Safety 1, Stability 1)`
 
-~~4. **Decide whether execution-surface support should be split by capability instead of folded into `permissions`.**  
-   If hook configuration, approval policy, and safety flags are all pursued, the current `permissions` bucket may become too vague for planning and validation. Before implementing more of the north-star execution vector, decide whether the manifest should keep one umbrella section or introduce a more explicit capability split so adapters can stay conservative and warnings remain understandable.  
-   `Score 7/12 (Architecture 2, Agents 1, OS 0, Confidence 1, Safety 1, Stability 2)`~~
+4. **Add Gemini CLI execution-safety settings beyond instruction-file warnings.**  
+   The codebase correctly warns when Gemini's `instructionFilename` changes, but the north star still calls out execution and safety-oriented settings such as safe-mode flags. Those settings are not modeled in `permissions`, `hooks`, or any Gemini-specific adapter today. Add a Gemini execution-config surface only if it can be represented as explicit patch ownership rather than a broad opaque `settings.json` write.  
+   `Score 7/12 (Architecture 2, Agents 1, OS 1, Confidence 1, Safety 1, Stability 1)`
