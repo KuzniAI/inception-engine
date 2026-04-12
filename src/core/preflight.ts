@@ -296,7 +296,7 @@ function collectCapabilityWarningsForAgent(
     | "agentDefinitions",
   entryName: string,
   targetAgents: AgentId[],
-  scope?: "global" | "repo" | "workspace",
+  scope?: "global" | "repo" | "workspace" | "devcontainer",
 ): void {
   const plan = planCapabilityForDeploy({
     agentId,
@@ -330,7 +330,7 @@ function collectCapabilityWarningsForTargets(
     | "permissions"
     | "agentDefinitions",
   entryName: string,
-  scope?: "global" | "repo" | "workspace",
+  scope?: "global" | "repo" | "workspace" | "devcontainer",
 ): void {
   for (const agentId of targetAgents) {
     collectCapabilityWarningsForAgent(

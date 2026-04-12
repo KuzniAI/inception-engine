@@ -106,7 +106,9 @@ export const McpServerEntrySchema = z.object({
   // config files for agents that support them (e.g. GitHub Copilot's
   // .vscode/mcp.json). For agents without scope-specific surfaces the
   // adapter falls back to the global surface or emits a warning.
-  scope: z.enum(["global", "repo", "workspace"]).default("global"),
+  scope: z
+    .enum(["global", "repo", "workspace", "devcontainer"])
+    .default("global"),
 });
 
 export const AgentRuleEntrySchema = z.object({

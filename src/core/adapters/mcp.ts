@@ -42,6 +42,24 @@ function isMarkdownTarget(targetPath: string): boolean {
   return ext === ".md" || ext === ".markdown";
 }
 
+/**
+ * Builds a nested object from a dot-separated key path.
+ * e.g. ("a.b", {c: 1}) -> {a: {b: {c: 1}}}
+ */
+function buildNestedPatch(
+  keyPath: string,
+  leafValue: unknown,
+): Record<string, unknown> {
+  const parts = keyPath.split(".");
+  let current: Record<string, unknown> = {
+    [parts[parts.length - 1]]: leafValue,
+  };
+  for (let i = parts.length - 2; i >= 0; i--) {
+    current = { [parts[i]]: current };
+  }
+  return current;
+}
+
 type McpDeployAction =
   | ConfigPatchDeployAction
   | TomlPatchDeployAction
@@ -79,7 +97,7 @@ function buildMcpDeployAction(
     skill: entry.name,
     agent: agentId,
     target: resolvedTarget,
-    patch: { [mcpPatchKey]: { [entry.name]: entry.config } },
+    patch: buildNestedPatch(mcpPatchKey, { [entry.name]: entry.config }),
     confidence,
   } satisfies ConfigPatchDeployAction;
 }

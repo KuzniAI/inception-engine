@@ -8,7 +8,7 @@ import type {
   SupportedAgentSurface,
 } from "../types.ts";
 
-type CapabilityScope = "global" | "repo" | "workspace";
+type CapabilityScope = "global" | "repo" | "workspace" | "devcontainer";
 
 export interface ResolvedCapabilitySurface {
   agentId: AgentId;
@@ -76,6 +76,13 @@ function resolveMcpSupport(
   if (scope === "workspace") {
     return (
       agent?.mcpWorkspaceSupport ?? agent?.mcpRepoSupport ?? agent?.mcpSupport
+    );
+  }
+  if (scope === "devcontainer") {
+    return (
+      agent?.mcpDevcontainerSupport ??
+      agent?.mcpRepoSupport ??
+      agent?.mcpSupport
     );
   }
   return agent?.mcpSupport;
