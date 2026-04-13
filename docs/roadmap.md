@@ -16,18 +16,26 @@ Maximum score: `12`
 Score format:
 `Score X/12 (Architecture A, Agents B, OS C, Confidence D, Safety E, Stability F)`
 
-1. ~~**Model folder-aware and nested instruction surfaces instead of only one file per scope.**  
-   The current `agentRules` model supports `global`, `repo`, and `workspace`, but it does not represent the hierarchical instruction loading that `docs/north-star.md` still calls out for Claude Code (`CLAUDE.md` at folder-level), Codex (`AGENTS.md` nested from repo root down), or GitHub Copilot's `.github/instructions/*.instructions.md` surface. Add explicit manifest and planner support only if the engine can target these additional files without introducing ownership ambiguity between overlapping parent and child instruction files.  
-   `Score 8/12 (Architecture 2, Agents 2, OS 1, Confidence 2, Safety 0, Stability 1)`~~
+1. **Cache registry state per run instead of reparsing and rewriting it for every deploy action.**  
+   Ownership tracking is currently correct, but the registry is loaded, parsed, stringified, and permission-adjusted repeatedly during deploy and revert flows. As manifests grow, this makes runtime scale with both action count and registry size. Introduce a per-run in-memory registry layer with an explicit flush boundary so ownership checks remain accurate while repeated JSON and filesystem churn are removed.  
+   `Score 11/12 (Architecture 2, Agents 1, OS 2, Confidence 2, Safety 2, Stability 2)`
 
-2. ~~**Add explicit GitHub Copilot scoped-instructions support beyond Claude-shared `CLAUDE.md`.**  
-   GitHub Copilot's shared-via-Claude handling is correct for `CLAUDE.md`, but the north star still lists `.github/copilot-instructions.md` and `.github/instructions/*.instructions.md` as native Copilot instruction surfaces. Today `init` maps `copilot-instructions.md` back to `claude-code`, and there is no deploy surface for the `.github/instructions/` directory at all. Add a dedicated Copilot instructions capability only if it can coexist cleanly with the Claude-first path and preflight can explain precedence when both are present.  
-   `Score 9/12 (Architecture 2, Agents 2, OS 1, Confidence 2, Safety 1, Stability 1)`~~
+2. **Parallelize independent deploy work with bounded concurrency and target isolation.**  
+   The deploy executor currently processes all actions serially even when they write to unrelated targets. After registry writes are decoupled from each action, non-conflicting actions should be grouped and executed with bounded concurrency so large manifests can make better use of Node.js asynchronous filesystem throughput without weakening collision handling, dry-run reporting, or rollback safety.  
+   `Score 9/12 (Architecture 2, Agents 1, OS 2, Confidence 1, Safety 1, Stability 2)`
 
-3. ~~**Tighten hook support from generic config patching into validated agent-specific adapters.**  
-   The manifest now has a separate `hooks` section, but the implementation currently treats it as an unvalidated record and writes it through the same generic config-patch path. That is enough for basic ownership and revert behavior, but it is not enough to claim that Claude's hook surface is implemented properly or to safely expand toward GitHub Copilot's planned binary hooks. Add schema validation and narrower adapters before expanding hook coverage further.  
-   `Score 9/12 (Architecture 2, Agents 2, OS 1, Confidence 2, Safety 1, Stability 1)`~~
+3. **Deduplicate instruction-file parsing across multi-agent planning.**  
+   Shared `agentRules` and `agentDefinitions` sources can be re-opened and re-parsed once per target agent during planning. That repeats the same markdown and frontmatter validation work and inflates planning cost for entries that fan out to multiple agents. Cache parsed instruction documents and reuse the result for agent-specific validation so planning remains linear in source files rather than target combinations.  
+   `Score 10/12 (Architecture 1, Agents 2, OS 2, Confidence 2, Safety 1, Stability 2)`
 
-4. [x] **Add Gemini CLI execution-safety settings beyond instruction-file warnings.**  
-   The codebase correctly warns when Gemini's `instructionFilename` changes, but the north star still calls out execution and safety-oriented settings such as safe-mode flags. Those settings are now modeled as an explicit `executionConfigs` capability using patch ownership tracking in `settings.json`.
-   `Score 12/12 (Architecture 2, Agents 2, OS 2, Confidence 2, Safety 2, Stability 2)`
+4. **Memoize symlink-containment validation for manifest source paths.**  
+   Source-path validation defends correctly against symlink escape, but its identity fallback can walk ancestor chains and issue repeated `stat` calls for the same paths. On deeper trees or manifests with many entries, that becomes avoidable syscall overhead. Add memoization around resolved source validation so repository-root safety guarantees are preserved without redoing the same containment checks across planning stages.  
+   `Score 9/12 (Architecture 1, Agents 1, OS 2, Confidence 2, Safety 1, Stability 2)`
+
+5. **Make `init` repo scanning scale better on large trees.**  
+   `init` currently discovers skills with a mostly serialized recursive walk and then does repeated linear prefix checks to decide whether markdown files sit inside skill directories. That is simple and correct, but it leaves performance on the table for larger repositories. Rework discovery around bounded-concurrency traversal and cheaper prefix-membership checks so initialization cost grows more predictably with repository size.  
+   `Score 8/12 (Architecture 1, Agents 1, OS 2, Confidence 2, Safety 1, Stability 1)`
+
+6. **Parallelize preflight checks that read independent agent state.**  
+    Preflight still collects some agent-specific warnings sequentially even though the work is mostly independent file reads and environment inspection. Running those checks concurrently would not change behavior, but it would reduce startup latency as the number of detected agents grows. Keep warning ordering deterministic if the output contract depends on it.  
+    `Score 8/12 (Architecture 1, Agents 1, OS 2, Confidence 2, Safety 1, Stability 1)`
