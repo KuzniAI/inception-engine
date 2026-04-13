@@ -3,6 +3,7 @@ import { describe, it } from "node:test";
 import {
   describeCapabilityConfidence,
   planCapabilityForDeploy,
+  resolveCapabilitySurface,
   shouldInitIncludeAgent,
 } from "../../src/core/capabilities.ts";
 
@@ -83,5 +84,72 @@ describe("capabilities planner", () => {
     );
     assert.equal(confidence.confidence, "documented");
     assert.equal(confidence.message, null);
+  });
+
+  it("treats antigravity agentRules as shared-via gemini-cli but directly deployable when the primary is absent", () => {
+    const plan = planCapabilityForDeploy({
+      agentId: "antigravity",
+      capability: "agentRules",
+      entryName: "gemini-compatible-rules",
+      targetAgentIds: ["antigravity"],
+      scope: "repo",
+    });
+    assert.equal(plan.outcome, "action");
+
+    const confidence = describeCapabilityConfidence(
+      "antigravity",
+      "agentRules",
+      "repo",
+    );
+    assert.match(confidence.message ?? "", /shared through "gemini-cli"/);
+    assert.doesNotMatch(
+      confidence.message ?? "",
+      /requires the primary target to deploy/,
+    );
+  });
+
+  it("marks gemini-cli hooks as planned and excludes them from init defaults", () => {
+    const surface = resolveCapabilitySurface("gemini-cli", "hooks");
+    assert.equal(surface.supportStatus, "planned");
+    assert.equal(surface.plannedSurface, "settings.json hooks field");
+
+    const plan = planCapabilityForDeploy({
+      agentId: "gemini-cli",
+      capability: "hooks",
+      entryName: "future-hooks",
+      targetAgentIds: ["gemini-cli"],
+    });
+    assert.equal(plan.outcome, "warn");
+    if (plan.outcome !== "warn") return;
+    assert.match(
+      plan.warning.message,
+      /planned via settings\.json hooks field/,
+    );
+    assert.equal(shouldInitIncludeAgent("gemini-cli", "hooks"), false);
+  });
+
+  it("reports unsupported confidence for codex hooks and opencode workspace rules", () => {
+    const codexHooks = describeCapabilityConfidence("codex", "hooks");
+    assert.match(codexHooks.message ?? "", /hooks surface is unsupported/);
+
+    const workspaceRules = describeCapabilityConfidence(
+      "opencode",
+      "agentRules",
+      "workspace",
+    );
+    assert.match(
+      workspaceRules.message ?? "",
+      /workspace-local instruction surface distinct from repo-local AGENTS\.md/,
+    );
+  });
+
+  it("resolves executionConfigs support records for supported and unsupported agents", () => {
+    const gemini = resolveCapabilitySurface("gemini-cli", "executionConfigs");
+    assert.equal(gemini.supportStatus, "supported");
+    assert.equal(gemini.schemaLabel, "Settings execution config");
+
+    const claude = resolveCapabilitySurface("claude-code", "executionConfigs");
+    assert.equal(claude.supportStatus, "unsupported");
+    assert.equal(claude.schemaLabel, "an unsupported surface");
   });
 });

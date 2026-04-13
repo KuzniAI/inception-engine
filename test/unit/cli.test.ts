@@ -350,6 +350,35 @@ describe("init command", () => {
     }
   });
 
+  it("skips skill directories whose folder name is not a valid skill name", async () => {
+    const dir = await makeTmpDir();
+    try {
+      await mkdir(path.join(dir, "-bad-skill"), { recursive: true });
+      await writeFile(
+        path.join(dir, "-bad-skill", "SKILL.md"),
+        "---\nname: bad\ndescription: test\n---\n",
+      );
+
+      const { stdout, code } = await run(["init", dir]);
+      assert.equal(code, 0);
+      assert.ok(
+        stdout.includes("not a valid skill name"),
+        `expected invalid-skill warning, got: ${stdout}`,
+      );
+
+      const manifest = JSON.parse(
+        (
+          await import("node:fs/promises").then((m) =>
+            m.readFile(path.join(dir, "inception.json"), "utf-8"),
+          )
+        ).toString(),
+      ) as { skills: unknown[] };
+      assert.deepEqual(manifest.skills, []);
+    } finally {
+      await rm(dir, { recursive: true });
+    }
+  });
+
   it("generated manifest always includes all five section keys", async () => {
     const dir = await makeTmpDir();
     try {
@@ -544,6 +573,30 @@ describe("init command", () => {
       );
       const { code } = await run(["init", dir]);
       assert.equal(code, 0);
+      const manifest = JSON.parse(
+        (
+          await import("node:fs/promises").then((m) =>
+            m.readFile(path.join(dir, "inception.json"), "utf-8"),
+          )
+        ).toString(),
+      ) as { agentRules: unknown[] };
+      assert.deepEqual(manifest.agentRules, []);
+    } finally {
+      await rm(dir, { recursive: true });
+    }
+  });
+
+  it("skips agentRules files whose basename cannot derive a valid name", async () => {
+    const dir = await makeTmpDir();
+    try {
+      await writeFile(path.join(dir, "-.md"), "# invalid rules\n");
+      const { code, stdout } = await run(["init", dir]);
+      assert.equal(code, 0);
+      assert.ok(
+        stdout.includes("could not derive a valid agentRules name"),
+        `expected invalid agentRules warning, got: ${stdout}`,
+      );
+
       const manifest = JSON.parse(
         (
           await import("node:fs/promises").then((m) =>
@@ -1391,6 +1444,257 @@ describe("init command", () => {
         "path should point into .github/copilot/agents/",
       );
       assert.deepEqual(found?.agents, ["github-copilot"]);
+    } finally {
+      await rm(dir, { recursive: true });
+    }
+  });
+
+  it("skips invalid agentDefinition file names and renames colliding discovered definitions", async () => {
+    const dir = await makeTmpDir();
+    try {
+      await mkdir(path.join(dir, "helper"), { recursive: true });
+      await writeFile(
+        path.join(dir, "helper", "SKILL.md"),
+        "---\nname: helper\ndescription: helper skill\n---\n",
+      );
+      await mkdir(path.join(dir, ".claude", "agents"), { recursive: true });
+      await writeFile(
+        path.join(dir, ".claude", "agents", "helper.md"),
+        "---\nname: helper\ndescription: helper agent\n---\n# Helper\n",
+      );
+      await writeFile(
+        path.join(dir, ".claude", "agents", "-.md"),
+        "---\nname: invalid\ndescription: invalid agent\n---\n# Invalid\n",
+      );
+
+      const { code, stdout } = await run(["init", dir]);
+      assert.equal(code, 0);
+      assert.ok(
+        stdout.includes('agentDefinitions name "helper" collides'),
+        `expected collision warning, got: ${stdout}`,
+      );
+      assert.ok(
+        stdout.includes("could not derive a valid agentDefinitions name"),
+        `expected invalid agentDefinitions warning, got: ${stdout}`,
+      );
+
+      const manifest = JSON.parse(
+        (
+          await import("node:fs/promises").then((m) =>
+            m.readFile(path.join(dir, "inception.json"), "utf-8"),
+          )
+        ).toString(),
+      ) as {
+        agentDefinitions: Array<{ name: string; path: string }>;
+      };
+
+      assert.deepEqual(
+        manifest.agentDefinitions.map((entry) => entry.name),
+        ["helper-agent"],
+      );
+      assert.ok(
+        normalizeSlashes(manifest.agentDefinitions[0]?.path ?? "").includes(
+          ".claude/agents/helper.md",
+        ),
+      );
+    } finally {
+      await rm(dir, { recursive: true });
+    }
+  });
+
+  it("agent-definitions-manifest.json takes precedence over discovered definitions", async () => {
+    const dir = await makeTmpDir();
+    try {
+      await mkdir(path.join(dir, ".claude", "agents"), { recursive: true });
+      await writeFile(
+        path.join(dir, ".claude", "agents", "discovered.md"),
+        "---\nname: discovered\ndescription: discovered agent\n---\n# Discovered\n",
+      );
+      await writeFile(
+        path.join(dir, "agent-definitions-manifest.json"),
+        JSON.stringify([
+          {
+            name: "sidecar-agent",
+            path: "agents/sidecar-agent.md",
+            agents: ["opencode"],
+            scope: "repo",
+          },
+        ]),
+      );
+
+      const { code } = await run(["init", dir]);
+      assert.equal(code, 0);
+
+      const manifest = JSON.parse(
+        (
+          await import("node:fs/promises").then((m) =>
+            m.readFile(path.join(dir, "inception.json"), "utf-8"),
+          )
+        ).toString(),
+      ) as {
+        agentDefinitions: Array<{
+          name: string;
+          path: string;
+          agents: string[];
+        }>;
+      };
+
+      assert.deepEqual(manifest.agentDefinitions, [
+        {
+          name: "sidecar-agent",
+          path: "agents/sidecar-agent.md",
+          agents: ["opencode"],
+          scope: "repo",
+        },
+      ]);
+    } finally {
+      await rm(dir, { recursive: true });
+    }
+  });
+
+  it("invalid JSON in agent-definitions-manifest.json produces discovered definitions and a warning", async () => {
+    const dir = await makeTmpDir();
+    try {
+      await mkdir(path.join(dir, ".claude", "agents"), { recursive: true });
+      await writeFile(
+        path.join(dir, ".claude", "agents", "discovered.md"),
+        "---\nname: discovered\ndescription: discovered agent\n---\n# Discovered\n",
+      );
+      await writeFile(
+        path.join(dir, "agent-definitions-manifest.json"),
+        "{not json}",
+      );
+
+      const { code, stdout } = await run(["init", dir]);
+      assert.equal(code, 0);
+      assert.ok(
+        stdout.includes("agent-definitions-manifest.json"),
+        "stdout should mention agent-definitions-manifest.json warning",
+      );
+
+      const manifest = JSON.parse(
+        (
+          await import("node:fs/promises").then((m) =>
+            m.readFile(path.join(dir, "inception.json"), "utf-8"),
+          )
+        ).toString(),
+      ) as {
+        agentDefinitions: Array<{ name: string }>;
+      };
+      assert.equal(manifest.agentDefinitions.length, 1);
+      assert.equal(manifest.agentDefinitions[0]?.name, "discovered");
+    } finally {
+      await rm(dir, { recursive: true });
+    }
+  });
+
+  it("non-array agent-definitions-manifest.json produces discovered definitions and a warning", async () => {
+    const dir = await makeTmpDir();
+    try {
+      await mkdir(path.join(dir, ".claude", "agents"), { recursive: true });
+      await writeFile(
+        path.join(dir, ".claude", "agents", "discovered.md"),
+        "---\nname: discovered\ndescription: discovered agent\n---\n# Discovered\n",
+      );
+      await writeFile(
+        path.join(dir, "agent-definitions-manifest.json"),
+        JSON.stringify({ name: "not-an-array" }),
+      );
+
+      const { code, stdout } = await run(["init", dir]);
+      assert.equal(code, 0);
+      assert.ok(
+        stdout.includes("agent-definitions-manifest.json"),
+        "stdout should mention agent-definitions-manifest.json warning",
+      );
+
+      const manifest = JSON.parse(
+        (
+          await import("node:fs/promises").then((m) =>
+            m.readFile(path.join(dir, "inception.json"), "utf-8"),
+          )
+        ).toString(),
+      ) as {
+        agentDefinitions: Array<{ name: string }>;
+      };
+      assert.equal(manifest.agentDefinitions.length, 1);
+      assert.equal(manifest.agentDefinitions[0]?.name, "discovered");
+    } finally {
+      await rm(dir, { recursive: true });
+    }
+  });
+
+  it("agent-definitions-manifest.json with mixed valid and invalid entries keeps only valid sidecar entries", async () => {
+    const dir = await makeTmpDir();
+    try {
+      await writeFile(
+        path.join(dir, "agent-definitions-manifest.json"),
+        JSON.stringify([
+          {
+            name: "valid-agent",
+            path: "agents/valid-agent.md",
+            agents: ["claude-code"],
+            scope: "repo",
+          },
+          { name: "invalid-agent" },
+        ]),
+      );
+
+      const { code, stdout } = await run(["init", dir]);
+      assert.equal(code, 0);
+      assert.ok(
+        stdout.includes("agent-definitions-manifest.json"),
+        "stdout should mention invalid agent-definitions-manifest.json entry",
+      );
+
+      const manifest = JSON.parse(
+        (
+          await import("node:fs/promises").then((m) =>
+            m.readFile(path.join(dir, "inception.json"), "utf-8"),
+          )
+        ).toString(),
+      ) as {
+        agentDefinitions: Array<{ name: string; agents: string[] }>;
+      };
+      assert.equal(manifest.agentDefinitions.length, 1);
+      assert.equal(manifest.agentDefinitions[0]?.name, "valid-agent");
+      assert.deepEqual(manifest.agentDefinitions[0]?.agents, ["claude-code"]);
+    } finally {
+      await rm(dir, { recursive: true });
+    }
+  });
+
+  it("verbose init output includes detailed discovered sections", async () => {
+    const dir = await makeTmpDir();
+    try {
+      await mkdir(path.join(dir, "alpha"), { recursive: true });
+      await writeFile(
+        path.join(dir, "alpha", "SKILL.md"),
+        "---\nname: alpha\ndescription: test\n---\n",
+      );
+      await writeFile(path.join(dir, "CLAUDE.md"), "# rules\n");
+      await mkdir(path.join(dir, ".claude", "agents"), { recursive: true });
+      await writeFile(
+        path.join(dir, ".claude", "agents", "reviewer.md"),
+        "---\nname: reviewer\ndescription: test\n---\n# Agent\n",
+      );
+      await writeFile(
+        path.join(dir, "mcp-servers.json"),
+        JSON.stringify([
+          {
+            name: "my-server",
+            agents: ["claude-code"],
+            config: { command: "npx" },
+          },
+        ]),
+      );
+
+      const { code, stdout } = await run(["init", dir, "--verbose"]);
+      assert.equal(code, 0);
+      assert.ok(stdout.includes("alpha  →  alpha"), stdout);
+      assert.ok(stdout.includes("agentRules:"), stdout);
+      assert.ok(stdout.includes("agentDefinitions:"), stdout);
+      assert.ok(stdout.includes("mcpServers:"), stdout);
     } finally {
       await rm(dir, { recursive: true });
     }

@@ -175,6 +175,89 @@ describe("runPreflight", () => {
       `expected no implementation-only warning, got: ${implementationOnlyWarning?.message}`,
     );
   });
+
+  it("emits shared-surface config-authority guidance when github-copilot agentRules ride through claude-code", async () => {
+    const manifest: Manifest = {
+      ...emptyManifest,
+      agentRules: [
+        {
+          name: "shared-rules",
+          path: "CLAUDE.md",
+          agents: ["claude-code", "github-copilot"],
+          scope: "repo",
+        },
+      ],
+    };
+    const warnings = await runPreflight(baseOptions, manifest, "/home/test", [
+      "claude-code",
+      "github-copilot",
+    ]);
+    const warning = warnings.find(
+      (w) =>
+        w.kind === "config-authority" &&
+        w.message.includes('shared through "claude-code"'),
+    );
+    assert.ok(
+      warning,
+      `expected shared-surface warning, got: ${JSON.stringify(warnings)}`,
+    );
+    assert.match(warning.message, /requires the primary target to deploy/);
+  });
+
+  it("emits shared-surface config-authority guidance for antigravity repo rules", async () => {
+    const manifest: Manifest = {
+      ...emptyManifest,
+      agentRules: [
+        {
+          name: "gemini-rules",
+          path: "GEMINI.md",
+          agents: ["antigravity"],
+          scope: "repo",
+        },
+      ],
+    };
+    const warnings = await runPreflight(baseOptions, manifest, "/home/test", [
+      "antigravity",
+    ]);
+    const warning = warnings.find(
+      (w) =>
+        w.kind === "config-authority" &&
+        w.message.includes('shared through "gemini-cli"'),
+    );
+    assert.ok(
+      warning,
+      `expected antigravity shared-via warning, got: ${JSON.stringify(warnings)}`,
+    );
+    assert.doesNotMatch(
+      warning.message,
+      /requires the primary target to deploy/,
+    );
+  });
+
+  it("emits provisional config-authority warning for supported gemini executionConfigs", async () => {
+    const manifest: Manifest = {
+      ...emptyManifest,
+      executionConfigs: [
+        {
+          name: "safe-mode",
+          agents: ["gemini-cli"],
+          config: { sandbox: "workspace-write" },
+        },
+      ],
+    };
+    const warnings = await runPreflight(baseOptions, manifest, "/home/test", [
+      "gemini-cli",
+    ]);
+    const capabilityWarning = warnings.find(
+      (w) =>
+        w.kind === "config-authority" && /execution-config/.test(w.message),
+    );
+    assert.ok(
+      capabilityWarning,
+      `expected executionConfig warning, got: ${JSON.stringify(warnings)}`,
+    );
+    assert.match(capabilityWarning.message, /provisional/);
+  });
 });
 
 describe("github-copilot devcontainer support", () => {

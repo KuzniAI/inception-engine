@@ -2,9 +2,12 @@ import assert from "node:assert/strict";
 import { realpath, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { describe, it } from "node:test";
-import { compileMcpServerActions } from "../../src/core/adapters/mcp.ts";
 import { compileHookActions } from "../../src/core/adapters/hooks.ts";
-import { compilePermissionsActions } from "../../src/core/adapters/permissions.ts";
+import { compileMcpServerActions } from "../../src/core/adapters/mcp.ts";
+import {
+  compilePermissionsActions,
+  compilePermissionsReverts,
+} from "../../src/core/adapters/permissions.ts";
 import {
   compileAgentRuleActions,
   compileAgentRuleReverts,
@@ -1334,6 +1337,61 @@ describe("compilePermissionsActions", () => {
   });
 });
 
+describe("compilePermissionsReverts", () => {
+  it("returns config and toml revert actions for supported agents", () => {
+    const actions = compilePermissionsReverts(
+      {
+        name: "multi",
+        agents: ["claude-code", "codex", "opencode"],
+        config: {},
+      },
+      null,
+      "/home/test",
+    );
+
+    assert.equal(actions.length, 3);
+    assert.deepEqual(
+      actions.map((action) => [action.agent, action.kind]),
+      [
+        ["claude-code", "config-patch"],
+        ["codex", "toml-patch"],
+        ["opencode", "config-patch"],
+      ],
+    );
+    assertPathEndsWith(
+      actions[0]?.target ?? "",
+      ".claude/settings.json",
+      `expected claude-code target under .claude/settings.json, got: ${actions[0]?.target}`,
+    );
+    assertPathEndsWith(
+      actions[1]?.target ?? "",
+      ".codex/config.toml",
+      `expected codex target under .codex/config.toml, got: ${actions[1]?.target}`,
+    );
+    assertPathEndsWith(
+      actions[2]?.target ?? "",
+      "opencode/opencode.json",
+      `expected opencode target under opencode/opencode.json, got: ${actions[2]?.target}`,
+    );
+  });
+
+  it("skips unsupported agents and respects agentFilter", () => {
+    const actions = compilePermissionsReverts(
+      {
+        name: "filtered",
+        agents: ["claude-code", "gemini-cli", "codex"],
+        config: {},
+      },
+      ["codex"],
+      "/home/test",
+    );
+
+    assert.equal(actions.length, 1);
+    assert.equal(actions[0]?.agent, "codex");
+    assert.equal(actions[0]?.kind, "toml-patch");
+  });
+});
+
 describe("compileHookActions", () => {
   const validClaudeHookConfig = {
     hooks: {
@@ -1645,6 +1703,111 @@ describe("compileAgentDefinitionActions", () => {
         `expected target under .claude/agents/my-agent.md, got: ${action.target}`,
       );
       assert.equal(action.confidence, "documented");
+    } finally {
+      await rm(dir, { recursive: true });
+    }
+  });
+
+  it("emits a warning and skips repo-scoped definitions when repo is missing", async () => {
+    const compile = await getAdapter();
+    const dir = await makeTmpDir();
+    try {
+      await writeFile(
+        path.join(dir, "my-agent.md"),
+        "---\nname: test-agent\ndescription: test\ntools: []\n---\n# Agent",
+      );
+      const realRoot = await realpath(dir);
+      const { actions, warnings } = await compile(
+        {
+          name: "my-agent",
+          agents: ["claude-code"],
+          path: "my-agent.md",
+          scope: "repo",
+        },
+        dir,
+        dir,
+        realRoot,
+        ["claude-code"],
+        "/home/test",
+      );
+
+      assert.equal(actions.length, 0);
+      assert.equal(warnings.length, 1);
+      assert.equal(warnings[0]?.kind, "confidence");
+      assert.match(
+        warnings[0]?.message ?? "",
+        /scope "repo" requires a repository path/,
+      );
+    } finally {
+      await rm(dir, { recursive: true });
+    }
+  });
+
+  it("uses the repo path as a workspace fallback for workspace-scoped definitions", async () => {
+    const compile = await getAdapter();
+    const dir = await makeTmpDir();
+    try {
+      await writeFile(
+        path.join(dir, "my-agent.md"),
+        "---\nname: test-agent\ndescription: test\ntools: []\n---\n# Agent",
+      );
+      const realRoot = await realpath(dir);
+      const { actions, warnings } = await compile(
+        {
+          name: "my-agent",
+          agents: ["gemini-cli"],
+          path: "my-agent.md",
+          scope: "workspace",
+        },
+        dir,
+        dir,
+        realRoot,
+        ["gemini-cli"],
+        "/home/test",
+        "/repo/test",
+      );
+
+      assert.equal(warnings.length, 0);
+      assert.equal(actions.length, 1);
+      assert.equal(
+        normalizeSlashes(actions[0]?.target ?? ""),
+        "/repo/test/.gemini/agents/my-agent.md",
+      );
+    } finally {
+      await rm(dir, { recursive: true });
+    }
+  });
+
+  it("emits a warning and skips workspace-scoped definitions when repo and workspace are missing", async () => {
+    const compile = await getAdapter();
+    const dir = await makeTmpDir();
+    try {
+      await writeFile(
+        path.join(dir, "my-agent.md"),
+        "---\nname: test-agent\ndescription: test\ntools: []\n---\n# Agent",
+      );
+      const realRoot = await realpath(dir);
+      const { actions, warnings } = await compile(
+        {
+          name: "my-agent",
+          agents: ["gemini-cli"],
+          path: "my-agent.md",
+          scope: "workspace",
+        },
+        dir,
+        dir,
+        realRoot,
+        ["gemini-cli"],
+        "/home/test",
+      );
+
+      assert.equal(actions.length, 0);
+      assert.equal(warnings.length, 1);
+      assert.equal(warnings[0]?.kind, "confidence");
+      assert.match(
+        warnings[0]?.message ?? "",
+        /scope "workspace" requires a workspace or repository path/,
+      );
     } finally {
       await rm(dir, { recursive: true });
     }
@@ -2105,5 +2268,101 @@ describe("compileAgentDefinitionActions", () => {
     } finally {
       await rm(dir, { recursive: true });
     }
+  });
+});
+
+describe("compileAgentDefinitionReverts", () => {
+  async function getAdapter() {
+    const { compileAgentDefinitionReverts } = await import(
+      "../../src/core/adapters/agent-definitions.ts"
+    );
+    return compileAgentDefinitionReverts;
+  }
+
+  it("returns revert actions for supported markdown and toml targets", async () => {
+    const compile = await getAdapter();
+    const actions = compile(
+      {
+        name: "my-agent",
+        agents: ["claude-code", "gemini-cli", "github-copilot"],
+        path: "my-agent.md",
+        scope: "repo",
+      },
+      null,
+      "/home/test",
+      "/repo/test",
+    );
+
+    assert.equal(actions.length, 3);
+    assert.deepEqual(
+      actions.map((action) => action.agent),
+      ["claude-code", "gemini-cli", "github-copilot"],
+    );
+    assert.equal(
+      normalizeSlashes(actions[0]?.target ?? ""),
+      "/repo/test/.claude/agents/my-agent.md",
+    );
+    assert.equal(
+      normalizeSlashes(actions[1]?.target ?? ""),
+      "/repo/test/.gemini/agents/my-agent.md",
+    );
+    assert.equal(
+      normalizeSlashes(actions[2]?.target ?? ""),
+      "/repo/test/.github/copilot/agents/my-agent.md",
+    );
+  });
+
+  it("returns a global toml revert for gemini-cli", async () => {
+    const compile = await getAdapter();
+    const actions = compile(
+      {
+        name: "my-agent",
+        agents: ["gemini-cli"],
+        path: "my-agent.toml",
+        scope: "global",
+      },
+      null,
+      "/home/test",
+    );
+
+    assert.equal(actions.length, 1);
+    assert.equal(actions[0]?.agent, "gemini-cli");
+    assert.equal(
+      normalizeSlashes(actions[0]?.target ?? ""),
+      "/home/test/.gemini/agents/my-agent.toml",
+    );
+  });
+
+  it("skips unsupported targets and missing workspace or repo requirements", async () => {
+    const compile = await getAdapter();
+
+    assert.deepEqual(
+      compile(
+        {
+          name: "my-agent",
+          agents: ["codex"],
+          path: "my-agent.md",
+          scope: "repo",
+        },
+        null,
+        "/home/test",
+        "/repo/test",
+      ),
+      [],
+    );
+
+    assert.deepEqual(
+      compile(
+        {
+          name: "my-agent",
+          agents: ["gemini-cli"],
+          path: "my-agent.md",
+          scope: "workspace",
+        },
+        null,
+        "/home/test",
+      ),
+      [],
+    );
   });
 });

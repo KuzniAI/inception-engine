@@ -8,7 +8,10 @@ import {
   resolveAgentSkillPath,
   resolveHome,
 } from "../../src/core/resolve.ts";
-import { resolveTargetTemplate } from "../../src/core/runtime-paths.ts";
+import {
+  resolveRuntimePaths,
+  resolveTargetTemplate,
+} from "../../src/core/runtime-paths.ts";
 import { UserError } from "../../src/errors.ts";
 
 const posixJoin = path.posix.join;
@@ -141,10 +144,102 @@ describe("resolveTargetTemplate", () => {
     assert.equal(result, `${home}/.claude/settings.json`);
   });
 
+  it("resolves appdata, local_appdata, xdg_config, repo, and workspace roots", () => {
+    const savedAppData = process.env.APPDATA;
+    const savedLocalAppData = process.env.LOCALAPPDATA;
+    const savedXdg = process.env.XDG_CONFIG_HOME;
+    try {
+      process.env.APPDATA = "/env/appdata";
+      process.env.LOCALAPPDATA = "/env/local";
+      process.env.XDG_CONFIG_HOME = "/env/xdg";
+
+      assert.equal(
+        resolveTargetTemplate("{appdata}/opencode/opencode.json", "/home/user"),
+        "/env/appdata/opencode/opencode.json",
+      );
+      assert.equal(
+        resolveTargetTemplate("{local_appdata}/Temp/config.json", "/home/user"),
+        "/env/local/Temp/config.json",
+      );
+      assert.equal(
+        resolveTargetTemplate(
+          "{xdg_config}/opencode/config.json",
+          "/home/user",
+        ),
+        "/env/xdg/opencode/config.json",
+      );
+      assert.equal(
+        resolveTargetTemplate("{repo}/.claude/mcp.json", "/home/user", "/repo"),
+        "/repo/.claude/mcp.json",
+      );
+      assert.equal(
+        resolveTargetTemplate("{workspace}/CLAUDE.md", "/home/user", "/repo"),
+        "/repo/CLAUDE.md",
+      );
+      assert.equal(
+        resolveTargetTemplate(
+          "{workspace}/CLAUDE.md",
+          "/home/user",
+          "/repo",
+          "/workspace",
+        ),
+        "/workspace/CLAUDE.md",
+      );
+      assert.equal(resolveTargetTemplate("{home}", "/home/user"), "/home/user");
+    } finally {
+      if (savedAppData === undefined) delete process.env.APPDATA;
+      else process.env.APPDATA = savedAppData;
+      if (savedLocalAppData === undefined) delete process.env.LOCALAPPDATA;
+      else process.env.LOCALAPPDATA = savedLocalAppData;
+      if (savedXdg === undefined) delete process.env.XDG_CONFIG_HOME;
+      else process.env.XDG_CONFIG_HOME = savedXdg;
+    }
+  });
+
+  it("throws for invalid templates and missing repo or workspace roots", () => {
+    assert.throws(
+      () => resolveTargetTemplate("relative/path.txt", "/home/user"),
+      /Invalid target template/,
+    );
+    assert.throws(
+      () => resolveTargetTemplate("{repo}/x", "/home/user"),
+      /no repo directory was provided/,
+    );
+    assert.throws(
+      () => resolveTargetTemplate("{workspace}/x", "/home/user"),
+      /no workspace directory was provided/,
+    );
+  });
+
   it("throws when the template escapes the placeholder root", () => {
     assert.throws(
       () => resolveTargetTemplate("{home}/../.ssh/config", "/home/user"),
       /outside its placeholder root/,
     );
+  });
+});
+
+describe("resolveRuntimePaths", () => {
+  it("uses absolute env vars and ignores relative overrides", () => {
+    const savedAppData = process.env.APPDATA;
+    const savedLocalAppData = process.env.LOCALAPPDATA;
+    const savedXdg = process.env.XDG_CONFIG_HOME;
+    try {
+      process.env.APPDATA = "/custom/appdata";
+      process.env.LOCALAPPDATA = "relative/local";
+      process.env.XDG_CONFIG_HOME = "relative/xdg";
+
+      const paths = resolveRuntimePaths("/home/user");
+      assert.equal(paths.appdata, "/custom/appdata");
+      assert.equal(paths.localAppdata, "/home/user/AppData/Local");
+      assert.equal(paths.xdgConfig, "/home/user/.config");
+    } finally {
+      if (savedAppData === undefined) delete process.env.APPDATA;
+      else process.env.APPDATA = savedAppData;
+      if (savedLocalAppData === undefined) delete process.env.LOCALAPPDATA;
+      else process.env.LOCALAPPDATA = savedLocalAppData;
+      if (savedXdg === undefined) delete process.env.XDG_CONFIG_HOME;
+      else process.env.XDG_CONFIG_HOME = savedXdg;
+    }
   });
 });
