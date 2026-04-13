@@ -635,6 +635,90 @@ describe("loadManifest", () => {
     }
   });
 
+  it("agentRules accepts targetDir with scope: 'repo'", async () => {
+    const dir = await makeTmpDir();
+    try {
+      await writeFile(
+        path.join(dir, "inception.json"),
+        JSON.stringify({
+          skills: [],
+          agentRules: [
+            {
+              name: "my-rule",
+              agents: ["claude-code"],
+              path: "rules/CLAUDE.md",
+              scope: "repo",
+              targetDir: "apps/frontend",
+            },
+          ],
+        }),
+      );
+      const manifest = await loadManifest(dir);
+      assert.equal(manifest.agentRules[0]?.targetDir, "apps/frontend");
+    } finally {
+      await rm(dir, { recursive: true });
+    }
+  });
+
+  it("agentRules rejects targetDir with scope: 'global'", async () => {
+    const dir = await makeTmpDir();
+    try {
+      await writeFile(
+        path.join(dir, "inception.json"),
+        JSON.stringify({
+          skills: [],
+          agentRules: [
+            {
+              name: "my-rule",
+              agents: ["claude-code"],
+              path: "rules/CLAUDE.md",
+              scope: "global",
+              targetDir: "apps/frontend",
+            },
+          ],
+        }),
+      );
+      await assert.rejects(loadManifest(dir), (err: unknown) => {
+        assert.ok(err instanceof UserError);
+        assert.match(
+          err.message,
+          /targetDir is only supported for scope "repo" or "workspace"/,
+        );
+        return true;
+      });
+    } finally {
+      await rm(dir, { recursive: true });
+    }
+  });
+
+  it("throws when agentRules targetDir is absolute", async () => {
+    const dir = await makeTmpDir();
+    try {
+      await writeFile(
+        path.join(dir, "inception.json"),
+        JSON.stringify({
+          skills: [],
+          agentRules: [
+            {
+              name: "my-rule",
+              agents: ["claude-code"],
+              path: "rules/CLAUDE.md",
+              scope: "repo",
+              targetDir: "/absolute/path",
+            },
+          ],
+        }),
+      );
+      await assert.rejects(loadManifest(dir), (err: unknown) => {
+        assert.ok(err instanceof UserError);
+        assert.match(err.message, /targetDir must be a relative path/);
+        return true;
+      });
+    } finally {
+      await rm(dir, { recursive: true });
+    }
+  });
+
   it("defaults mcpServers and agentRules to [] when omitted", async () => {
     const dir = await makeTmpDir();
     try {

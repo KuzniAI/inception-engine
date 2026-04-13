@@ -111,25 +111,46 @@ export const McpServerEntrySchema = z.object({
     .default("global"),
 });
 
-export const AgentRuleEntrySchema = z.object({
-  name: nameField,
-  agents: agentsField,
-  // Relative path to the rules/instruction file within the source bundle.
-  // Must be a .md or .markdown file. Structural requirements (e.g. YAML
-  // frontmatter) are validated per agent requirements by the adapter.
-  path: sourcePathField,
-  // Deployment scope: "global" targets the agent's home-directory instruction
-  // file (default), "repo" targets the project-root instruction file within the
-  // deployed repository (e.g. {repo}/CLAUDE.md for claude-code), and "workspace"
-  // targets the agent's workspace-local instruction surface.
-  // "copilot-repo" targets GitHub Copilot's native repo-level instruction file
-  // at {repo}/.github/copilot-instructions.md (github-copilot only).
-  // "copilot-scoped" targets {repo}/.github/instructions/{name}.instructions.md
-  // where {name} is the manifest entry name (github-copilot only).
-  scope: z
-    .enum(["global", "repo", "workspace", "copilot-repo", "copilot-scoped"])
-    .default("global"),
-});
+export const AgentRuleEntrySchema = z
+  .object({
+    name: nameField,
+    agents: agentsField,
+    // Relative path to the rules/instruction file within the source bundle.
+    // Must be a .md or .markdown file. Structural requirements (e.g. YAML
+    // frontmatter) are validated per agent requirements by the adapter.
+    path: sourcePathField,
+    // Deployment scope: "global" targets the agent's home-directory instruction
+    // file (default), "repo" targets the project-root instruction file within the
+    // deployed repository (e.g. {repo}/CLAUDE.md for claude-code), and "workspace"
+    // targets the agent's workspace-local instruction surface.
+    // "copilot-repo" targets GitHub Copilot's native repo-level instruction file
+    // at {repo}/.github/copilot-instructions.md (github-copilot only).
+    // "copilot-scoped" targets {repo}/.github/instructions/{name}.instructions.md
+    // where {name} is the manifest entry name (github-copilot only).
+    scope: z
+      .enum(["global", "repo", "workspace", "copilot-repo", "copilot-scoped"])
+      .default("global"),
+    // Optional relative directory within the repo/workspace where the rule
+    // should be deployed. Only supported for scope: "repo" and scope: "workspace".
+    targetDir: z
+      .string()
+      .optional()
+      .refine((p) => !(p && nodePath.isAbsolute(p)), {
+        message: "targetDir must be a relative path",
+      })
+      .refine((p) => !(p && nodePath.normalize(p).startsWith("..")), {
+        message: "targetDir must not escape the target root",
+      }),
+  })
+  .superRefine((data, ctx) => {
+    if (data.targetDir && data.scope !== "repo" && data.scope !== "workspace") {
+      ctx.addIssue({
+        code: "custom",
+        path: ["targetDir"],
+        message: 'targetDir is only supported for scope "repo" or "workspace"',
+      });
+    }
+  });
 
 export const PermissionsEntrySchema = z.object({
   name: nameField,

@@ -60,6 +60,24 @@ function deduplicateTargets(
   return dedupedTargets;
 }
 
+function injectTargetDir(
+  pathSegments: string[],
+  targetDir: string | undefined,
+): string[] {
+  if (!targetDir) return pathSegments;
+
+  const placeholderIndex = pathSegments.findIndex(
+    (seg) => seg === "{repo}" || seg === "{workspace}",
+  );
+
+  if (placeholderIndex === -1) return pathSegments;
+
+  const dirSegments = targetDir.split(/[\\/]+/).filter(Boolean);
+  const result = [...pathSegments];
+  result.splice(placeholderIndex + 1, 0, ...dirSegments);
+  return result;
+}
+
 function resolveAgentTarget(
   agentId: AgentId,
   entry: AgentRuleEntry,
@@ -106,7 +124,7 @@ function resolveAgentTarget(
     agentId,
     confidence: plan.confidence,
     target: resolvePlaceholders(
-      support?.path[platform] ?? [],
+      injectTargetDir(support?.path[platform] ?? [], entry.targetDir),
       entry.name,
       home,
       repo,
@@ -229,7 +247,7 @@ export function compileAgentRuleReverts(
     if (entry.scope === "workspace" && !workspace && !repo) continue;
 
     const target = resolvePlaceholders(
-      support.path[platform],
+      injectTargetDir(support.path[platform], entry.targetDir),
       entry.name,
       home,
       repo,

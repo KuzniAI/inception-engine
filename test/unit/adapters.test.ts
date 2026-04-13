@@ -5,7 +5,10 @@ import { describe, it } from "node:test";
 import { compileMcpServerActions } from "../../src/core/adapters/mcp.ts";
 import { compileHookActions } from "../../src/core/adapters/hooks.ts";
 import { compilePermissionsActions } from "../../src/core/adapters/permissions.ts";
-import { compileAgentRuleActions } from "../../src/core/adapters/rules.ts";
+import {
+  compileAgentRuleActions,
+  compileAgentRuleReverts,
+} from "../../src/core/adapters/rules.ts";
 import type {
   ConfigPatchDeployAction,
   FileWriteDeployAction,
@@ -910,6 +913,41 @@ describe("compileAgentRuleActions", () => {
     }
   });
 
+  it("scope repo with targetDir: injects targetDir into path for claude-code", async () => {
+    const dir = await makeTmpDir();
+    try {
+      const rulesFile = path.join(dir, "CLAUDE.md");
+      await writeFile(rulesFile, "# Rules");
+      const repo = "/repo/myproject";
+      const realRoot = await realpath(dir);
+      const { actions, warnings } = await compileAgentRuleActions(
+        {
+          name: "my-rule",
+          agents: ["claude-code"],
+          path: "CLAUDE.md",
+          scope: "repo",
+          targetDir: "apps/frontend",
+        },
+        dir,
+        dir,
+        realRoot,
+        ["claude-code"],
+        "/home/test",
+        repo,
+      );
+      assert.equal(actions.length, 1);
+      assert.equal(warnings.length, 0);
+      const action = actions[0] as FileWriteDeployAction;
+      assert.equal(
+        normalizeSlashes(action.target),
+        `${repo}/apps/frontend/CLAUDE.md`,
+        `expected target at {repo}/apps/frontend/CLAUDE.md, got: ${action.target}`,
+      );
+    } finally {
+      await rm(dir, { recursive: true });
+    }
+  });
+
   it("scope repo: emits a warning and skips when repo path is not provided", async () => {
     const dir = await makeTmpDir();
     try {
@@ -1042,6 +1080,30 @@ describe("compileAgentRuleActions", () => {
     } finally {
       await rm(dir, { recursive: true });
     }
+  });
+});
+
+describe("compileAgentRuleReverts", () => {
+  it("injects targetDir into revert path", () => {
+    const home = "/home/test";
+    const repo = "/repo/test";
+    const actions = compileAgentRuleReverts(
+      {
+        name: "my-rule",
+        agents: ["claude-code"],
+        path: "CLAUDE.md",
+        scope: "repo",
+        targetDir: "apps/frontend",
+      },
+      ["claude-code"],
+      home,
+      repo,
+    );
+    assert.equal(actions.length, 1);
+    assert.equal(
+      normalizeSlashes(actions[0]?.target ?? ""),
+      `${repo}/apps/frontend/CLAUDE.md`,
+    );
   });
 });
 
