@@ -220,6 +220,41 @@ describe("planRevertAll", () => {
   });
 });
 
+describe("executeRevert reserved state protections", () => {
+  it("refuses to modify inception-engine state paths from manifest-managed actions", async () => {
+    const home = await makeTmpDir();
+    try {
+      const target = path.join(home, ".inception-engine", "registry.json");
+      await mkdir(path.dirname(target), { recursive: true });
+      await writeFile(target, "{}");
+
+      const { failed, succeeded } = await executeRevert(
+        [
+          {
+            kind: "file-write",
+            skill: "state-target",
+            agent: "claude-code",
+            target,
+          },
+        ],
+        false,
+        false,
+        home,
+      );
+
+      assert.equal(succeeded, 0);
+      assert.equal(failed.length, 1);
+      assert.match(
+        failed[0]?.error ?? "",
+        /Refusing to modify inception-engine state directory/,
+      );
+      assert.equal(await readFile(target, "utf-8"), "{}");
+    } finally {
+      await rm(home, { recursive: true, force: true });
+    }
+  });
+});
+
 // Copy-method revert does not rely on symlinks and works identically on all
 // platforms. This suite has no Windows guard intentionally.
 describe("executeRevert — copy method (cross-platform)", () => {

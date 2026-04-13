@@ -1,4 +1,5 @@
 import { lstat, readFile, rm, unlink, writeFile } from "node:fs/promises";
+import path from "node:path";
 import { AGENT_REGISTRY_BY_ID } from "../config/agents.ts";
 import { logger } from "../logger.ts";
 import type {
@@ -28,6 +29,7 @@ import { revertTomlMcpPatch } from "./adapters/toml.ts";
 import { applyUndoPatch } from "./merge-patch.ts";
 import {
   lookupDeployment,
+  registryDirPath,
   type RegistryPersistence,
   unregisterDeployment,
 } from "./ownership.ts";
@@ -206,6 +208,75 @@ function lstatOutcome(
   return { outcome: "fail", error: msg };
 }
 
+function normalizePathForComparison(candidate: string): string {
+  const normalized = path.normalize(candidate);
+  return process.platform === "win32" ? normalized.toLowerCase() : normalized;
+}
+
+function isSameOrDescendantPath(candidate: string, root: string): boolean {
+  const normalizedCandidate = normalizePathForComparison(candidate);
+  const normalizedRoot = normalizePathForComparison(root);
+  return (
+    normalizedCandidate === normalizedRoot ||
+    normalizedCandidate.startsWith(normalizedRoot + path.sep)
+  );
+}
+
+function failReservedStateTarget(
+  action: RevertAction,
+  home: string,
+): RevertOutcome | null {
+  const reservedDir = registryDirPath(home);
+  if (!isSameOrDescendantPath(action.target, reservedDir)) {
+    return null;
+  }
+
+  return {
+    outcome: "fail",
+    error:
+      `Refusing to modify inception-engine state directory "${reservedDir}" ` +
+      `via manifest-managed revert target "${action.target}"`,
+  };
+}
+
+async function preflightManagedSkillDirRevert(
+  action: RevertAction,
+  label: string,
+  home: string,
+  deps: RevertDependencies,
+): Promise<RevertOutcome | null> {
+  const reservedTargetFailure = failReservedStateTarget(action, home);
+  if (reservedTargetFailure) {
+    if (reservedTargetFailure.outcome === "fail") {
+      logger.fail(label, reservedTargetFailure.error);
+    }
+    return reservedTargetFailure;
+  }
+
+  try {
+    await lstat(action.target);
+  } catch (err) {
+    const result = lstatOutcome(err);
+    if (result.outcome === "skip") {
+      logger.skip(label, "(not found, skipping)");
+      return result;
+    }
+    logger.fail(label, result.error);
+    return result;
+  }
+
+  const entry = await lookupDeployment(home, action.target, deps.registry);
+  if (!entry || entry.skill !== action.skill || entry.agent !== action.agent) {
+    logger.warn(
+      label,
+      `skipping: ${action.target} is not in the deployment registry — not managed by inception-engine`,
+    );
+    return { outcome: "skip" };
+  }
+
+  return null;
+}
+
 export async function executeRevert(
   actions: RevertAction[],
   dryRun: boolean,
@@ -369,6 +440,13 @@ async function revertFrontmatterEmit(
   deps: RevertDependencies,
 ): Promise<RevertOutcome> {
   const label = `${action.skill} -> ${action.agent}`;
+  const reservedTargetFailure = failReservedStateTarget(action, home);
+  if (reservedTargetFailure) {
+    if (reservedTargetFailure.outcome === "fail") {
+      logger.fail(label, reservedTargetFailure.error);
+    }
+    return reservedTargetFailure;
+  }
 
   try {
     await lstat(action.target);
@@ -451,26 +529,14 @@ async function executeRevertAction(
   deps: RevertDependencies,
 ): Promise<RevertOutcome> {
   const label = `${action.skill} -> ${action.agent}`;
-
-  try {
-    await lstat(action.target);
-  } catch (err) {
-    const result = lstatOutcome(err);
-    if (result.outcome === "skip") {
-      logger.skip(label, "(not found, skipping)");
-      return result;
-    }
-    logger.fail(label, result.error);
-    return result;
-  }
-
-  const entry = await lookupDeployment(home, action.target, deps.registry);
-  if (!entry || entry.skill !== action.skill || entry.agent !== action.agent) {
-    logger.warn(
-      label,
-      `skipping: ${action.target} is not in the deployment registry — not managed by inception-engine`,
-    );
-    return { outcome: "skip" };
+  const preflight = await preflightManagedSkillDirRevert(
+    action,
+    label,
+    home,
+    deps,
+  );
+  if (preflight) {
+    return preflight;
   }
 
   if (dryRun) {
@@ -520,6 +586,13 @@ async function revertFileWrite(
   deps: RevertDependencies,
 ): Promise<RevertOutcome> {
   const label = `${action.skill} -> ${action.agent}`;
+  const reservedTargetFailure = failReservedStateTarget(action, home);
+  if (reservedTargetFailure) {
+    if (reservedTargetFailure.outcome === "fail") {
+      logger.fail(label, reservedTargetFailure.error);
+    }
+    return reservedTargetFailure;
+  }
 
   try {
     await lstat(action.target);
@@ -584,6 +657,13 @@ async function revertConfigPatch(
   deps: RevertDependencies,
 ): Promise<RevertOutcome> {
   const label = `${action.skill} -> ${action.agent}`;
+  const reservedTargetFailure = failReservedStateTarget(action, home);
+  if (reservedTargetFailure) {
+    if (reservedTargetFailure.outcome === "fail") {
+      logger.fail(label, reservedTargetFailure.error);
+    }
+    return reservedTargetFailure;
+  }
 
   try {
     await lstat(action.target);
@@ -656,6 +736,13 @@ async function revertTomlPatch(
   deps: RevertDependencies,
 ): Promise<RevertOutcome> {
   const label = `${action.skill} -> ${action.agent}`;
+  const reservedTargetFailure = failReservedStateTarget(action, home);
+  if (reservedTargetFailure) {
+    if (reservedTargetFailure.outcome === "fail") {
+      logger.fail(label, reservedTargetFailure.error);
+    }
+    return reservedTargetFailure;
+  }
 
   try {
     await lstat(action.target);

@@ -171,6 +171,8 @@ Create an `inception.json` file at the root of your skills directory:
 }
 ```
 
+`files` and `configs` are intentionally narrower than the raw target-template syntax might suggest. Arbitrary project-local targets under `{repo}` and `{workspace}` are allowed, but user-profile targets under `{home}`, `{appdata}`, and `{xdg_config}` must resolve to documented agent-owned global surfaces such as `~/.claude/settings.json` or `~/.codex/AGENTS.md`. Manifests cannot target inception-engine's own `~/.inception-engine/` state directory.
+
 Each **skill** entry has:
 
 - **name** - Unique identifier using letters, digits, dots, underscores, or hyphens; must not start with a dot
@@ -542,9 +544,11 @@ inception-engine maintains a centralized deployment registry at `~/.inception-en
 
 - **Strong binding**: Each registry entry binds a specific target path to its skill, agent, and action kind. For `skill-dir` and `file-write`, ownership checks also require the recorded `source` to match before an existing target is treated as managed. For `config-patch` and `frontmatter-emit`, overwrite protection is keyed by target path, kind, skill, and agent; the stored `patch` and `undoPatch` are used for patch-level revert bookkeeping rather than deploy-time identity checks.
 
+- **Reserved state**: Manifest-driven deploy and revert actions are not allowed to touch `~/.inception-engine/`, and the registry loader refuses symlinked registry files or directories.
+
 - **Atomic redeploy**: When overwriting an existing managed `skill-dir` target, the engine renames the old target to a backup, creates the new deployment, and only removes the backup on success. If the new deployment fails, the backup is restored. `file-write` and `config-patch` deployments write directly to the target without this backup/rollback model.
 
-- **Cross-platform**: The registry uses the same resolved home directory as the rest of the tool, including sudo scenarios on POSIX and elevated PowerShell on Windows.
+- **Cross-platform**: The registry uses the same resolved home directory as the rest of the tool, including sudo scenarios on POSIX and elevated PowerShell on Windows. On POSIX, inception-engine keeps the state directory at `0700` and the registry file at `0600`.
 
 ## Running with Privilege Escalation
 

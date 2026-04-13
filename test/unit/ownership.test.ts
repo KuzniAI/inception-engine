@@ -1,11 +1,12 @@
 import assert from "node:assert/strict";
-import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdir, readFile, rm, symlink, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { describe, it } from "node:test";
 import {
   defaultRegistryPersistence,
   lookupDeployment,
   registerDeployment,
+  registryDirPath,
   registryPath,
   unregisterDeployment,
   verifyDeployment,
@@ -67,7 +68,7 @@ describe("registerDeployment", () => {
     }
   });
 
-  it("sets registry file permissions to 0o644 on POSIX", {
+  it("sets registry file permissions to 0o600 on POSIX", {
     skip: process.platform === "win32",
   }, async () => {
     const home = await makeTmpDir();
@@ -81,7 +82,27 @@ describe("registerDeployment", () => {
       });
       const { stat } = await import("node:fs/promises");
       const statResult = await stat(registryPath(home));
-      assert.equal(statResult.mode & 0o777, 0o644);
+      assert.equal(statResult.mode & 0o777, 0o600);
+    } finally {
+      await rm(home, { recursive: true });
+    }
+  });
+
+  it("sets registry directory permissions to 0o700 on POSIX", {
+    skip: process.platform === "win32",
+  }, async () => {
+    const home = await makeTmpDir();
+    try {
+      await registerDeployment(home, "/fake/target", {
+        kind: "skill-dir",
+        source: "/fake/source",
+        skill: "my-skill",
+        agent: "claude-code",
+        method: "symlink",
+      });
+      const { stat } = await import("node:fs/promises");
+      const statResult = await stat(registryDirPath(home));
+      assert.equal(statResult.mode & 0o777, 0o700);
     } finally {
       await rm(home, { recursive: true });
     }
@@ -138,6 +159,29 @@ describe("registerDeployment", () => {
       );
     } finally {
       await rm(home, { recursive: true, force: true });
+    }
+  });
+
+  it("refuses to write the registry through a symlinked state directory", {
+    skip: process.platform === "win32",
+  }, async () => {
+    const home = await makeTmpDir();
+    const elsewhere = await makeTmpDir();
+    try {
+      await symlink(elsewhere, registryDirPath(home), "dir");
+      await assert.rejects(
+        registerDeployment(home, "/fake/target", {
+          kind: "skill-dir",
+          source: "/fake/source",
+          skill: "my-skill",
+          agent: "claude-code",
+          method: "copy",
+        }),
+        /Refusing to use registry directory symlink/,
+      );
+    } finally {
+      await rm(home, { recursive: true, force: true });
+      await rm(elsewhere, { recursive: true, force: true });
     }
   });
 });
@@ -240,6 +284,28 @@ describe("lookupDeployment", () => {
       assert.equal(entry, null);
     } finally {
       await rm(home, { recursive: true });
+    }
+  });
+
+  it("returns null when the registry file path is a symlink", {
+    skip: process.platform === "win32",
+  }, async () => {
+    const home = await makeTmpDir();
+    const elsewhere = await makeTmpDir();
+    try {
+      await mkdir(registryDirPath(home), { recursive: true });
+      await writeFile(path.join(elsewhere, "registry.json"), "{}");
+      await symlink(
+        path.join(elsewhere, "registry.json"),
+        registryPath(home),
+        "file",
+      );
+
+      const entry = await lookupDeployment(home, "/anything");
+      assert.equal(entry, null);
+    } finally {
+      await rm(home, { recursive: true, force: true });
+      await rm(elsewhere, { recursive: true, force: true });
     }
   });
 });

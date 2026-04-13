@@ -775,13 +775,13 @@ describe("planDeploy", () => {
         {
           name: "codex-file",
           path: "missing.txt",
-          target: "{home}/missing.txt",
+          target: "{home}/.codex/AGENTS.md",
           agents: ["codex"],
         },
         {
           name: "claude-file",
           path: "present.txt",
-          target: "{home}/present.txt",
+          target: "{home}/.claude/CLAUDE.md",
           agents: ["claude-code"],
         },
       ],
@@ -801,6 +801,76 @@ describe("planDeploy", () => {
       );
       assert.equal(actions.length, 1);
       assert.equal(actions[0]?.skill, "claude-file");
+    } finally {
+      await rm(sourceDir, { recursive: true });
+    }
+  });
+
+  it("rejects generic home-scoped file targets outside approved agent surfaces", async () => {
+    const sourceDir = await makeTmpDir();
+    const manifest: Manifest = {
+      skills: [],
+      files: [
+        {
+          name: "unsafe-file",
+          path: "present.txt",
+          target: "{home}/.ssh/config",
+          agents: ["claude-code"],
+        },
+      ],
+      configs: [],
+      mcpServers: [],
+      agentRules: [],
+      permissions: [],
+      agentDefinitions: [],
+    };
+    try {
+      await writeFile(path.join(sourceDir, "present.txt"), "present");
+      await assert.rejects(
+        planDeploy(manifest, sourceDir, ["claude-code"], "/home/test"),
+        (err: unknown) => {
+          assert.ok(err instanceof UserError);
+          assert.equal(err.code, "DEPLOY_FAILED");
+          assert.match(err.message, /not an approved managed surface/);
+          return true;
+        },
+      );
+    } finally {
+      await rm(sourceDir, { recursive: true });
+    }
+  });
+
+  it("allows generic repo-scoped file targets", async () => {
+    const sourceDir = await makeTmpDir();
+    const manifest: Manifest = {
+      skills: [],
+      files: [
+        {
+          name: "repo-file",
+          path: "present.txt",
+          target: "{repo}/.agents/rules/example.md",
+          agents: ["claude-code"],
+        },
+      ],
+      configs: [],
+      mcpServers: [],
+      agentRules: [],
+      permissions: [],
+      agentDefinitions: [],
+    };
+    try {
+      await writeFile(path.join(sourceDir, "present.txt"), "present");
+      const { actions } = await planDeploy(
+        manifest,
+        sourceDir,
+        ["claude-code"],
+        "/home/test",
+      );
+      assert.equal(actions.length, 1);
+      assertPathEndsWith(
+        actions[0]?.target ?? "",
+        path.join(".agents", "rules", "example.md"),
+      );
     } finally {
       await rm(sourceDir, { recursive: true });
     }

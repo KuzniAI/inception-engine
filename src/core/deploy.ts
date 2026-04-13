@@ -41,6 +41,7 @@ import {
 import {
   lookupDeployment,
   type RegistryPersistence,
+  registryDirPath,
   registerDeployment,
   verifyDeployment,
 } from "./ownership.ts";
@@ -235,6 +236,86 @@ function detectAmbiguities(
   return warnings;
 }
 
+function normalizeTemplatePath(template: string): string {
+  return template.replaceAll("\\", "/");
+}
+
+function isRepoScopedTemplate(template: string): boolean {
+  return template.startsWith("{repo}") || template.startsWith("{workspace}");
+}
+
+function normalizePathForComparison(candidate: string): string {
+  const normalized = path.normalize(candidate);
+  return process.platform === "win32" ? normalized.toLowerCase() : normalized;
+}
+
+function isSameOrDescendantPath(candidate: string, root: string): boolean {
+  const normalizedCandidate = normalizePathForComparison(candidate);
+  const normalizedRoot = normalizePathForComparison(root);
+  return (
+    normalizedCandidate === normalizedRoot ||
+    normalizedCandidate.startsWith(normalizedRoot + path.sep)
+  );
+}
+
+function collectApprovedGlobalSurfaceTemplates(agentId: AgentId): Set<string> {
+  const agent = AGENT_REGISTRY_BY_ID[agentId];
+  if (!agent) return new Set<string>();
+
+  const supports = [
+    agent.mcpSupport,
+    agent.agentRulesSupport,
+    agent.permissionsSupport,
+    agent.hooksSupport,
+    agent.executionConfigSupport,
+  ];
+
+  const approved = new Set<string>();
+  for (const support of supports) {
+    if (!support || support.status !== "supported") continue;
+    approved.add(normalizeTemplatePath(support.path.posix.join("/")));
+    approved.add(normalizeTemplatePath(support.path.windows.join("/")));
+  }
+
+  return approved;
+}
+
+function assertApprovedManagedTargetTemplate(
+  template: string,
+  targetAgents: AgentId[],
+  kind: "files" | "configs",
+): void {
+  if (isRepoScopedTemplate(template)) return;
+
+  const normalizedTemplate = normalizeTemplatePath(template);
+  for (const agentId of targetAgents) {
+    const approvedTemplates = collectApprovedGlobalSurfaceTemplates(agentId);
+    if (approvedTemplates.has(normalizedTemplate)) {
+      return;
+    }
+  }
+
+  throw new UserError(
+    "DEPLOY_FAILED",
+    `${kind} target "${template}" is not an approved managed surface. ` +
+      `Use {repo}/... or {workspace}/... for arbitrary project-local paths, ` +
+      `or target a documented agent-owned global config surface.`,
+  );
+}
+
+function assertTargetOutsideReservedEngineState(
+  targetPath: string,
+  home: string,
+): void {
+  const reservedDir = registryDirPath(home);
+  if (isSameOrDescendantPath(targetPath, reservedDir)) {
+    throw new UserError(
+      "DEPLOY_FAILED",
+      `Target "${targetPath}" is inside inception-engine state directory "${reservedDir}" and cannot be managed by manifests`,
+    );
+  }
+}
+
 function checkAntigravityPathCollisions(manifest: Manifest): PlanWarning[] {
   const warnings: PlanWarning[] = [];
   const defNames = new Set<string>(
@@ -335,6 +416,11 @@ async function planFileWriteActions(
         detectedAgents.includes(agentId),
       );
       if (targetAgents.length === 0) return;
+      assertApprovedManagedTargetTemplate(
+        fileEntry.target,
+        targetAgents,
+        "files",
+      );
 
       const source = path.resolve(sourceDir, fileEntry.path);
       await validateSourcePath(
@@ -375,6 +461,16 @@ function planConfigPatchActions(
 ): ConfigPatchDeployAction[] {
   const actions: ConfigPatchDeployAction[] = [];
   for (const configEntry of manifest.configs ?? []) {
+    const targetAgents = configEntry.agents.filter((agentId) =>
+      detectedAgents.includes(agentId),
+    );
+    if (targetAgents.length === 0) continue;
+    assertApprovedManagedTargetTemplate(
+      configEntry.target,
+      targetAgents,
+      "configs",
+    );
+
     for (const agentId of configEntry.agents) {
       if (!detectedAgents.includes(agentId)) continue;
       const agent = AGENT_REGISTRY_BY_ID[agentId];
@@ -470,6 +566,10 @@ export async function planDeploy(
     ...detectCollisions(actions),
     ...adapterResult.warnings,
   ];
+
+  for (const action of actions) {
+    assertTargetOutsideReservedEngineState(action.target, home);
+  }
 
   return { actions, warnings };
 }

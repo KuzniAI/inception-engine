@@ -1,4 +1,4 @@
-import { chmod, mkdir, readFile, writeFile } from "node:fs/promises";
+import { chmod, lstat, mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import {
   type ConfigPatchRegistryEntry,
@@ -30,8 +30,32 @@ export function registryPath(home: string): string {
   return path.join(home, REGISTRY_DIR, REGISTRY_FILE);
 }
 
+export function registryDirPath(home: string): string {
+  return path.join(home, REGISTRY_DIR);
+}
+
+async function assertSafeRegistryStoragePath(
+  targetPath: string,
+  label: "registry directory" | "registry file",
+): Promise<void> {
+  try {
+    const stat = await lstat(targetPath);
+    if (stat.isSymbolicLink()) {
+      throw new Error(`Refusing to use ${label} symlink: ${targetPath}`);
+    }
+  } catch (err) {
+    if ((err as NodeJS.ErrnoException).code === "ENOENT") return;
+    throw err;
+  }
+}
+
 async function loadRegistry(home: string): Promise<Registry> {
   try {
+    await assertSafeRegistryStoragePath(
+      registryDirPath(home),
+      "registry directory",
+    );
+    await assertSafeRegistryStoragePath(registryPath(home), "registry file");
     const content = await readFile(registryPath(home), "utf-8");
     const parsed = JSON.parse(content);
     const result = RegistrySchema.safeParse(parsed);
@@ -42,9 +66,12 @@ async function loadRegistry(home: string): Promise<Registry> {
 }
 
 async function saveRegistry(home: string, registry: Registry): Promise<void> {
-  const dir = path.join(home, REGISTRY_DIR);
+  const dir = registryDirPath(home);
+  await assertSafeRegistryStoragePath(dir, "registry directory");
   await mkdir(dir, { recursive: true });
+  await setDirectoryPermissions(dir);
   const filePath = registryPath(home);
+  await assertSafeRegistryStoragePath(filePath, "registry file");
   await writeFile(filePath, `${JSON.stringify(registry, null, 2)}\n`);
   await setFilePermissions(filePath);
 }
@@ -55,12 +82,22 @@ export const defaultRegistryPersistence: RegistryPersistence = {
 };
 
 /**
- * Ensure the file is not world-writable regardless of umask.
+ * Restrict access to the state directory regardless of umask.
+ * On Windows, the OS inherits ACLs from the parent directory — no-op is correct.
+ */
+async function setDirectoryPermissions(dirPath: string): Promise<void> {
+  if (process.platform !== "win32") {
+    await chmod(dirPath, 0o700);
+  }
+}
+
+/**
+ * Restrict the registry file to the current user regardless of umask.
  * On Windows, the OS inherits ACLs from the parent directory — no-op is correct.
  */
 async function setFilePermissions(filePath: string): Promise<void> {
   if (process.platform !== "win32") {
-    await chmod(filePath, 0o644);
+    await chmod(filePath, 0o600);
   }
 }
 
