@@ -4,6 +4,7 @@ export type {
   AgentDefinitionEntry,
   AgentId,
   ConfigEntry,
+  ExecutionConfigEntry,
   FileEntry,
   HookEntry,
   Manifest,
@@ -23,6 +24,7 @@ export type CapabilityKind =
   | "agentRules"
   | "permissions"
   | "hooks"
+  | "executionConfigs"
   | "agentDefinitions";
 
 export interface SupportedAgentSurface {
@@ -97,6 +99,7 @@ export interface AgentProvenance {
   agentRules?: Confidence;
   permissions?: Confidence;
   hooks?: Confidence;
+  executionConfig?: Confidence;
   agentDefinitions?: Confidence;
 }
 
@@ -163,6 +166,8 @@ export interface AgentConfig {
   agentDefinitionsTomlSupport?: AgentSurfaceSupport;
   // Repo-local TOML subagent definition file surface support.
   agentDefinitionsTomlRepoSupport?: AgentSurfaceSupport;
+  // Agent-specific execution/safety setting surface support.
+  executionConfigSupport?: AgentSurfaceSupport;
   // Devcontainer-scoped MCP surface for agents that support
   // customizations.vscode.mcp in devcontainer.json. When present and planned,
   // preflight emits a forward-looking notice instead of silence.

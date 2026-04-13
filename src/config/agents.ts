@@ -189,6 +189,7 @@ export const AGENT_REGISTRY: readonly AgentConfig[] = [
       agentRules: "documented",
       hooks: "provisional",
       agentDefinitions: "documented",
+      executionConfig: "provisional",
     },
     mcpSupport: {
       status: "supported",
@@ -259,6 +260,14 @@ export const AGENT_REGISTRY: readonly AgentConfig[] = [
       path: {
         posix: ["{repo}", ".gemini", "agents", "{name}.toml"],
         windows: ["{repo}", ".gemini", "agents", "{name}.toml"],
+      },
+    },
+    executionConfigSupport: {
+      status: "supported",
+      schemaLabel: "Settings execution config",
+      path: {
+        posix: ["{home}", ".gemini", "settings.json"],
+        windows: ["{home}", ".gemini", "settings.json"],
       },
     },
     agentRulesWorkspaceSupport: {

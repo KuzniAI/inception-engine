@@ -54,6 +54,7 @@ Before executing, the deploy command runs preflight analysis on instruction file
 | Global/Repo/Workspace Rules Files | `scope: "global"` and `scope: "repo"` are supported on the implemented agent surfaces; `scope: "workspace"` is supported for `claude-code`, `codex`, and `gemini-cli`; `github-copilot` reads Claude-native rules via `claude-code` (shared-via) and also supports native `scope: "copilot-repo"` (`{repo}/.github/copilot-instructions.md`) and `scope: "copilot-scoped"` (`{repo}/.github/instructions/{name}.instructions.md`) | All supported agents |
 | Permissions / Approval Config | claude-code (`~/.claude/settings.json`), codex (`~/.codex/config.toml`), opencode (`~/.config/opencode/opencode.json` on POSIX, `%APPDATA%\\opencode\\opencode.json` on Windows); other agents are warned and skipped | claude-code, codex, opencode |
 | Execution Hooks | claude-code (`~/.claude/settings.json`), github-copilot (`planned`); other agents are warned and skipped | claude-code |
+| Execution / Safety Config | gemini-cli (`~/.gemini/settings.json`); other agents are warned and skipped | gemini-cli |
 | Agent Definitions | claude-code (`{repo}/.claude/agents/{name}.md`), gemini-cli (`{repo}/.gemini/agents/{name}.md` or `.toml`, plus `scope: "global"` to `~/.gemini/agents/{name}.md` or `.toml`), antigravity (`{repo}/.agents/rules/{name}.md`), opencode (`{repo}/.opencode/agents/{name}.md`, plus `scope: "global"` to the user config dir), github-copilot (`{repo}/.github/copilot/agents/{name}.md`, with migration from legacy `.github/agents/{name}.agent.md`); codex is warned and skipped | All supported agents |
 | `init` manifest generation | Scans `SKILL.md` directories (`skills`), `.md` files with Claude-first agent mapping (`agentRules`), `mcp-servers.json` (`mcpServers`), and agent-definition Markdown files (`agentDefinitions`); shared surfaces default to the primary deploy target instead of shared riders; emits hints for `files/` and `configs/` directories | N/A |
 | Instruction preflight analysis | Emits capability warnings for implementation-only, planned, unsupported, and shared-through surfaces used by the manifest; emits `precedence` warnings when an agent has multiple `agentRules` scopes active simultaneously or the same source file is deployed to multiple scopes; emits `budget` warnings when `agentRules` or `agentDefinitions` source files exceed 50 KB; emits GitHub Copilot enterprise-policy warnings when local configuration may be overridden; emits a `config-authority` warning when Gemini CLI's `settings.json` contains an `instructionFilename` override that differs from the deploy target | N/A |
@@ -155,6 +156,15 @@ Create an `inception.json` file at the root of your skills directory:
             }
           ]
         }
+      }
+    }
+  ],
+  "executionConfigs": [
+    {
+      "name": "gemini-safety",
+      "agents": ["gemini-cli"],
+      "config": {
+        "safeMode": true
       }
     }
   ]

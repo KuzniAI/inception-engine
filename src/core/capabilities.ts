@@ -132,6 +132,8 @@ function capabilityLabel(capability: CapabilityKind): string {
       return "agentDefinitions";
     case "hooks":
       return "hooks";
+    case "executionConfigs":
+      return "executionConfigs";
   }
 }
 
@@ -149,6 +151,8 @@ function capabilitySurfaceLabel(capability: CapabilityKind): string {
       return "agent-definitions";
     case "hooks":
       return "hooks";
+    case "executionConfigs":
+      return "execution-config";
   }
 }
 
@@ -217,9 +221,15 @@ function getSurfaceRecordAndConfidence(
       confidence: agent.provenance.agentDefinitions,
     };
   }
+  if (capability === "hooks") {
+    return {
+      supportRecord: agent.hooksSupport,
+      confidence: agent.provenance.hooks,
+    };
+  }
   return {
-    supportRecord: agent.hooksSupport,
-    confidence: agent.provenance.hooks,
+    supportRecord: agent.executionConfigSupport,
+    confidence: agent.provenance.executionConfig,
   };
 }
 

@@ -162,6 +162,14 @@ export const PermissionsEntrySchema = z.object({
   config: z.record(z.string(), z.unknown()),
 });
 
+export const ExecutionConfigEntrySchema = z.object({
+  name: nameField,
+  agents: agentsField,
+  // Raw execution config payload validated per agent by the execution-config adapter.
+  // For gemini-cli: { safeMode?: boolean, ... }
+  config: z.record(z.string(), z.unknown()),
+});
+
 export const AgentDefinitionEntrySchema = z.object({
   name: nameField,
   agents: agentsField,
@@ -205,6 +213,7 @@ export const ManifestSchema = z.object({
   permissions: z.array(PermissionsEntrySchema).default([]),
   agentDefinitions: z.array(AgentDefinitionEntrySchema).default([]),
   hooks: z.array(HookEntrySchema).optional(),
+  executionConfigs: z.array(ExecutionConfigEntrySchema).optional(),
 });
 
 export type SkillEntry = z.infer<typeof SkillEntrySchema>;
@@ -215,6 +224,7 @@ export type AgentRuleEntry = z.infer<typeof AgentRuleEntrySchema>;
 export type PermissionsEntry = z.infer<typeof PermissionsEntrySchema>;
 export type AgentDefinitionEntry = z.infer<typeof AgentDefinitionEntrySchema>;
 export type HookEntry = z.infer<typeof HookEntrySchema>;
+export type ExecutionConfigEntry = z.infer<typeof ExecutionConfigEntrySchema>;
 export type Manifest = z.infer<typeof ManifestSchema>;
 
 // Parses the --agents CLI flag: comma-separated agent IDs → AgentId[]

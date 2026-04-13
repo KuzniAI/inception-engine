@@ -28,6 +28,6 @@ Score format:
    The manifest now has a separate `hooks` section, but the implementation currently treats it as an unvalidated record and writes it through the same generic config-patch path. That is enough for basic ownership and revert behavior, but it is not enough to claim that Claude's hook surface is implemented properly or to safely expand toward GitHub Copilot's planned binary hooks. Add schema validation and narrower adapters before expanding hook coverage further.  
    `Score 9/12 (Architecture 2, Agents 2, OS 1, Confidence 2, Safety 1, Stability 1)`~~
 
-4. **Add Gemini CLI execution-safety settings beyond instruction-file warnings.**  
-   The codebase correctly warns when Gemini's `instructionFilename` changes, but the north star still calls out execution and safety-oriented settings such as safe-mode flags. Those settings are not modeled in `permissions`, `hooks`, or any Gemini-specific adapter today. Add a Gemini execution-config surface only if it can be represented as explicit patch ownership rather than a broad opaque `settings.json` write.  
-   `Score 7/12 (Architecture 2, Agents 1, OS 1, Confidence 1, Safety 1, Stability 1)`
+4. [x] **Add Gemini CLI execution-safety settings beyond instruction-file warnings.**  
+   The codebase correctly warns when Gemini's `instructionFilename` changes, but the north star still calls out execution and safety-oriented settings such as safe-mode flags. Those settings are now modeled as an explicit `executionConfigs` capability using patch ownership tracking in `settings.json`.
+   `Score 12/12 (Architecture 2, Agents 2, OS 2, Confidence 2, Safety 2, Stability 2)`

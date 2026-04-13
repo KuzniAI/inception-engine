@@ -1,6 +1,7 @@
 import type {
   AgentDefinitionEntry,
   AgentRuleEntry,
+  ExecutionConfigEntry,
   HookEntry,
   McpServerEntry,
   PermissionsEntry,
@@ -17,6 +18,10 @@ import {
   compileAgentDefinitionActions,
   compileAgentDefinitionReverts,
 } from "./agent-definitions.ts";
+import {
+  compileExecutionConfigActions,
+  compileExecutionConfigReverts,
+} from "./execution-config.ts";
 import { compileHookActions, compileHookReverts } from "./hooks.ts";
 import { compileMcpServerActions, compileMcpServerReverts } from "./mcp.ts";
 import {
@@ -28,6 +33,7 @@ import { compileAgentRuleActions, compileAgentRuleReverts } from "./rules.ts";
 export {
   compileAgentDefinitionReverts,
   compileAgentRuleReverts,
+  compileExecutionConfigReverts,
   compileHookReverts,
   compileMcpServerReverts,
   compilePermissionsReverts,
@@ -68,45 +74,51 @@ export async function compileAdapterActions(
   agentDefinitions?: AgentDefinitionEntry[],
   workspace?: string,
   hooks: HookEntry[] = [],
+  executionConfigs: ExecutionConfigEntry[] = [],
 ): Promise<AdapterResult> {
   const actions: AdapterAction[] = [];
   const warnings: PlanWarning[] = [];
 
-  const [mcp, rules, perms, defs, hookResults] = await Promise.all([
-    compileAll(mcpServers, (entry) =>
-      compileMcpServerActions(entry, detectedAgents, home, repo, workspace),
-    ),
-    compileAll(agentRules, (entry) =>
-      compileAgentRuleActions(
-        entry,
-        sourceDir,
-        resolvedSourceDir,
-        realRoot,
-        detectedAgents,
-        home,
-        repo,
-        workspace,
+  const [mcp, rules, perms, defs, hookResults, execResults] = await Promise.all(
+    [
+      compileAll(mcpServers, (entry) =>
+        compileMcpServerActions(entry, detectedAgents, home, repo, workspace),
       ),
-    ),
-    compileAll(permissions, (entry) =>
-      compilePermissionsActions(entry, detectedAgents, home),
-    ),
-    compileAll(agentDefinitions ?? [], (entry) =>
-      compileAgentDefinitionActions(
-        entry,
-        sourceDir,
-        resolvedSourceDir,
-        realRoot,
-        detectedAgents,
-        home,
-        repo,
-        workspace,
+      compileAll(agentRules, (entry) =>
+        compileAgentRuleActions(
+          entry,
+          sourceDir,
+          resolvedSourceDir,
+          realRoot,
+          detectedAgents,
+          home,
+          repo,
+          workspace,
+        ),
       ),
-    ),
-    compileAll(hooks, (entry) =>
-      compileHookActions(entry, detectedAgents, home),
-    ),
-  ]);
+      compileAll(permissions, (entry) =>
+        compilePermissionsActions(entry, detectedAgents, home),
+      ),
+      compileAll(agentDefinitions ?? [], (entry) =>
+        compileAgentDefinitionActions(
+          entry,
+          sourceDir,
+          resolvedSourceDir,
+          realRoot,
+          detectedAgents,
+          home,
+          repo,
+          workspace,
+        ),
+      ),
+      compileAll(hooks, (entry) =>
+        compileHookActions(entry, detectedAgents, home),
+      ),
+      compileAll(executionConfigs, (entry) =>
+        compileExecutionConfigActions(entry, detectedAgents, home),
+      ),
+    ],
+  );
 
   actions.push(
     ...mcp.actions,
@@ -114,6 +126,7 @@ export async function compileAdapterActions(
     ...perms.actions,
     ...defs.actions,
     ...hookResults.actions,
+    ...execResults.actions,
   );
   warnings.push(
     ...mcp.warnings,
@@ -121,6 +134,7 @@ export async function compileAdapterActions(
     ...perms.warnings,
     ...defs.warnings,
     ...hookResults.warnings,
+    ...execResults.warnings,
   );
 
   return { actions, warnings };

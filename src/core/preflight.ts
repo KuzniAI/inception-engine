@@ -325,7 +325,8 @@ function collectCapabilityWarningsForAgent(
     | "mcpServers"
     | "agentRules"
     | "permissions"
-    | "agentDefinitions",
+    | "agentDefinitions"
+    | "executionConfigs",
   entryName: string,
   targetAgents: AgentId[],
   scope?:
@@ -366,7 +367,8 @@ function collectCapabilityWarningsForTargets(
     | "mcpServers"
     | "agentRules"
     | "permissions"
-    | "agentDefinitions",
+    | "agentDefinitions"
+    | "executionConfigs",
   entryName: string,
   scope?:
     | "global"
@@ -438,6 +440,14 @@ function collectManifestCapabilityWarnings(
       "agentDefinitions",
       entry.name,
       entry.scope,
+    );
+  }
+  for (const entry of manifest.executionConfigs ?? []) {
+    collectCapabilityWarningsForTargets(
+      acc,
+      entry.agents.filter((agentId) => detectedAgents.includes(agentId)),
+      "executionConfigs",
+      entry.name,
     );
   }
 
