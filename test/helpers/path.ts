@@ -9,8 +9,8 @@ export function normalizeSlashes(value: string): string {
 }
 
 /**
- * Assert that a path ends with the given POSIX-style suffix, normalizing separators.
- * Use instead of: assert.ok(normalizeSlashes(p).endsWith("some/suffix"))
+ * Assert that a path ends with the given suffix, normalizing separators on both
+ * sides so callers can safely use either literals or path.join(...).
  */
 export function assertPathEndsWith(
   actual: string,
@@ -18,7 +18,7 @@ export function assertPathEndsWith(
   msg?: string,
 ): void {
   assert.ok(
-    normalizeSlashes(actual).endsWith(suffix),
+    normalizeSlashes(actual).endsWith(normalizeSlashes(suffix)),
     msg ?? `Expected path "${actual}" to end with "${suffix}"`,
   );
 }
