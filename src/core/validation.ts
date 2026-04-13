@@ -272,10 +272,7 @@ export function validatePermissionsConfigShape(
   }
 }
 
-function validateClaudeHookCommand(
-  cmd: unknown,
-  path: string,
-): void {
+function validateClaudeHookCommand(cmd: unknown, path: string): void {
   if (typeof cmd !== "object" || cmd === null || Array.isArray(cmd)) {
     throw new UserError(
       "DEPLOY_FAILED",
@@ -297,10 +294,7 @@ function validateClaudeHookCommand(
   }
 }
 
-function validateClaudeHookMatcher(
-  matcher: unknown,
-  path: string,
-): void {
+function validateClaudeHookMatcher(matcher: unknown, path: string): void {
   if (
     typeof matcher !== "object" ||
     matcher === null ||

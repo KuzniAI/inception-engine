@@ -20,9 +20,9 @@ Score format:
    The current `agentRules` model supports `global`, `repo`, and `workspace`, but it does not represent the hierarchical instruction loading that `docs/north-star.md` still calls out for Claude Code (`CLAUDE.md` at folder-level), Codex (`AGENTS.md` nested from repo root down), or GitHub Copilot's `.github/instructions/*.instructions.md` surface. Add explicit manifest and planner support only if the engine can target these additional files without introducing ownership ambiguity between overlapping parent and child instruction files.  
    `Score 8/12 (Architecture 2, Agents 2, OS 1, Confidence 2, Safety 0, Stability 1)`
 
-2. **Add explicit GitHub Copilot scoped-instructions support beyond Claude-shared `CLAUDE.md`.**  
+2. ~~**Add explicit GitHub Copilot scoped-instructions support beyond Claude-shared `CLAUDE.md`.**  
    GitHub Copilot's shared-via-Claude handling is correct for `CLAUDE.md`, but the north star still lists `.github/copilot-instructions.md` and `.github/instructions/*.instructions.md` as native Copilot instruction surfaces. Today `init` maps `copilot-instructions.md` back to `claude-code`, and there is no deploy surface for the `.github/instructions/` directory at all. Add a dedicated Copilot instructions capability only if it can coexist cleanly with the Claude-first path and preflight can explain precedence when both are present.  
-   `Score 9/12 (Architecture 2, Agents 2, OS 1, Confidence 2, Safety 1, Stability 1)`
+   `Score 9/12 (Architecture 2, Agents 2, OS 1, Confidence 2, Safety 1, Stability 1)`~~
 
 3. ~~**Tighten hook support from generic config patching into validated agent-specific adapters.**  
    The manifest now has a separate `hooks` section, but the implementation currently treats it as an unvalidated record and writes it through the same generic config-patch path. That is enough for basic ownership and revert behavior, but it is not enough to claim that Claude's hook surface is implemented properly or to safely expand toward GitHub Copilot's planned binary hooks. Add schema validation and narrower adapters before expanding hook coverage further.  

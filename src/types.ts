@@ -137,6 +137,14 @@ export interface AgentConfig {
   // Workspace-local instruction/rules surface (scope: "workspace"). When absent,
   // the adapter handles it by failing or reporting unsupported.
   agentRulesWorkspaceSupport?: AgentSurfaceSupport;
+  // GitHub Copilot native repo-level instruction surface (scope: "copilot-repo").
+  // Targets {repo}/.github/copilot-instructions.md. Agent-specific; does not
+  // conflict with the shared-via CLAUDE.md surfaces above.
+  agentRulesCopilotRepoSupport?: AgentSurfaceSupport;
+  // GitHub Copilot native scoped instruction surface (scope: "copilot-scoped").
+  // Targets {repo}/.github/instructions/{name}.instructions.md. {name} is
+  // substituted from the manifest entry's name field at deploy time.
+  agentRulesCopilotScopedSupport?: AgentSurfaceSupport;
   // Agent-specific execution/safety permission and approval surface support.
   permissionsSupport?: AgentSurfaceSupport;
   // Agent-specific lifecycle hook and execution surface support.

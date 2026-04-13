@@ -559,6 +559,166 @@ describe("compileAgentRuleActions", () => {
     }
   });
 
+  it("scope copilot-repo: returns file-write action targeting {repo}/.github/copilot-instructions.md", async () => {
+    const dir = await makeTmpDir();
+    try {
+      await writeFile(path.join(dir, "copilot.md"), "# Copilot rules");
+      const repo = "/repo/myproject";
+      const realRoot = await realpath(dir);
+      const { actions, warnings } = await compileAgentRuleActions(
+        {
+          name: "copilot-main",
+          agents: ["github-copilot"],
+          path: "copilot.md",
+          scope: "copilot-repo",
+        },
+        dir,
+        dir,
+        realRoot,
+        ["github-copilot"],
+        "/home/test",
+        repo,
+      );
+      assert.equal(actions.length, 1);
+      assert.equal(warnings.length, 0);
+      const action = actions[0] as FileWriteDeployAction;
+      assert.equal(action.kind, "file-write");
+      assert.equal(action.agent, "github-copilot");
+      assert.equal(
+        normalizeSlashes(action.target),
+        `${repo}/.github/copilot-instructions.md`,
+        `expected target at {repo}/.github/copilot-instructions.md, got: ${action.target}`,
+      );
+      assert.equal(action.confidence, "documented");
+    } finally {
+      await rm(dir, { recursive: true });
+    }
+  });
+
+  it("scope copilot-scoped: returns file-write action with {name} substituted in path", async () => {
+    const dir = await makeTmpDir();
+    try {
+      await writeFile(path.join(dir, "typescript.md"), "# TypeScript rules");
+      const repo = "/repo/myproject";
+      const realRoot = await realpath(dir);
+      const { actions, warnings } = await compileAgentRuleActions(
+        {
+          name: "typescript",
+          agents: ["github-copilot"],
+          path: "typescript.md",
+          scope: "copilot-scoped",
+        },
+        dir,
+        dir,
+        realRoot,
+        ["github-copilot"],
+        "/home/test",
+        repo,
+      );
+      assert.equal(actions.length, 1);
+      assert.equal(warnings.length, 0);
+      const action = actions[0] as FileWriteDeployAction;
+      assert.equal(action.kind, "file-write");
+      assert.equal(action.agent, "github-copilot");
+      assert.equal(
+        normalizeSlashes(action.target),
+        `${repo}/.github/instructions/typescript.instructions.md`,
+        `expected target at {repo}/.github/instructions/typescript.instructions.md, got: ${action.target}`,
+      );
+      assert.equal(action.confidence, "documented");
+    } finally {
+      await rm(dir, { recursive: true });
+    }
+  });
+
+  it("scope copilot-repo: returns warning when no repo path provided", async () => {
+    const dir = await makeTmpDir();
+    try {
+      await writeFile(path.join(dir, "copilot.md"), "# Copilot rules");
+      const realRoot = await realpath(dir);
+      const { actions, warnings } = await compileAgentRuleActions(
+        {
+          name: "copilot-main",
+          agents: ["github-copilot"],
+          path: "copilot.md",
+          scope: "copilot-repo",
+        },
+        dir,
+        dir,
+        realRoot,
+        ["github-copilot"],
+        "/home/test",
+        // no repo
+      );
+      assert.equal(actions.length, 0);
+      assert.equal(warnings.length, 1);
+      assert.equal(warnings[0]?.kind, "confidence");
+      assert.match(warnings[0]?.message ?? "", /copilot-repo/);
+      assert.match(warnings[0]?.message ?? "", /repository path/);
+    } finally {
+      await rm(dir, { recursive: true });
+    }
+  });
+
+  it("scope copilot-repo: non-github-copilot agents get unsupported warning", async () => {
+    const dir = await makeTmpDir();
+    try {
+      await writeFile(path.join(dir, "copilot.md"), "# Copilot rules");
+      const realRoot = await realpath(dir);
+      const { actions, warnings } = await compileAgentRuleActions(
+        {
+          name: "copilot-main",
+          agents: ["claude-code"],
+          path: "copilot.md",
+          scope: "copilot-repo",
+        },
+        dir,
+        dir,
+        realRoot,
+        ["claude-code"],
+        "/home/test",
+        "/repo/test",
+      );
+      assert.equal(actions.length, 0);
+      assert.equal(warnings.length, 1);
+      assert.equal(warnings[0]?.kind, "confidence");
+    } finally {
+      await rm(dir, { recursive: true });
+    }
+  });
+
+  it("scope copilot-repo: plain markdown without frontmatter succeeds (no instructionFrontmatterRequired check)", async () => {
+    const dir = await makeTmpDir();
+    try {
+      // Plain markdown with no frontmatter — should NOT throw despite github-copilot
+      // having instructionFrontmatterRequired: true (native agentRules scopes skip that check)
+      await writeFile(
+        path.join(dir, "plain.md"),
+        "# Plain rules\n\nNo frontmatter.",
+      );
+      const repo = "/repo/myproject";
+      const realRoot = await realpath(dir);
+      const { actions, warnings } = await compileAgentRuleActions(
+        {
+          name: "plain-rules",
+          agents: ["github-copilot"],
+          path: "plain.md",
+          scope: "copilot-repo",
+        },
+        dir,
+        dir,
+        realRoot,
+        ["github-copilot"],
+        "/home/test",
+        repo,
+      );
+      assert.equal(actions.length, 1);
+      assert.equal(warnings.length, 0);
+    } finally {
+      await rm(dir, { recursive: true });
+    }
+  });
+
   it("throws when rules source file does not exist", async () => {
     const dir = await makeTmpDir();
     try {

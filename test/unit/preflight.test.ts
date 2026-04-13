@@ -381,6 +381,123 @@ describe("instruction precedence warnings", () => {
       await rm(sourceDir, { recursive: true });
     }
   });
+
+  it("emits Copilot precedence warning when github-copilot has both shared-via (scope: repo) and native (scope: copilot-repo) entries", async () => {
+    const sourceDir = await makeTmpDir();
+    try {
+      await writeFile(path.join(sourceDir, "shared.md"), "# Shared rules");
+      await writeFile(path.join(sourceDir, "native.md"), "# Native rules");
+      const manifest: Manifest = {
+        ...emptyManifest,
+        agentRules: [
+          {
+            name: "shared-rules",
+            path: "shared.md",
+            agents: ["claude-code", "github-copilot"],
+            scope: "repo",
+          },
+          {
+            name: "native-rules",
+            path: "native.md",
+            agents: ["github-copilot"],
+            scope: "copilot-repo",
+          },
+        ],
+      };
+      const warnings = await runPreflight(
+        { ...baseOptions, directory: sourceDir },
+        manifest,
+        "/home/test",
+        ["github-copilot"],
+      );
+      const precedenceWarnings = warnings.filter(
+        (w) => w.kind === "precedence",
+      );
+      assert.ok(precedenceWarnings.length > 0, "expected a precedence warning");
+      assert.ok(
+        precedenceWarnings.some(
+          (w) =>
+            w.message.includes("github-copilot") &&
+            w.message.includes("CLAUDE.md-shared") &&
+            w.message.includes("native Copilot"),
+        ),
+        `expected Copilot precedence warning, got: ${JSON.stringify(precedenceWarnings)}`,
+      );
+    } finally {
+      await rm(sourceDir, { recursive: true });
+    }
+  });
+
+  it("emits Copilot precedence warning when github-copilot has both global (scope: global) and copilot-scoped entries", async () => {
+    const sourceDir = await makeTmpDir();
+    try {
+      await writeFile(path.join(sourceDir, "shared.md"), "# Shared rules");
+      await writeFile(path.join(sourceDir, "scoped.md"), "# Scoped rules");
+      const manifest: Manifest = {
+        ...emptyManifest,
+        agentRules: [
+          {
+            name: "shared-rules",
+            path: "shared.md",
+            agents: ["claude-code", "github-copilot"],
+            scope: "global",
+          },
+          {
+            name: "typescript",
+            path: "scoped.md",
+            agents: ["github-copilot"],
+            scope: "copilot-scoped",
+          },
+        ],
+      };
+      const warnings = await runPreflight(
+        { ...baseOptions, directory: sourceDir },
+        manifest,
+        "/home/test",
+        ["github-copilot"],
+      );
+      const precedenceWarnings = warnings.filter(
+        (w) => w.kind === "precedence",
+      );
+      assert.ok(
+        precedenceWarnings.some(
+          (w) =>
+            w.message.includes("github-copilot") &&
+            w.message.includes("native Copilot"),
+        ),
+        `expected Copilot precedence warning, got: ${JSON.stringify(precedenceWarnings)}`,
+      );
+    } finally {
+      await rm(sourceDir, { recursive: true });
+    }
+  });
+
+  it("emits no Copilot precedence warning when github-copilot only has native entries", async () => {
+    const sourceDir = await makeTmpDir();
+    try {
+      await writeFile(path.join(sourceDir, "native.md"), "# Native rules");
+      const manifest: Manifest = {
+        ...emptyManifest,
+        agentRules: [
+          {
+            name: "native-rules",
+            path: "native.md",
+            agents: ["github-copilot"],
+            scope: "copilot-repo",
+          },
+        ],
+      };
+      const warnings = await runPreflight(
+        { ...baseOptions, directory: sourceDir },
+        manifest,
+        "/home/test",
+        ["github-copilot"],
+      );
+      assert.equal(warnings.filter((w) => w.kind === "precedence").length, 0);
+    } finally {
+      await rm(sourceDir, { recursive: true });
+    }
+  });
 });
 
 describe("instruction budget warnings", () => {

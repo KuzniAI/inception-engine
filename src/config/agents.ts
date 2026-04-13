@@ -452,6 +452,7 @@ export const AGENT_REGISTRY: readonly AgentConfig[] = [
     provenance: {
       detectPaths: "documented",
       detectBinary: "documented",
+      agentRules: "documented",
       agentDefinitions: "documented",
       mcpConfig: "documented",
       hooks: "provisional",
@@ -522,6 +523,35 @@ export const AGENT_REGISTRY: readonly AgentConfig[] = [
       path: {
         posix: ["{workspace}", "CLAUDE.md"],
         windows: ["{workspace}", "CLAUDE.md"],
+      },
+    },
+    // GitHub Copilot native repo-level instruction file. Not shared via
+    // CLAUDE.md; this is Copilot's own .github/copilot-instructions.md surface
+    // deployed directly without the shared-via deduplication path.
+    agentRulesCopilotRepoSupport: {
+      status: "supported",
+      surfaceKind: { kind: "agent-specific" },
+      schemaLabel: "repo-local .github/copilot-instructions.md",
+      path: {
+        posix: ["{repo}", ".github", "copilot-instructions.md"],
+        windows: ["{repo}", ".github", "copilot-instructions.md"],
+      },
+    },
+    // GitHub Copilot scoped instruction files. Each entry deploys to
+    // .github/instructions/{name}.instructions.md where {name} comes from
+    // the manifest entry name field.
+    agentRulesCopilotScopedSupport: {
+      status: "supported",
+      surfaceKind: { kind: "agent-specific" },
+      schemaLabel: "scoped .github/instructions/{name}.instructions.md",
+      path: {
+        posix: ["{repo}", ".github", "instructions", "{name}.instructions.md"],
+        windows: [
+          "{repo}",
+          ".github",
+          "instructions",
+          "{name}.instructions.md",
+        ],
       },
     },
     mcpDevcontainerSupport: {

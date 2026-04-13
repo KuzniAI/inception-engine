@@ -29,6 +29,37 @@ type ResolvedTarget = {
   target: string;
 };
 
+function requiresRepoPath(scope: AgentRuleEntry["scope"]): boolean {
+  return (
+    scope === "repo" || scope === "copilot-repo" || scope === "copilot-scoped"
+  );
+}
+
+function deduplicateTargets(
+  supportedTargets: ResolvedTarget[],
+  scope: AgentRuleEntry["scope"],
+): ResolvedTarget[] {
+  const seenTargetPaths = new Set<string>();
+  const dedupedTargets: ResolvedTarget[] = [];
+  for (const t of supportedTargets) {
+    const surface = resolveCapabilitySurface(t.agentId, "agentRules", scope);
+    if (
+      surface.surfaceKind === "shared-via" &&
+      surface.sharedVia &&
+      supportedTargets.some(
+        (o) => o.agentId === surface.sharedVia && o.target === t.target,
+      )
+    ) {
+      continue;
+    }
+    if (!seenTargetPaths.has(t.target)) {
+      seenTargetPaths.add(t.target);
+      dedupedTargets.push(t);
+    }
+  }
+  return dedupedTargets;
+}
+
 function resolveAgentTarget(
   agentId: AgentId,
   entry: AgentRuleEntry,
@@ -60,6 +91,15 @@ function resolveAgentTarget(
     return {
       kind: "confidence",
       message: `agentRules: scope "workspace" requires a workspace or repository path but none was resolved — skipping "${entry.name}" for agent "${agentId}"`,
+    };
+  }
+  if (
+    (entry.scope === "copilot-repo" || entry.scope === "copilot-scoped") &&
+    !repo
+  ) {
+    return {
+      kind: "confidence",
+      message: `agentRules: scope "${entry.scope}" requires a repository path but none was resolved — skipping "${entry.name}" for agent "${agentId}"`,
     };
   }
   return {
@@ -124,29 +164,7 @@ export async function compileAgentRuleActions(
   // Deduplicate: when a shared-via rider's primary is also in supportedTargets,
   // skip the rider — the primary agent writes the shared surface. As a fallback,
   // also dedup by resolved path so no target file is written twice.
-  const seenTargetPaths = new Set<string>();
-  const dedupedTargets: ResolvedTarget[] = [];
-  for (const t of supportedTargets) {
-    const surface = resolveCapabilitySurface(
-      t.agentId,
-      "agentRules",
-      entry.scope,
-    );
-    if (
-      surface.surfaceKind === "shared-via" &&
-      surface.sharedVia &&
-      supportedTargets.some(
-        (o) => o.agentId === surface.sharedVia && o.target === t.target,
-      )
-    ) {
-      // Primary agent is present and writes the same target — skip rider.
-      continue;
-    }
-    if (!seenTargetPaths.has(t.target)) {
-      seenTargetPaths.add(t.target);
-      dedupedTargets.push(t);
-    }
-  }
+  const dedupedTargets = deduplicateTargets(supportedTargets, entry.scope);
 
   // Validate the shared source file only when at least one target uses the
   // current rules adapter surface.
@@ -154,13 +172,22 @@ export async function compileAgentRuleActions(
   await validateSourcePath(source, entry.path, resolvedSourceDir, realRoot);
   await validateSourceFile(source, entry.path);
 
+  // Native Copilot instruction files (.github/copilot-instructions.md and
+  // .github/instructions/*.instructions.md) are plain markdown and do not
+  // require agent-definition-style frontmatter (tools/instructions keys).
+  // Skip the instructionFrontmatterRequired check for these scopes.
+  const skipFrontmatterValidation =
+    entry.scope === "copilot-repo" || entry.scope === "copilot-scoped";
+
   for (const target of dedupedTargets) {
     validateAgentRuleMarkdownPath(entry.path, target.agentId);
-    await validateInstructionFileRequirements(
-      source,
-      entry.path,
-      target.agentId,
-    );
+    if (!skipFrontmatterValidation) {
+      await validateInstructionFileRequirements(
+        source,
+        entry.path,
+        target.agentId,
+      );
+    }
     actions.push({
       kind: "file-write",
       skill: entry.name,
@@ -198,7 +225,7 @@ export function compileAgentRuleReverts(
       continue;
     }
 
-    if (entry.scope === "repo" && !repo) continue;
+    if (requiresRepoPath(entry.scope) && !repo) continue;
     if (entry.scope === "workspace" && !workspace && !repo) continue;
 
     const target = resolvePlaceholders(

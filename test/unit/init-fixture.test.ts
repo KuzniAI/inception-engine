@@ -1,10 +1,14 @@
 import assert from "node:assert/strict";
-import { cp, readFile, rm } from "node:fs/promises";
+import { cp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { spawn } from "node:child_process";
 import path from "node:path";
 import { describe, it } from "node:test";
+import { runInit } from "../../src/core/init.ts";
+import { logger } from "../../src/logger.ts";
 import { makeTmpDir } from "../helpers/fs.ts";
 import { assertPathEndsWith, normalizeSlashes } from "../helpers/path.ts";
+
+logger.silence();
 
 const PROJECT_ROOT = path.resolve(import.meta.dirname, "..", "..");
 const FIXTURE_DIR = path.join(
@@ -281,6 +285,151 @@ describe("init against readme-sample fixture", () => {
       assert.deepEqual(manifest.configs, [], "configs should be []");
     } finally {
       await rm(tmpDir, { recursive: true });
+    }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Block 3: init discovery of GitHub Copilot native instruction surfaces
+// ---------------------------------------------------------------------------
+
+describe("init Copilot native instruction discovery", () => {
+  it("runInit dryRun succeeds when .github/copilot-instructions.md is present", async () => {
+    const dir = await makeTmpDir();
+    try {
+      await mkdir(path.join(dir, ".github"), { recursive: true });
+      await writeFile(
+        path.join(dir, ".github", "copilot-instructions.md"),
+        "# Copilot instructions",
+      );
+      // Use dryRun to avoid writing inception.json
+      const result = await runInit({
+        directory: dir,
+        agents: null,
+        dryRun: true,
+        force: false,
+        verbose: false,
+      });
+      assert.equal(result, 0);
+    } finally {
+      await rm(dir, { recursive: true });
+    }
+  });
+
+  it("init --plan output includes copilot-repo scope for .github/copilot-instructions.md", async () => {
+    const dir = await makeTmpDir();
+    try {
+      await mkdir(path.join(dir, ".github"), { recursive: true });
+      await writeFile(
+        path.join(dir, ".github", "copilot-instructions.md"),
+        "# Copilot instructions",
+      );
+      const { stdout, code } = await run(["init", dir, "--plan"]);
+      assert.equal(code, 0, `init --plan failed:\n${stdout}`);
+      const manifest = extractPlanJson(stdout) as {
+        agentRules: Array<{
+          name: string;
+          path: string;
+          agents: string[];
+          scope: string;
+        }>;
+      };
+      const copilotEntry = manifest.agentRules.find(
+        (r) => r.scope === "copilot-repo",
+      );
+      assert.ok(
+        copilotEntry,
+        `expected a copilot-repo entry in agentRules, got: ${JSON.stringify(manifest.agentRules)}`,
+      );
+      assert.deepEqual(copilotEntry.agents, ["github-copilot"]);
+      assertPathEndsWith(
+        copilotEntry.path,
+        ".github/copilot-instructions.md",
+        `copilot-repo entry path should end with .github/copilot-instructions.md`,
+      );
+    } finally {
+      await rm(dir, { recursive: true });
+    }
+  });
+
+  it("init --plan output includes copilot-scoped scope for .github/instructions/*.instructions.md", async () => {
+    const dir = await makeTmpDir();
+    try {
+      await mkdir(path.join(dir, ".github", "instructions"), {
+        recursive: true,
+      });
+      await writeFile(
+        path.join(dir, ".github", "instructions", "typescript.instructions.md"),
+        "# TypeScript scoped instructions",
+      );
+      await writeFile(
+        path.join(dir, ".github", "instructions", "python.instructions.md"),
+        "# Python scoped instructions",
+      );
+      const { stdout, code } = await run(["init", dir, "--plan"]);
+      assert.equal(code, 0, `init --plan failed:\n${stdout}`);
+      const manifest = extractPlanJson(stdout) as {
+        agentRules: Array<{
+          name: string;
+          path: string;
+          agents: string[];
+          scope: string;
+        }>;
+      };
+      const scopedEntries = manifest.agentRules.filter(
+        (r) => r.scope === "copilot-scoped",
+      );
+      assert.equal(
+        scopedEntries.length,
+        2,
+        `expected 2 copilot-scoped entries, got ${scopedEntries.length}: ${JSON.stringify(manifest.agentRules)}`,
+      );
+      for (const entry of scopedEntries) {
+        assert.deepEqual(entry.agents, ["github-copilot"]);
+      }
+      const names = scopedEntries.map((e) => e.name).sort();
+      assert.deepEqual(names, ["python", "typescript"]);
+    } finally {
+      await rm(dir, { recursive: true });
+    }
+  });
+
+  it("non-.github/ copilot-instructions.md still maps to claude-code (backward compat)", async () => {
+    const dir = await makeTmpDir();
+    try {
+      await mkdir(path.join(dir, "rules"), { recursive: true });
+      await writeFile(
+        path.join(dir, "rules", "copilot-instructions.md"),
+        "# Copilot instructions",
+      );
+      const { stdout, code } = await run(["init", dir, "--plan"]);
+      assert.equal(code, 0, `init --plan failed:\n${stdout}`);
+      const manifest = extractPlanJson(stdout) as {
+        agentRules: Array<{
+          name: string;
+          path: string;
+          agents: string[];
+          scope: string;
+        }>;
+      };
+      const entry = manifest.agentRules.find((r) =>
+        r.path.endsWith("copilot-instructions.md"),
+      );
+      assert.ok(
+        entry,
+        `expected a copilot-instructions.md entry, got: ${JSON.stringify(manifest.agentRules)}`,
+      );
+      assert.ok(
+        entry.agents.includes("claude-code"),
+        `expected agents to include claude-code, got: ${JSON.stringify(entry.agents)}`,
+      );
+      assert.notEqual(
+        entry.scope,
+        "copilot-repo",
+        "rules/ copilot-instructions.md should not use copilot-repo scope",
+      );
+    } finally {
+      await rm(dir, { recursive: true });
     }
   });
 });

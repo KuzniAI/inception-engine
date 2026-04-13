@@ -8,7 +8,13 @@ import type {
   SupportedAgentSurface,
 } from "../types.ts";
 
-type CapabilityScope = "global" | "repo" | "workspace" | "devcontainer";
+type CapabilityScope =
+  | "global"
+  | "repo"
+  | "workspace"
+  | "devcontainer"
+  | "copilot-repo"
+  | "copilot-scoped";
 
 export interface ResolvedCapabilitySurface {
   agentId: AgentId;
@@ -52,6 +58,12 @@ function resolveAgentRulesSupport(
   scope: CapabilityScope,
 ): AgentSurfaceSupport | undefined {
   const agent = AGENT_REGISTRY_BY_ID[agentId];
+  if (scope === "copilot-repo") {
+    return agent?.agentRulesCopilotRepoSupport;
+  }
+  if (scope === "copilot-scoped") {
+    return agent?.agentRulesCopilotScopedSupport;
+  }
   if (scope === "repo") {
     return agent?.agentRulesRepoSupport ?? agent?.agentRulesSupport;
   }

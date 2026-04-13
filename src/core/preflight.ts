@@ -165,6 +165,35 @@ function detectMultipleActiveInstructionScopes(
   ];
 }
 
+/**
+ * Warns when github-copilot has both a shared-via CLAUDE.md agentRules entry
+ * (scope: "repo" or "global") AND a native Copilot instruction entry
+ * (scope: "copilot-repo" or "copilot-scoped"). GitHub Copilot merges all
+ * active instruction sources at runtime, so duplicate or conflicting rules
+ * across these surfaces may cause unexpected agent behavior.
+ */
+function detectCopilotInstructionPrecedence(
+  rulesForAgent: Manifest["agentRules"],
+): PreflightWarning[] {
+  const hasSharedVia = (rulesForAgent ?? []).some(
+    (e) => e.scope === "repo" || e.scope === "global",
+  );
+  const hasNative = (rulesForAgent ?? []).some(
+    (e) => e.scope === "copilot-repo" || e.scope === "copilot-scoped",
+  );
+  if (!(hasSharedVia && hasNative)) return [];
+  return [
+    {
+      kind: "precedence",
+      message:
+        `Agent "github-copilot" will load both a CLAUDE.md-shared instruction file` +
+        ` and a native Copilot instruction file (.github/copilot-instructions.md or` +
+        ` .github/instructions/). GitHub Copilot merges all active instruction` +
+        ` sources - ensure content is non-conflicting and does not duplicate rules.`,
+    },
+  ];
+}
+
 function detectInstructionPrecedence(
   detectedAgents: AgentId[],
   manifest: Manifest,
@@ -180,6 +209,9 @@ function detectInstructionPrecedence(
     warnings.push(
       ...detectMultipleActiveInstructionScopes(agentId, rulesForAgent),
     );
+    if (agentId === "github-copilot") {
+      warnings.push(...detectCopilotInstructionPrecedence(rulesForAgent));
+    }
   }
 
   return warnings;
@@ -296,7 +328,13 @@ function collectCapabilityWarningsForAgent(
     | "agentDefinitions",
   entryName: string,
   targetAgents: AgentId[],
-  scope?: "global" | "repo" | "workspace" | "devcontainer",
+  scope?:
+    | "global"
+    | "repo"
+    | "workspace"
+    | "devcontainer"
+    | "copilot-repo"
+    | "copilot-scoped",
 ): void {
   const plan = planCapabilityForDeploy({
     agentId,
@@ -330,7 +368,13 @@ function collectCapabilityWarningsForTargets(
     | "permissions"
     | "agentDefinitions",
   entryName: string,
-  scope?: "global" | "repo" | "workspace" | "devcontainer",
+  scope?:
+    | "global"
+    | "repo"
+    | "workspace"
+    | "devcontainer"
+    | "copilot-repo"
+    | "copilot-scoped",
 ): void {
   for (const agentId of targetAgents) {
     collectCapabilityWarningsForAgent(

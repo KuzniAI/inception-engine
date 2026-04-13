@@ -122,7 +122,13 @@ export const AgentRuleEntrySchema = z.object({
   // file (default), "repo" targets the project-root instruction file within the
   // deployed repository (e.g. {repo}/CLAUDE.md for claude-code), and "workspace"
   // targets the agent's workspace-local instruction surface.
-  scope: z.enum(["global", "repo", "workspace"]).default("global"),
+  // "copilot-repo" targets GitHub Copilot's native repo-level instruction file
+  // at {repo}/.github/copilot-instructions.md (github-copilot only).
+  // "copilot-scoped" targets {repo}/.github/instructions/{name}.instructions.md
+  // where {name} is the manifest entry name (github-copilot only).
+  scope: z
+    .enum(["global", "repo", "workspace", "copilot-repo", "copilot-scoped"])
+    .default("global"),
 });
 
 export const PermissionsEntrySchema = z.object({

@@ -136,7 +136,7 @@ function findSharedSurfacePairs(
 
 function resolveAgentRulesSupportForScope(
   agentId: AgentId,
-  scope: "global" | "repo" | "workspace",
+  scope: "global" | "repo" | "workspace" | "copilot-repo" | "copilot-scoped",
 ) {
   const agent = AGENT_REGISTRY_BY_ID[agentId];
   if (scope === "repo")

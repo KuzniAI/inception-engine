@@ -50,9 +50,10 @@ const AGENT_RULES_FILE_PATTERNS: Array<{
       fileNames: [filename, filename.replace(".md", "-instructions.md")],
       agents,
     })),
-    // Convention mapping: copilot-instructions.md → claude-code. Copilot reads
-    // CLAUDE.md natively; this filename is a well-known convention that cannot
-    // be derived from any agent path template.
+    // Convention mapping for copilot-instructions.md found outside .github/:
+    // map to claude-code since Copilot reads CLAUDE.md natively. Files at
+    // .github/copilot-instructions.md are handled separately as a native
+    // Copilot surface via the copilot-repo scope.
     {
       fileNames: ["copilot-instructions.md"],
       agents: ["claude-code"] as AgentId[],
@@ -214,6 +215,7 @@ async function scanDirForMarkdown(
     relPath: string;
     name: string;
     defaultAgents: AgentId[];
+    scope?: AgentRuleEntry["scope"];
   }>,
 ): Promise<void> {
   let entries: import("node:fs").Dirent<string>[];
@@ -240,11 +242,19 @@ async function scanDirForMarkdown(
 async function findAgentRulesCandidates(
   baseDir: string,
   skillDirRelPaths: Set<string>,
-): Promise<Array<{ relPath: string; name: string; defaultAgents: AgentId[] }>> {
+): Promise<
+  Array<{
+    relPath: string;
+    name: string;
+    defaultAgents: AgentId[];
+    scope?: AgentRuleEntry["scope"];
+  }>
+> {
   const candidates: Array<{
     relPath: string;
     name: string;
     defaultAgents: AgentId[];
+    scope?: AgentRuleEntry["scope"];
   }> = [];
   const seen = new Set<string>();
 
@@ -265,6 +275,58 @@ async function findAgentRulesCandidates(
     );
   }
 
+  // Promote .github/copilot-instructions.md to the native copilot-repo scope.
+  // The general scanDirForMarkdown pass above picks it up via AGENT_RULES_SUBDIRS
+  // (".github"), so we just patch the candidate that was already added.
+  const copilotRepoRelPath = ".github/copilot-instructions.md";
+  const copilotRepoCandidate = candidates.find(
+    (c) => c.relPath === copilotRepoRelPath,
+  );
+  if (copilotRepoCandidate) {
+    copilotRepoCandidate.defaultAgents = ["github-copilot"];
+    copilotRepoCandidate.scope = "copilot-repo";
+  }
+
+  // Discover .github/instructions/*.instructions.md as copilot-scoped entries.
+  // These are not covered by the general scan (it only looks for .md/.markdown
+  // and the stem derivation would lose the .instructions suffix).
+  const instructionsDir = path.join(baseDir, ".github", "instructions");
+  let instrEntries: import("node:fs").Dirent<string>[];
+  try {
+    instrEntries = await readdir(instructionsDir, {
+      withFileTypes: true,
+      encoding: "utf-8",
+    });
+  } catch {
+    instrEntries = [];
+  }
+  for (const entry of instrEntries) {
+    if (!entry.isFile()) continue;
+    const lower = entry.name.toLowerCase();
+    if (!lower.endsWith(".instructions.md")) continue;
+    const absPath = path.join(instructionsDir, entry.name);
+    const relPath = path.relative(baseDir, absPath).split(path.sep).join("/");
+    if (seen.has(relPath) || isInsideSkillDir(relPath, skillDirRelPaths))
+      continue;
+    // Derive name by stripping ".instructions.md" suffix
+    const baseStem = entry.name.slice(0, -".instructions.md".length);
+    const rawName = baseStem.toLowerCase().replace(/[^a-zA-Z0-9._-]/g, "-");
+    if (!SAFE_NAME_RE.test(rawName)) {
+      logger.warn(
+        "init",
+        `Skipping "${relPath}": could not derive a valid agentRules name`,
+      );
+      continue;
+    }
+    seen.add(relPath);
+    candidates.push({
+      relPath,
+      name: rawName,
+      defaultAgents: ["github-copilot"],
+      scope: "copilot-scoped",
+    });
+  }
+
   return candidates;
 }
 
@@ -273,22 +335,36 @@ function buildAgentRules(
     relPath: string;
     name: string;
     defaultAgents: AgentId[];
+    scope?: AgentRuleEntry["scope"];
   }>,
   activeAgents: AgentId[],
+  allAgents: AgentId[],
   skillNamesSeen: Set<string>,
 ): AgentRuleEntry[] {
   const rules: AgentRuleEntry[] = [];
   const namesSeen = new Set<string>(skillNamesSeen);
 
-  for (const { relPath, name: rawName } of candidates) {
-    const fileName = path.basename(relPath);
-    const defaultAgents = defaultAgentsForFile(fileName, activeAgents);
-
-    // Intersect with active agents; fall back to full active list if empty
-    const intersection = defaultAgents.filter((a) => activeAgents.includes(a));
-    const agents = intersection.length > 0 ? intersection : activeAgents;
-
-    // Skip if no capable agents remain (e.g. --agents github-copilot only)
+  for (const {
+    relPath,
+    name: rawName,
+    defaultAgents: presetAgents,
+    scope: presetScope,
+  } of candidates) {
+    let agents: AgentId[];
+    if (presetAgents.length > 0) {
+      // Candidates with preset agents (e.g. copilot-repo, copilot-scoped) use
+      // those agents directly, intersected with the full agents list.
+      agents = presetAgents.filter((a) => allAgents.includes(a));
+    } else {
+      // Derive from filename pattern and intersect with active (capable) agents.
+      const defaults = defaultAgentsForFile(
+        path.basename(relPath),
+        activeAgents,
+      );
+      const ix = defaults.filter((a) => activeAgents.includes(a));
+      agents = ix.length > 0 ? ix : activeAgents;
+    }
+    // Skip if excluded by --agents or no capable agents remain
     if (agents.length === 0) continue;
 
     // Resolve name collision with skill names
@@ -311,7 +387,7 @@ function buildAgentRules(
     }
 
     namesSeen.add(name);
-    rules.push({ name, path: relPath, agents, scope: "global" });
+    rules.push({ name, path: relPath, agents, scope: presetScope ?? "global" });
   }
 
   return rules;
@@ -801,6 +877,7 @@ export async function runInit(options: InitOptions): Promise<number> {
   const agentRules = buildAgentRules(
     agentRulesCandidates,
     agentRulesCapableAgents,
+    agents,
     skillNamesSeen,
   );
 
