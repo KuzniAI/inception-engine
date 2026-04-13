@@ -272,13 +272,111 @@ export function validatePermissionsConfigShape(
   }
 }
 
-export function validateHookConfigShape(
-  _config: Record<string, unknown>,
-  _entryName: string,
-  _agentId: string,
+function validateClaudeHookCommand(
+  cmd: unknown,
+  path: string,
 ): void {
-  // Placeholder for agent-specific hook validation logic.
-  // Currently allows any record as a hook payload.
+  if (typeof cmd !== "object" || cmd === null || Array.isArray(cmd)) {
+    throw new UserError(
+      "DEPLOY_FAILED",
+      `hooks entry ${path} must be an object`,
+    );
+  }
+  const cmdObj = cmd as Record<string, unknown>;
+  if (cmdObj.type !== "command") {
+    throw new UserError(
+      "DEPLOY_FAILED",
+      `hooks entry ${path}.type must be "command"`,
+    );
+  }
+  if (typeof cmdObj.command !== "string") {
+    throw new UserError(
+      "DEPLOY_FAILED",
+      `hooks entry ${path}.command must be a string`,
+    );
+  }
+}
+
+function validateClaudeHookMatcher(
+  matcher: unknown,
+  path: string,
+): void {
+  if (
+    typeof matcher !== "object" ||
+    matcher === null ||
+    Array.isArray(matcher)
+  ) {
+    throw new UserError(
+      "DEPLOY_FAILED",
+      `hooks entry ${path} must be an object`,
+    );
+  }
+  const matcherObj = matcher as Record<string, unknown>;
+  if (
+    matcherObj.matcher !== undefined &&
+    typeof matcherObj.matcher !== "string"
+  ) {
+    throw new UserError(
+      "DEPLOY_FAILED",
+      `hooks entry ${path}.matcher must be a string when present`,
+    );
+  }
+  const matcherHooks = matcherObj.hooks;
+  if (!Array.isArray(matcherHooks)) {
+    throw new UserError(
+      "DEPLOY_FAILED",
+      `hooks entry ${path}.hooks must be an array`,
+    );
+  }
+  for (const [cmdIdx, cmd] of matcherHooks.entries()) {
+    validateClaudeHookCommand(cmd, `${path}.hooks[${cmdIdx}]`);
+  }
+}
+
+function validateClaudeCodeHooks(
+  config: Record<string, unknown>,
+  entryName: string,
+): void {
+  const unknownKeys = Object.keys(config).filter((k) => k !== "hooks");
+  if (unknownKeys.length > 0) {
+    throw new UserError(
+      "DEPLOY_FAILED",
+      `hooks entry "${entryName}" for agent "claude-code" contains unrecognized keys: ${unknownKeys.join(", ")}. Only "hooks" is allowed.`,
+    );
+  }
+  const hooks = config.hooks;
+  if (hooks === undefined) return;
+  if (typeof hooks !== "object" || hooks === null || Array.isArray(hooks)) {
+    throw new UserError(
+      "DEPLOY_FAILED",
+      `hooks entry "${entryName}" for agent "claude-code" must define "hooks" as an object`,
+    );
+  }
+  const hooksObj = hooks as Record<string, unknown>;
+  for (const [eventName, matchers] of Object.entries(hooksObj)) {
+    if (!Array.isArray(matchers)) {
+      throw new UserError(
+        "DEPLOY_FAILED",
+        `hooks entry "${entryName}" for agent "claude-code": "hooks.${eventName}" must be an array`,
+      );
+    }
+    for (const [idx, matcher] of matchers.entries()) {
+      validateClaudeHookMatcher(
+        matcher,
+        `"${entryName}" for agent "claude-code": "hooks.${eventName}[${idx}]"`,
+      );
+    }
+  }
+}
+
+export function validateHookConfigShape(
+  config: Record<string, unknown>,
+  entryName: string,
+  agentId: string,
+): void {
+  if (agentId === "claude-code") {
+    validateClaudeCodeHooks(config, entryName);
+  }
 }
 
 export function validateAgentRuleMarkdownPath(

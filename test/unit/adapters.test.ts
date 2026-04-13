@@ -3,6 +3,7 @@ import { realpath, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { describe, it } from "node:test";
 import { compileMcpServerActions } from "../../src/core/adapters/mcp.ts";
+import { compileHookActions } from "../../src/core/adapters/hooks.ts";
 import { compilePermissionsActions } from "../../src/core/adapters/permissions.ts";
 import { compileAgentRuleActions } from "../../src/core/adapters/rules.ts";
 import type {
@@ -1108,6 +1109,216 @@ describe("compilePermissionsActions", () => {
     const agents = actions.map((a) => a.agent);
     assert.ok(agents.includes("claude-code"));
     assert.ok(agents.includes("codex"));
+  });
+});
+
+describe("compileHookActions", () => {
+  const validClaudeHookConfig = {
+    hooks: {
+      PreToolUse: [
+        {
+          matcher: "Bash",
+          hooks: [{ type: "command", command: "scripts/check.sh" }],
+        },
+      ],
+    },
+  };
+
+  it("returns zero actions and warnings when no detected agents overlap", () => {
+    const { actions, warnings } = compileHookActions(
+      { name: "check", agents: ["claude-code"], config: validClaudeHookConfig },
+      ["codex"],
+      "/home/test",
+    );
+    assert.equal(actions.length, 0);
+    assert.equal(warnings.length, 0);
+  });
+
+  it("returns a config-patch action for claude-code targeting settings.json", () => {
+    const home = "/home/test";
+    const { actions, warnings } = compileHookActions(
+      { name: "check", agents: ["claude-code"], config: validClaudeHookConfig },
+      ["claude-code"],
+      home,
+    );
+    assert.equal(warnings.length, 0);
+    assert.equal(actions.length, 1);
+    const action = actions[0];
+    assert.equal(action.kind, "config-patch");
+    assert.ok(
+      action.target.endsWith(".claude/settings.json".replace("/", path.sep)),
+    );
+    assert.equal(action.agent, "claude-code");
+    assert.equal(action.confidence, "documented");
+  });
+
+  it("accepts a hooks entry with no matcher property on the matcher object", () => {
+    const { actions, warnings } = compileHookActions(
+      {
+        name: "check",
+        agents: ["claude-code"],
+        config: {
+          hooks: {
+            Stop: [{ hooks: [{ type: "command", command: "notify.sh" }] }],
+          },
+        },
+      },
+      ["claude-code"],
+      "/home/test",
+    );
+    assert.equal(warnings.length, 0);
+    assert.equal(actions.length, 1);
+  });
+
+  it("emits a warning and skips for agents without a hooks surface", () => {
+    const { actions, warnings } = compileHookActions(
+      { name: "check", agents: ["gemini-cli"], config: {} },
+      ["gemini-cli"],
+      "/home/test",
+    );
+    assert.equal(actions.length, 0);
+    assert.equal(warnings.length, 1);
+  });
+
+  it("throws on unknown top-level key in config for claude-code", () => {
+    assert.throws(
+      () =>
+        compileHookActions(
+          { name: "bad", agents: ["claude-code"], config: { bad_key: {} } },
+          ["claude-code"],
+          "/home/test",
+        ),
+      /unrecognized keys/,
+    );
+  });
+
+  it("throws when hooks value is not an object for claude-code", () => {
+    assert.throws(
+      () =>
+        compileHookActions(
+          { name: "bad", agents: ["claude-code"], config: { hooks: "string" } },
+          ["claude-code"],
+          "/home/test",
+        ),
+      /must define "hooks" as an object/,
+    );
+  });
+
+  it("throws when an event value is not an array", () => {
+    assert.throws(
+      () =>
+        compileHookActions(
+          {
+            name: "bad",
+            agents: ["claude-code"],
+            config: { hooks: { PreToolUse: "not-array" } },
+          },
+          ["claude-code"],
+          "/home/test",
+        ),
+      /must be an array/,
+    );
+  });
+
+  it("throws when a matcher element is not an object", () => {
+    assert.throws(
+      () =>
+        compileHookActions(
+          {
+            name: "bad",
+            agents: ["claude-code"],
+            config: { hooks: { PreToolUse: ["string"] } },
+          },
+          ["claude-code"],
+          "/home/test",
+        ),
+      /must be an object/,
+    );
+  });
+
+  it("throws when matcher.hooks is missing", () => {
+    assert.throws(
+      () =>
+        compileHookActions(
+          {
+            name: "bad",
+            agents: ["claude-code"],
+            config: { hooks: { PreToolUse: [{ matcher: "Bash" }] } },
+          },
+          ["claude-code"],
+          "/home/test",
+        ),
+      /must be an array/,
+    );
+  });
+
+  it("throws when a hook command type is not 'command'", () => {
+    assert.throws(
+      () =>
+        compileHookActions(
+          {
+            name: "bad",
+            agents: ["claude-code"],
+            config: {
+              hooks: {
+                PreToolUse: [
+                  {
+                    hooks: [{ type: "script", command: "check.sh" }],
+                  },
+                ],
+              },
+            },
+          },
+          ["claude-code"],
+          "/home/test",
+        ),
+      /must be "command"/,
+    );
+  });
+
+  it("throws when a hook command is not a string", () => {
+    assert.throws(
+      () =>
+        compileHookActions(
+          {
+            name: "bad",
+            agents: ["claude-code"],
+            config: {
+              hooks: {
+                PreToolUse: [{ hooks: [{ type: "command", command: 123 }] }],
+              },
+            },
+          },
+          ["claude-code"],
+          "/home/test",
+        ),
+      /must be a string/,
+    );
+  });
+
+  it("throws when matcher.matcher is not a string", () => {
+    assert.throws(
+      () =>
+        compileHookActions(
+          {
+            name: "bad",
+            agents: ["claude-code"],
+            config: {
+              hooks: {
+                PreToolUse: [
+                  {
+                    matcher: 42,
+                    hooks: [{ type: "command", command: "check.sh" }],
+                  },
+                ],
+              },
+            },
+          },
+          ["claude-code"],
+          "/home/test",
+        ),
+      /must be a string when present/,
+    );
   });
 });
 

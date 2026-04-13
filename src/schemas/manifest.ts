@@ -152,7 +152,8 @@ export const HookEntrySchema = z.object({
   name: nameField,
   agents: agentsField,
   // Raw hook config payload validated per agent by the hooks adapter.
-  // Supports lifecycle-binding hooks (e.g. pre-exec, post-exec) for various agents.
+  // For claude-code: { hooks: { "<EventName>": [{ matcher?: string, hooks: [{ type: "command", command: string }] }] } }
+  // Event names follow Claude Code's settings.json hooks surface (e.g. PreToolUse, PostToolUse, Notification, Stop, SubagentStop).
   config: z.record(z.string(), z.unknown()),
 });
 

@@ -143,7 +143,17 @@ Create an `inception.json` file at the root of your skills directory:
       "agents": ["claude-code"],
       "config": {
         "hooks": {
-          "pre_exec": "scripts/check-env.sh"
+          "PreToolUse": [
+            {
+              "matcher": "Bash",
+              "hooks": [{ "type": "command", "command": "scripts/check-env.sh" }]
+            }
+          ],
+          "Stop": [
+            {
+              "hooks": [{ "type": "command", "command": "scripts/notify.sh" }]
+            }
+          ]
         }
       }
     }
@@ -269,7 +279,7 @@ Each **hooks** entry deploys lifecycle-binding configurations to an agent's exec
 
 Hook deployment is currently supported for `claude-code`. For `github-copilot`, it is marked as `planned`. Other agents emit a warning and are skipped.
 
-For `claude-code`, the config is merged into `~/.claude/settings.json`. Only the `hooks` key is accepted:
+For `claude-code`, the config is merged into `~/.claude/settings.json`. Only the `hooks` key is accepted. Event names follow Claude Code's settings.json hooks surface (e.g. `PreToolUse`, `PostToolUse`, `Notification`, `Stop`, `SubagentStop`). Each event maps to an array of hook matchers; each matcher has an optional `matcher` string and a required `hooks` array of `{ type: "command", command: string }` objects:
 
 ```json
 {
@@ -277,8 +287,17 @@ For `claude-code`, the config is merged into `~/.claude/settings.json`. Only the
   "agents": ["claude-code"],
   "config": {
     "hooks": {
-      "pre_exec": "scripts/check-env.sh",
-      "post_exec": "scripts/notify.sh"
+      "PreToolUse": [
+        {
+          "matcher": "Bash",
+          "hooks": [{ "type": "command", "command": "scripts/check-env.sh" }]
+        }
+      ],
+      "Stop": [
+        {
+          "hooks": [{ "type": "command", "command": "scripts/notify.sh" }]
+        }
+      ]
     }
   }
 }
