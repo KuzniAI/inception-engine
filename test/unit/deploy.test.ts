@@ -115,6 +115,47 @@ describe("planDeploy", () => {
     }
   });
 
+  it("includes executionConfigs actions for supported detected agents", async () => {
+    const sourceDir = await makeTmpDir();
+    try {
+      const manifest: Manifest = {
+        ...testManifest,
+        executionConfigs: [
+          {
+            name: "gemini-safety",
+            agents: ["gemini-cli"],
+            config: { safeMode: true },
+          },
+        ],
+      };
+      await createSkillSource(sourceDir, "skills/test-skill");
+      const { actions } = await planDeploy(
+        manifest,
+        sourceDir,
+        ["gemini-cli"],
+        "/home/test",
+      );
+      const executionAction = actions.find(
+        (action) =>
+          action.kind === "config-patch" &&
+          action.agent === "gemini-cli" &&
+          action.skill === "gemini-safety",
+      ) as ConfigPatchDeployAction | undefined;
+      assert.ok(
+        executionAction,
+        "expected planDeploy to include the gemini executionConfigs patch",
+      );
+      assert.deepEqual(executionAction.patch, { safeMode: true });
+      assertPathEndsWith(
+        executionAction.target,
+        ".gemini/settings.json",
+        `expected Gemini execution config target under .gemini/settings.json, got: ${executionAction.target}`,
+      );
+    } finally {
+      await rm(sourceDir, { recursive: true });
+    }
+  });
+
   it("throws when skill source path does not exist", async () => {
     const sourceDir = await makeTmpDir();
     try {

@@ -19,6 +19,8 @@ import * as frontmatterAdapter from "./adapters/frontmatter.ts";
 import {
   compileAgentDefinitionReverts,
   compileAgentRuleReverts,
+  compileExecutionConfigReverts,
+  compileHookReverts,
   compileMcpServerReverts,
   compilePermissionsReverts,
 } from "./adapters/index.ts";
@@ -118,6 +120,12 @@ export function planRevert(
     ...(manifest.permissions ?? []).flatMap((e) =>
       compilePermissionsReverts(e, detectedAgents, home),
     ),
+    ...(manifest.hooks ?? []).flatMap((e) =>
+      compileHookReverts(e, detectedAgents, home),
+    ),
+    ...(manifest.executionConfigs ?? []).flatMap((e) =>
+      compileExecutionConfigReverts(e, detectedAgents, home),
+    ),
     ...(manifest.agentDefinitions ?? []).flatMap((e) =>
       compileAgentDefinitionReverts(e, detectedAgents, home, repo),
     ),
@@ -141,6 +149,10 @@ export function planRevertAll(
     ),
     ...(manifest.permissions ?? []).flatMap((e) =>
       compilePermissionsReverts(e, null, home),
+    ),
+    ...(manifest.hooks ?? []).flatMap((e) => compileHookReverts(e, null, home)),
+    ...(manifest.executionConfigs ?? []).flatMap((e) =>
+      compileExecutionConfigReverts(e, null, home),
     ),
     ...(manifest.agentDefinitions ?? []).flatMap((e) =>
       compileAgentDefinitionReverts(e, null, home, repo),

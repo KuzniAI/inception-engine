@@ -459,6 +459,7 @@ export async function planDeploy(
     manifest.agentDefinitions ?? [],
     workspace,
     manifest.hooks ?? [],
+    manifest.executionConfigs ?? [],
   );
   actions.push(...adapterResult.actions);
 

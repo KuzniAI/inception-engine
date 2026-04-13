@@ -53,6 +53,58 @@ describe("planRevert", () => {
     const actions = planRevert(testManifest, ["codex"], "/home/test");
     assert.equal(actions.length, 0);
   });
+
+  it("includes hook and execution-config reverts for detected agents", () => {
+    const manifest: Manifest = {
+      ...testManifest,
+      hooks: [
+        {
+          name: "pre-exec-check",
+          agents: ["claude-code"],
+          config: {
+            hooks: {
+              PreToolUse: [
+                {
+                  matcher: "Bash",
+                  hooks: [{ type: "command", command: "scripts/check.sh" }],
+                },
+              ],
+            },
+          },
+        },
+      ],
+      executionConfigs: [
+        {
+          name: "gemini-safety",
+          agents: ["gemini-cli"],
+          config: { safeMode: true },
+        },
+      ],
+    };
+    const actions = planRevert(
+      manifest,
+      ["claude-code", "gemini-cli"],
+      "/home/test",
+    );
+    assert.ok(
+      actions.some(
+        (action) =>
+          action.kind === "config-patch" &&
+          action.agent === "claude-code" &&
+          action.skill === "pre-exec-check",
+      ),
+      "expected hook revert action for Claude Code",
+    );
+    assert.ok(
+      actions.some(
+        (action) =>
+          action.kind === "config-patch" &&
+          action.agent === "gemini-cli" &&
+          action.skill === "gemini-safety",
+      ),
+      "expected execution config revert action for Gemini CLI",
+    );
+  });
 });
 
 describe("planRevertAll", () => {
@@ -128,6 +180,49 @@ describe("planRevertAll", () => {
     assert.match(
       targets.get("opencode") ?? "",
       /opencode[\\/]skills[\\/]test-skill$/,
+    );
+  });
+
+  it("includes hook and execution-config reverts for all manifest agents", () => {
+    const manifest: Manifest = {
+      ...testManifest,
+      hooks: [
+        {
+          name: "pre-exec-check",
+          agents: ["claude-code"],
+          config: {
+            hooks: {
+              Stop: [{ hooks: [{ type: "command", command: "notify.sh" }] }],
+            },
+          },
+        },
+      ],
+      executionConfigs: [
+        {
+          name: "gemini-safety",
+          agents: ["gemini-cli"],
+          config: { safeMode: true },
+        },
+      ],
+    };
+    const actions = planRevertAll(manifest, "/home/test");
+    assert.ok(
+      actions.some(
+        (action) =>
+          action.kind === "config-patch" &&
+          action.agent === "claude-code" &&
+          action.skill === "pre-exec-check",
+      ),
+      "expected planRevertAll to include Claude hook revert action",
+    );
+    assert.ok(
+      actions.some(
+        (action) =>
+          action.kind === "config-patch" &&
+          action.agent === "gemini-cli" &&
+          action.skill === "gemini-safety",
+      ),
+      "expected planRevertAll to include Gemini execution config revert action",
     );
   });
 });
