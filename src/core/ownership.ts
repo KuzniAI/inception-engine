@@ -82,6 +82,54 @@ export const defaultRegistryPersistence: RegistryPersistence = {
 };
 
 /**
+ * Per-run in-memory registry cache. Loads the registry from disk once on
+ * first access, buffers all save calls in memory, and writes to disk only
+ * when flush() is called explicitly at the end of a deploy or revert run.
+ *
+ * Implements RegistryPersistence so it can be passed as deps.registry to
+ * executeDeploy and executeRevert without touching any action-level callers.
+ */
+export class RunRegistry implements RegistryPersistence {
+  private cache: Registry | null = null;
+  private dirty = false;
+  private readonly backing: RegistryPersistence;
+
+  constructor(backing: RegistryPersistence) {
+    this.backing = backing;
+  }
+
+  async load(home: string): Promise<Registry> {
+    if (this.cache === null) {
+      this.cache = await this.backing.load(home);
+    }
+    return this.cache;
+  }
+
+  async save(_home: string, registry: Registry): Promise<void> {
+    this.cache = registry;
+    this.dirty = true;
+  }
+
+  /**
+   * Validate that the registry is writable before any actions run. Writes the
+   * current (possibly empty) registry state so that a backing store failure is
+   * detected upfront, before any filesystem changes are made by deploy or
+   * revert actions. Skipped in dry-run flows.
+   */
+  async preflight(home: string): Promise<void> {
+    const registry = await this.load(home);
+    await this.backing.save(home, registry);
+  }
+
+  async flush(home: string): Promise<void> {
+    if (this.dirty && this.cache !== null) {
+      await this.backing.save(home, this.cache);
+      this.dirty = false;
+    }
+  }
+}
+
+/**
  * Restrict access to the state directory regardless of umask.
  * On Windows, the OS inherits ACLs from the parent directory — no-op is correct.
  */

@@ -226,7 +226,8 @@ describe("executeRevert reserved state protections", () => {
     try {
       const target = path.join(home, ".inception-engine", "registry.json");
       await mkdir(path.dirname(target), { recursive: true });
-      await writeFile(target, "{}");
+      const initialContent = '{\n  "version": 1,\n  "deployments": {}\n}\n';
+      await writeFile(target, initialContent);
 
       const { failed, succeeded } = await executeRevert(
         [
@@ -248,7 +249,7 @@ describe("executeRevert reserved state protections", () => {
         failed[0]?.error ?? "",
         /Refusing to modify inception-engine state directory/,
       );
-      assert.equal(await readFile(target, "utf-8"), "{}");
+      assert.equal(await readFile(target, "utf-8"), initialContent);
     } finally {
       await rm(home, { recursive: true, force: true });
     }

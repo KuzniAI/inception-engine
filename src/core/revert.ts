@@ -28,9 +28,11 @@ import {
 import { revertTomlMcpPatch } from "./adapters/toml.ts";
 import { applyUndoPatch } from "./merge-patch.ts";
 import {
+  defaultRegistryPersistence,
   lookupDeployment,
   registryDirPath,
   type RegistryPersistence,
+  RunRegistry,
   unregisterDeployment,
 } from "./ownership.ts";
 import { resolveAgentSkillPath } from "./resolve.ts";
@@ -293,6 +295,18 @@ export async function executeRevert(
   const planned: PlannedChange[] = [];
   const counts = { succeeded: 0, skipped: 0 };
 
+  const runRegistry = new RunRegistry(
+    deps.registry ?? defaultRegistryPersistence,
+  );
+  const depsWithRegistry: RevertDependencies = {
+    ...deps,
+    registry: runRegistry,
+  };
+
+  if (!dryRun) {
+    await runRegistry.preflight(home);
+  }
+
   for (const action of actions) {
     let result: RevertOutcome;
     switch (action.kind) {
@@ -303,7 +317,7 @@ export async function executeRevert(
           verbose,
           home,
           planned,
-          deps,
+          depsWithRegistry,
         );
         break;
       case "file-write":
@@ -313,7 +327,7 @@ export async function executeRevert(
           verbose,
           home,
           planned,
-          deps,
+          depsWithRegistry,
         );
         break;
       case "config-patch":
@@ -323,7 +337,7 @@ export async function executeRevert(
           verbose,
           home,
           planned,
-          deps,
+          depsWithRegistry,
         );
         break;
       case "toml-patch":
@@ -333,7 +347,7 @@ export async function executeRevert(
           verbose,
           home,
           planned,
-          deps,
+          depsWithRegistry,
         );
         break;
       case "frontmatter-emit":
@@ -343,7 +357,7 @@ export async function executeRevert(
           verbose,
           home,
           planned,
-          deps,
+          depsWithRegistry,
         );
         break;
       default: {
@@ -353,6 +367,10 @@ export async function executeRevert(
       }
     }
     recordOutcome(result, action, counts, failed);
+  }
+
+  if (!dryRun) {
+    await runRegistry.flush(home);
   }
 
   return {

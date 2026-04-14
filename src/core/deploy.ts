@@ -39,10 +39,12 @@ import {
   isPlainObject,
 } from "./merge-patch.ts";
 import {
+  defaultRegistryPersistence,
   lookupDeployment,
   type RegistryPersistence,
   registryDirPath,
   registerDeployment,
+  RunRegistry,
   verifyDeployment,
 } from "./ownership.ts";
 import { getDeployMethod, resolveAgentSkillPath } from "./resolve.ts";
@@ -589,6 +591,18 @@ export async function executeDeploy(
   const failed: Array<{ action: DeployAction; error: string }> = [];
   const planned: PlannedChange[] = [];
 
+  const runRegistry = new RunRegistry(
+    deps.registry ?? defaultRegistryPersistence,
+  );
+  const depsWithRegistry: DeployDependencies = {
+    ...deps,
+    registry: runRegistry,
+  };
+
+  if (!dryRun) {
+    await runRegistry.preflight(home);
+  }
+
   for (const action of actions) {
     const result = await dispatchDeployAction(
       action,
@@ -596,13 +610,17 @@ export async function executeDeploy(
       verbose,
       home,
       planned,
-      deps,
+      depsWithRegistry,
     );
     if (result.error === null) {
       succeeded++;
     } else {
       failed.push({ action, error: result.error });
     }
+  }
+
+  if (!dryRun) {
+    await runRegistry.flush(home);
   }
 
   return { succeeded, failed, planned };

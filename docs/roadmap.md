@@ -16,8 +16,8 @@ Maximum score: `12`
 Score format:
 `Score X/12 (Architecture A, Agents B, OS C, Confidence D, Safety E, Stability F)`
 
-1. **Cache registry state per run instead of reparsing and rewriting it for every deploy action.**  
-   Ownership tracking is currently correct, but the registry is loaded, parsed, stringified, and permission-adjusted repeatedly during deploy and revert flows. As manifests grow, this makes runtime scale with both action count and registry size. Introduce a per-run in-memory registry layer with an explicit flush boundary so ownership checks remain accurate while repeated JSON and filesystem churn are removed. Use that flush boundary to standardize a single durable write path for registry persistence rather than letting each update behave like an isolated full-file rewrite.  
+1. ~~**Cache registry state per run instead of reparsing and rewriting it for every deploy action.**~~  
+   ~~Ownership tracking is currently correct, but the registry is loaded, parsed, stringified, and permission-adjusted repeatedly during deploy and revert flows. As manifests grow, this makes runtime scale with both action count and registry size. Introduce a per-run in-memory registry layer with an explicit flush boundary so ownership checks remain accurate while repeated JSON and filesystem churn are removed. Use that flush boundary to standardize a single durable write path for registry persistence rather than letting each update behave like an isolated full-file rewrite.~~  
    `Score 11/12 (Architecture 2, Agents 1, OS 2, Confidence 2, Safety 2, Stability 2)`
 
 2. **Parallelize independent deploy work with bounded concurrency and target isolation.**  

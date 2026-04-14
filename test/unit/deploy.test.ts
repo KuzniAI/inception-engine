@@ -1720,7 +1720,7 @@ describe("executeDeploy — file-write", () => {
     }
   });
 
-  it("rolls back a newly written file when registry persistence fails", async () => {
+  it("aborts deploy without writing any files when registry is not writable", async () => {
     const sourceDir = await makeTmpDir();
     const home = await makeTmpDir();
     try {
@@ -1745,18 +1745,15 @@ describe("executeDeploy — file-write", () => {
         },
       };
 
-      const { succeeded, failed } = await executeDeploy(
-        [action],
-        false,
-        false,
-        home,
-        { registry: failingRegistry },
+      await assert.rejects(
+        executeDeploy([action], false, false, home, {
+          registry: failingRegistry,
+        }),
+        /registry unavailable/,
       );
-      assert.equal(succeeded, 0);
-      assert.equal(failed.length, 1);
       assert.ok(
         !(await exists(targetFile)),
-        "target file should be rolled back",
+        "target file should not be written",
       );
       assert.ok(!(await exists(`${targetFile}.inception-backup`)));
     } finally {
@@ -1765,7 +1762,7 @@ describe("executeDeploy — file-write", () => {
     }
   });
 
-  it("restores the previous managed file when registry persistence fails during overwrite", async () => {
+  it("aborts deploy without touching managed files when registry is not writable", async () => {
     const sourceDir = await makeTmpDir();
     const home = await makeTmpDir();
     try {
@@ -1774,24 +1771,19 @@ describe("executeDeploy — file-write", () => {
       await writeFile(sourceFile, "new content");
       await writeFile(targetFile, "old content");
 
-      let loadCount = 0;
       const failingRegistry = {
         async load() {
-          loadCount += 1;
           return {
             version: 1 as const,
-            deployments:
-              loadCount === 1
-                ? {
-                    [targetFile]: {
-                      kind: "file-write" as const,
-                      source: sourceFile,
-                      skill: "test-skill",
-                      agent: "claude-code" as const,
-                      deployed: new Date().toISOString(),
-                    },
-                  }
-                : {},
+            deployments: {
+              [targetFile]: {
+                kind: "file-write" as const,
+                source: sourceFile,
+                skill: "test-skill",
+                agent: "claude-code" as const,
+                deployed: new Date().toISOString(),
+              },
+            },
           };
         },
         async save() {
@@ -1807,15 +1799,12 @@ describe("executeDeploy — file-write", () => {
         target: targetFile,
       };
 
-      const { succeeded, failed } = await executeDeploy(
-        [action],
-        false,
-        false,
-        home,
-        { registry: failingRegistry },
+      await assert.rejects(
+        executeDeploy([action], false, false, home, {
+          registry: failingRegistry,
+        }),
+        /registry unavailable/,
       );
-      assert.equal(succeeded, 0);
-      assert.equal(failed.length, 1);
       assert.equal(await readFile(targetFile, "utf-8"), "old content");
       assert.ok(!(await exists(`${targetFile}.inception-backup`)));
     } finally {
@@ -2270,7 +2259,7 @@ describe("executeDeploy — config-patch", () => {
     }
   });
 
-  it("restores the original config when registry persistence fails after patching", async () => {
+  it("aborts deploy without patching config when registry is not writable", async () => {
     const home = await makeTmpDir();
     try {
       const configFile = path.join(home, "config.json");
@@ -2293,15 +2282,12 @@ describe("executeDeploy — config-patch", () => {
         },
       };
 
-      const { succeeded, failed } = await executeDeploy(
-        [action],
-        false,
-        false,
-        home,
-        { registry: failingRegistry },
+      await assert.rejects(
+        executeDeploy([action], false, false, home, {
+          registry: failingRegistry,
+        }),
+        /registry unavailable/,
       );
-      assert.equal(succeeded, 0);
-      assert.equal(failed.length, 1);
       assert.deepEqual(JSON.parse(await readFile(configFile, "utf-8")), {
         a: 1,
         b: 2,
@@ -2492,7 +2478,7 @@ describe("executeDeploy — frontmatter-emit", () => {
     }
   });
 
-  it("restores the original markdown file when registry persistence fails", async () => {
+  it("aborts deploy without touching the markdown file when registry is not writable", async () => {
     const home = await makeTmpDir();
     try {
       const targetFile = path.join(home, ".agents", "rules", "my-mcp.md");
@@ -2517,15 +2503,12 @@ describe("executeDeploy — frontmatter-emit", () => {
         },
       };
 
-      const { succeeded, failed } = await executeDeploy(
-        [action],
-        false,
-        false,
-        home,
-        { registry: failingRegistry },
+      await assert.rejects(
+        executeDeploy([action], false, false, home, {
+          registry: failingRegistry,
+        }),
+        /registry unavailable/,
       );
-      assert.equal(succeeded, 0);
-      assert.equal(failed.length, 1);
       assert.equal(await readFile(targetFile, "utf-8"), original);
       assert.ok(!(await exists(`${targetFile}.inception-backup`)));
     } finally {
