@@ -286,20 +286,44 @@ const USER_ERROR_EXIT: Record<ErrorCode, number> = {
 
 const debugMode = process.argv.includes("--debug");
 
+// Track whether a shutdown signal arrived while an operation was running.
+// When set, we preserve the signal exit code rather than overwriting it
+// with the operation result (which may be 0 if the operation completed
+// before the signal was processed).
+let shutdownSignal: NodeJS.Signals | null = null;
+
+function handleSignal(sig: NodeJS.Signals): void {
+  if (shutdownSignal !== null) return;
+  shutdownSignal = sig;
+  process.stderr.write(`\nReceived ${sig}, finishing current operation...\n`);
+  // Standard Unix convention: 128 + signal number (SIGINT=2, SIGTERM=15)
+  process.exitCode = sig === "SIGINT" ? 130 : 143;
+}
+
+process.on("SIGINT", () => handleSignal("SIGINT"));
+process.on("SIGTERM", () => handleSignal("SIGTERM"));
+
 try {
-  process.exit(await main());
+  const code = await main();
+  if (shutdownSignal === null) {
+    process.exitCode = code;
+  }
 } catch (err) {
   if (err instanceof UserError) {
     logger.error(`Error: ${err.message}`);
     if (debugMode) {
       logger.errorRaw(err);
     }
-    process.exit(USER_ERROR_EXIT[err.code]);
+    if (shutdownSignal === null) {
+      process.exitCode = USER_ERROR_EXIT[err.code];
+    }
   } else {
     logger.error("Unexpected error. Run with --debug for details.");
     if (debugMode) {
       logger.errorRaw(err);
     }
-    process.exit(1);
+    if (shutdownSignal === null) {
+      process.exitCode = 1;
+    }
   }
 }

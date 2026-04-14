@@ -40,8 +40,8 @@ Score format:
     Preflight still collects some agent-specific warnings sequentially even though the work is mostly independent file reads and environment inspection. Running those checks concurrently would not change behavior, but it would reduce startup latency as the number of detected agents grows. Keep warning ordering deterministic if the output contract depends on it.  
     `Score 8/12 (Architecture 1, Agents 1, OS 2, Confidence 2, Safety 1, Stability 1)`
 
-7. **Replace top-level `process.exit(...)` control flow with exit-code assignment and signal-aware shutdown.**  
-   The CLI currently exits directly from the top-level wrapper after `main()` resolves or throws. In modern Node.js CLIs, setting `process.exitCode` and letting the event loop drain is safer because it reduces the risk of truncating buffered stdout or stderr output and leaves room for shared cleanup paths. Add explicit `SIGINT` and `SIGTERM` handling so long-running deploy, revert, and init flows can stop cleanly and report partial progress consistently.  
+7. ~~**Replace top-level `process.exit(...)` control flow with exit-code assignment and signal-aware shutdown.**~~  
+   ~~The CLI currently exits directly from the top-level wrapper after `main()` resolves or throws. In modern Node.js CLIs, setting `process.exitCode` and letting the event loop drain is safer because it reduces the risk of truncating buffered stdout or stderr output and leaves room for shared cleanup paths. Add explicit `SIGINT` and `SIGTERM` handling so long-running deploy, revert, and init flows can stop cleanly and report partial progress consistently.~~  
    `Score 10/12 (Architecture 2, Agents 1, OS 2, Confidence 2, Safety 1, Stability 2)`
 
 8. **Thread cancellation through long-running filesystem workflows with `AbortSignal`.**  
