@@ -48,8 +48,8 @@ Score format:
    Deploy, revert, preflight, and init are written as async flows, but once started they mostly run to completion even if the user interrupts the process. Add a root `AbortController`, pass its signal through the planning and execution layers, and teach long loops plus supported filesystem calls to stop at explicit checkpoints. That aligns better with modern Node patterns for cooperative cancellation and makes signal handling practical instead of best-effort only at the process boundary.  
    `Score 9/12 (Architecture 2, Agents 1, OS 2, Confidence 2, Safety 1, Stability 1)`
 
-9. **Standardize every state and config write on one atomic file-write primitive.**  
-   Some write paths already stage to a temp file and `rename()` into place, but others still write final targets directly, including registry persistence, `init` manifest generation, and parts of revert. Unify these on a shared helper that stages in the target directory, renames atomically, and handles cleanup consistently. This is a modern Node CLI reliability baseline for tools that mutate user config and local state, especially when an interruption or crash lands between serialize and persist steps.  
+9. ~~**Standardize every state and config write on one atomic file-write primitive.**~~  
+   ~~Some write paths already stage to a temp file and `rename()` into place, but others still write final targets directly, including registry persistence, `init` manifest generation, and parts of revert. Unify these on a shared helper that stages in the target directory, renames atomically, and handles cleanup consistently. This is a modern Node CLI reliability baseline for tools that mutate user config and local state, especially when an interruption or crash lands between serialize and persist steps.~~  
    `Score 11/12 (Architecture 2, Agents 1, OS 2, Confidence 2, Safety 2, Stability 2)`
 
 10. **Preserve underlying failure causes in a typed CLI error model.**  

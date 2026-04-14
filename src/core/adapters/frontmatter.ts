@@ -1,6 +1,6 @@
-import { mkdir, readFile, rename, rm, writeFile } from "node:fs/promises";
-import path from "node:path";
+import { readFile } from "node:fs/promises";
 import YAML from "yaml";
+import { writeFileAtomic } from "../atomic-write.ts";
 
 /**
  * Splits a Markdown string into YAML frontmatter and the remaining body.
@@ -82,12 +82,6 @@ export function buildMarkdownDocument(
   return `---\n${serialized}\n---\n${separator}${cleanBody}`;
 }
 
-function createAtomicTempPath(targetPath: string): string {
-  return `${targetPath}.inception-tmp-${process.pid}-${Date.now()}-${Math.random()
-    .toString(36)
-    .slice(2)}`;
-}
-
 /**
  * Reads an existing `.md` file and parses its frontmatter.
  * Returns `{ attributes: {}, body: "" }` if the file does not exist.
@@ -140,17 +134,5 @@ export async function writeFrontmatterFile(
     body = existing.body;
   }
   const content = buildFrontmatterDocument(frontmatter, body);
-  const tempPath = createAtomicTempPath(filePath);
-  try {
-    await mkdir(path.dirname(filePath), { recursive: true });
-    await writeFile(tempPath, content, "utf-8");
-    await rename(tempPath, filePath);
-  } catch (err) {
-    try {
-      await rm(tempPath, { force: true });
-    } catch {
-      /* best-effort cleanup */
-    }
-    throw err;
-  }
+  await writeFileAtomic(filePath, content);
 }

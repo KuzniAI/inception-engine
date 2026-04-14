@@ -1,4 +1,5 @@
-import { chmod, lstat, mkdir, readFile, writeFile } from "node:fs/promises";
+import { chmod, lstat, mkdir, readFile } from "node:fs/promises";
+import { writeFileAtomic } from "./atomic-write.ts";
 import path from "node:path";
 import {
   type ConfigPatchRegistryEntry,
@@ -72,7 +73,7 @@ async function saveRegistry(home: string, registry: Registry): Promise<void> {
   await setDirectoryPermissions(dir);
   const filePath = registryPath(home);
   await assertSafeRegistryStoragePath(filePath, "registry file");
-  await writeFile(filePath, `${JSON.stringify(registry, null, 2)}\n`);
+  await writeFileAtomic(filePath, `${JSON.stringify(registry, null, 2)}\n`);
   await setFilePermissions(filePath);
 }
 

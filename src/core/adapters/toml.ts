@@ -1,6 +1,6 @@
-import { mkdir, readFile, rename, rm, writeFile } from "node:fs/promises";
-import path from "node:path";
+import { readFile } from "node:fs/promises";
 import { parse, stringify } from "smol-toml";
+import { writeFileAtomic } from "../atomic-write.ts";
 
 /**
  * Reads and parses a TOML file. Returns an empty object if the file does not
@@ -21,29 +21,11 @@ export async function readTomlConfig(
   return parsed as Record<string, unknown>;
 }
 
-function createAtomicTempPath(targetPath: string): string {
-  return `${targetPath}.inception-tmp-${process.pid}-${Date.now()}-${Math.random()
-    .toString(36)
-    .slice(2)}`;
-}
-
 async function writeTomlConfigAtomic(
   filePath: string,
   obj: Record<string, unknown>,
 ): Promise<void> {
-  const tempPath = createAtomicTempPath(filePath);
-  try {
-    await mkdir(path.dirname(filePath), { recursive: true });
-    await writeFile(tempPath, stringify(obj), "utf-8");
-    await rename(tempPath, filePath);
-  } catch (err) {
-    try {
-      await rm(tempPath, { force: true });
-    } catch {
-      /* best-effort cleanup */
-    }
-    throw err;
-  }
+  await writeFileAtomic(filePath, stringify(obj));
 }
 
 /**

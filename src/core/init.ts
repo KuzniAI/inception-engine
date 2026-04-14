@@ -1,4 +1,5 @@
-import { access, readdir, readFile, writeFile } from "node:fs/promises";
+import { access, readdir, readFile } from "node:fs/promises";
+import { writeFileAtomic } from "./atomic-write.ts";
 import path from "node:path";
 import { AGENT_REGISTRY } from "../config/agents.ts";
 import { dryRunPrefix, logger } from "../logger.ts";
@@ -939,7 +940,7 @@ export async function runInit(options: InitOptions): Promise<number> {
     return 0;
   }
 
-  await writeFile(manifestPath, json, "utf-8");
+  await writeFileAtomic(manifestPath, json);
 
   logger.info(`Generated ${manifestPath} with ${summarize()}.`);
   if (verbose) {

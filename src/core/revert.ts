@@ -1,4 +1,5 @@
-import { lstat, readFile, rm, unlink, writeFile } from "node:fs/promises";
+import { lstat, readFile, rm, unlink } from "node:fs/promises";
+import { writeFileAtomic } from "./atomic-write.ts";
 import path from "node:path";
 import { AGENT_REGISTRY_BY_ID } from "../config/agents.ts";
 import { logger } from "../logger.ts";
@@ -445,7 +446,7 @@ async function applyFrontmatterRevert(
     current.body,
     { hasFrontmatter: frontmatterEntry.hadFrontmatter ?? false },
   );
-  await writeFile(action.target, restoredContent, "utf-8");
+  await writeFileAtomic(action.target, restoredContent);
   return { shouldDeleteFile };
 }
 
@@ -727,10 +728,9 @@ async function revertConfigPatch(
     const current = await readJsonConfig(action.target);
     const restored = applyUndoPatch(current, configPatchEntry.undoPatch);
 
-    await writeFile(
+    await writeFileAtomic(
       action.target,
       `${JSON.stringify(restored, null, 2)}\n`,
-      "utf-8",
     );
     await unregisterDeployment(home, action.target, deps.registry);
     logger.ok(label);
