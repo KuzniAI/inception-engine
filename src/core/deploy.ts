@@ -513,6 +513,7 @@ export async function planDeploy(
   home: string,
   repo?: string,
   workspace?: string,
+  signal?: AbortSignal,
 ): Promise<{ actions: DeployAction[]; warnings: PlanWarning[] }> {
   assertNoAntigravityPathCollisions(manifest);
 
@@ -534,6 +535,8 @@ export async function planDeploy(
     home,
   );
 
+  if (signal?.aborted) return { actions: [], warnings: [] };
+
   const actions: DeployAction[] = [
     ...skillPlan.actions,
     ...(await planFileWriteActions(
@@ -554,6 +557,8 @@ export async function planDeploy(
       workspace,
     ),
   ];
+
+  if (signal?.aborted) return { actions: [], warnings: [] };
 
   const adapterResult = await compileAdapterActions(
     manifest.mcpServers,
@@ -593,6 +598,7 @@ export async function executeDeploy(
   verbose: boolean,
   home: string,
   deps: DeployDependencies = {},
+  signal?: AbortSignal,
 ): Promise<{
   succeeded: number;
   failed: Array<{ action: DeployAction; error: string }>;
@@ -624,6 +630,7 @@ export async function executeDeploy(
   }
 
   for (const action of actions) {
+    if (signal?.aborted) break;
     const result = await dispatchDeployAction(
       action,
       dryRun,

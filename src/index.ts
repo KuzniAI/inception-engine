@@ -145,6 +145,7 @@ async function main(): Promise<number> {
       dryRun: options.dryRun,
       force: options.force,
       verbose: options.verbose,
+      signal: controller.signal,
     });
   }
 
@@ -152,15 +153,16 @@ async function main(): Promise<number> {
   const home = resolveHome();
 
   if (options.command === "deploy") {
-    return runDeploy(options, manifest, home);
+    return runDeploy(options, manifest, home, controller.signal);
   }
-  return runRevert(options, manifest, home);
+  return runRevert(options, manifest, home, controller.signal);
 }
 
 async function runDeploy(
   options: CliOptions,
   manifest: Manifest,
   home: string,
+  signal: AbortSignal,
 ): Promise<number> {
   let detectedAgents: AgentId[];
   if (options.agents) {
@@ -187,6 +189,7 @@ async function runDeploy(
     manifest,
     home,
     detectedAgents,
+    signal,
   );
   for (const w of preflightWarnings) {
     const label = w.kind === "policy" ? "policy" : "preflight";
@@ -198,6 +201,9 @@ async function runDeploy(
     options.directory,
     detectedAgents,
     home,
+    undefined,
+    undefined,
+    signal,
   );
   for (const w of planWarnings) {
     logger.warn("plan", w.message);
@@ -215,6 +221,8 @@ async function runDeploy(
     options.dryRun,
     options.verbose,
     home,
+    {},
+    signal,
   );
 
   if (options.dryRun) {
@@ -237,6 +245,7 @@ async function runRevert(
   options: CliOptions,
   manifest: Manifest,
   home: string,
+  signal: AbortSignal,
 ): Promise<number> {
   const actions = options.agents
     ? planRevert(manifest, options.agents, home)
@@ -254,6 +263,8 @@ async function runRevert(
     options.dryRun,
     options.verbose,
     home,
+    {},
+    signal,
   );
 
   if (options.dryRun) {
@@ -286,6 +297,10 @@ const USER_ERROR_EXIT: Record<ErrorCode, number> = {
 
 const debugMode = process.argv.includes("--debug");
 
+// Root cancellation controller. Signal handlers abort this when the user
+// interrupts the process so long-running loops can stop cooperatively.
+const controller = new AbortController();
+
 // Track whether a shutdown signal arrived while an operation was running.
 // When set, we preserve the signal exit code rather than overwriting it
 // with the operation result (which may be 0 if the operation completed
@@ -298,6 +313,7 @@ function handleSignal(sig: NodeJS.Signals): void {
   process.stderr.write(`\nReceived ${sig}, finishing current operation...\n`);
   // Standard Unix convention: 128 + signal number (SIGINT=2, SIGTERM=15)
   process.exitCode = sig === "SIGINT" ? 130 : 143;
+  controller.abort();
 }
 
 process.on("SIGINT", () => handleSignal("SIGINT"));

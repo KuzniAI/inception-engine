@@ -103,7 +103,9 @@ async function findSkillDirs(
   baseDir: string,
   dir: string,
   found: Array<{ relPath: string; name: string }>,
+  signal?: AbortSignal,
 ): Promise<void> {
+  if (signal?.aborted) return;
   let entries: import("node:fs").Dirent<string>[];
   try {
     entries = await readdir(dir, { withFileTypes: true, encoding: "utf-8" });
@@ -128,8 +130,9 @@ async function findSkillDirs(
   }
 
   for (const entry of entries) {
+    if (signal?.aborted) return;
     if (entry.isDirectory() && !entry.name.startsWith(".")) {
-      await findSkillDirs(baseDir, path.join(dir, entry.name), found);
+      await findSkillDirs(baseDir, path.join(dir, entry.name), found, signal);
     }
   }
 }
@@ -218,7 +221,9 @@ async function scanDirForMarkdown(
     defaultAgents: AgentId[];
     scope?: AgentRuleEntry["scope"];
   }>,
+  signal?: AbortSignal,
 ): Promise<void> {
+  if (signal?.aborted) return;
   let entries: import("node:fs").Dirent<string>[];
   try {
     entries = await readdir(dir, { withFileTypes: true, encoding: "utf-8" });
@@ -243,6 +248,7 @@ async function scanDirForMarkdown(
 async function findAgentRulesCandidates(
   baseDir: string,
   skillDirRelPaths: Set<string>,
+  signal?: AbortSignal,
 ): Promise<
   Array<{
     relPath: string;
@@ -265,6 +271,7 @@ async function findAgentRulesCandidates(
     skillDirRelPaths,
     seen,
     candidates,
+    signal,
   );
   for (const subdir of AGENT_RULES_SUBDIRS) {
     await scanDirForMarkdown(
@@ -273,6 +280,7 @@ async function findAgentRulesCandidates(
       skillDirRelPaths,
       seen,
       candidates,
+      signal,
     );
   }
 
@@ -291,6 +299,7 @@ async function findAgentRulesCandidates(
   // Discover .github/instructions/*.instructions.md as copilot-scoped entries.
   // These are not covered by the general scan (it only looks for .md/.markdown
   // and the stem derivation would lose the .instructions suffix).
+  if (signal?.aborted) return candidates;
   const instructionsDir = path.join(baseDir, ".github", "instructions");
   let instrEntries: import("node:fs").Dirent<string>[];
   try {
@@ -527,6 +536,7 @@ async function findAgentDefinitionCandidates(
   baseDir: string,
   skillDirRelPaths: Set<string>,
   agentRulesRelPaths: Set<string>,
+  signal?: AbortSignal,
 ): Promise<
   Array<{ relPath: string; name: string; suggestedAgents: AgentId[] }>
 > {
@@ -538,6 +548,7 @@ async function findAgentDefinitionCandidates(
   const seen = new Set<string>();
 
   for (const subdir of AGENT_DEFINITION_SUBDIRS) {
+    if (signal?.aborted) break;
     await scanDefinitionSubdir(
       subdir,
       baseDir,
@@ -840,10 +851,11 @@ export interface InitOptions {
   dryRun: boolean;
   force: boolean;
   verbose: boolean;
+  signal?: AbortSignal;
 }
 
 export async function runInit(options: InitOptions): Promise<number> {
-  const { directory, dryRun, force, verbose } = options;
+  const { directory, dryRun, force, verbose, signal } = options;
   const agents: AgentId[] = options.agents ?? ([...AGENT_IDS] as AgentId[]);
   const agentRulesCapableAgents = agents.filter((id) =>
     shouldInitIncludeAgent(id, "agentRules", "global"),
@@ -859,7 +871,9 @@ export async function runInit(options: InitOptions): Promise<number> {
   }
 
   const found: Array<{ relPath: string; name: string }> = [];
-  await findSkillDirs(directory, directory, found);
+  await findSkillDirs(directory, directory, found, signal);
+
+  if (signal?.aborted) return 0;
 
   if (found.length === 0) {
     logger.info(
@@ -874,7 +888,11 @@ export async function runInit(options: InitOptions): Promise<number> {
   const agentRulesCandidates = await findAgentRulesCandidates(
     directory,
     skillDirRelPaths,
+    signal,
   );
+
+  if (signal?.aborted) return 0;
+
   const agentRules = buildAgentRules(
     agentRulesCandidates,
     agentRulesCapableAgents,
@@ -892,7 +910,10 @@ export async function runInit(options: InitOptions): Promise<number> {
     directory,
     skillDirRelPaths,
     agentRulesRelPaths,
+    signal,
   );
+
+  if (signal?.aborted) return 0;
   const discoveredDefinitions = buildAgentDefinitions(
     agentDefinitionCandidates,
     agents,

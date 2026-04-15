@@ -294,6 +294,7 @@ export async function executeRevert(
   verbose: boolean,
   home: string,
   deps: RevertDependencies = {},
+  signal?: AbortSignal,
 ): Promise<{
   succeeded: number;
   skipped: number;
@@ -317,6 +318,7 @@ export async function executeRevert(
   }
 
   for (const action of actions) {
+    if (signal?.aborted) break;
     let result: RevertOutcome;
     switch (action.kind) {
       case "skill-dir":

@@ -520,16 +520,22 @@ export async function runPreflight(
   manifest: Manifest,
   home: string,
   detectedAgents: AgentId[],
+  signal?: AbortSignal,
 ): Promise<PreflightWarning[]> {
   const warnings: PreflightWarning[] = [];
 
   for (const agentId of detectedAgents) {
+    if (signal?.aborted) return warnings;
     warnings.push(...(await collectAgentWarnings(agentId, manifest, home)));
   }
 
+  if (signal?.aborted) return warnings;
   warnings.push(...detectCapabilityPlanningWarnings(manifest, detectedAgents));
 
+  if (signal?.aborted) return warnings;
   warnings.push(...detectInstructionPrecedence(detectedAgents, manifest));
+
+  if (signal?.aborted) return warnings;
   warnings.push(
     ...(await detectInstructionBudgetRisk(
       detectedAgents,

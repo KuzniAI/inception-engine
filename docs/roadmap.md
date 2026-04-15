@@ -44,8 +44,8 @@ Score format:
    ~~The CLI currently exits directly from the top-level wrapper after `main()` resolves or throws. In modern Node.js CLIs, setting `process.exitCode` and letting the event loop drain is safer because it reduces the risk of truncating buffered stdout or stderr output and leaves room for shared cleanup paths. Add explicit `SIGINT` and `SIGTERM` handling so long-running deploy, revert, and init flows can stop cleanly and report partial progress consistently.~~  
    `Score 10/12 (Architecture 2, Agents 1, OS 2, Confidence 2, Safety 1, Stability 2)`
 
-8. **Thread cancellation through long-running filesystem workflows with `AbortSignal`.**  
-   Deploy, revert, preflight, and init are written as async flows, but once started they mostly run to completion even if the user interrupts the process. Add a root `AbortController`, pass its signal through the planning and execution layers, and teach long loops plus supported filesystem calls to stop at explicit checkpoints. That aligns better with modern Node patterns for cooperative cancellation and makes signal handling practical instead of best-effort only at the process boundary.  
+8. ~~**Thread cancellation through long-running filesystem workflows with `AbortSignal`.**~~  
+   ~~Deploy, revert, preflight, and init are written as async flows, but once started they mostly run to completion even if the user interrupts the process. Add a root `AbortController`, pass its signal through the planning and execution layers, and teach long loops plus supported filesystem calls to stop at explicit checkpoints. That aligns better with modern Node patterns for cooperative cancellation and makes signal handling practical instead of best-effort only at the process boundary.~~  
    `Score 9/12 (Architecture 2, Agents 1, OS 2, Confidence 2, Safety 1, Stability 1)`
 
 9. ~~**Standardize every state and config write on one atomic file-write primitive.**~~  
