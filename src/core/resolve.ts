@@ -127,7 +127,8 @@ export function resolveAgentSkillPathFor(
       agent.skillsSurfaceKind?.kind === "shared-via"
         ? ` Deploy skills via the "${agent.skillsSurfaceKind.via}" target, which covers this agent natively.`
         : "";
-    throw new Error(
+    throw new UserError(
+      "RESOLVE_FAILED",
       `Agent "${agent.id}" does not have a skills deployment path.${hint}`,
     );
   }

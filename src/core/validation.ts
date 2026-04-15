@@ -89,7 +89,9 @@ export async function validateSourceFile(
   try {
     stat = await lstat(sourcePath);
   } catch (err) {
-    throw new UserError("DEPLOY_FAILED", sourceAccessError(err, manifestPath));
+    throw new UserError("DEPLOY_FAILED", sourceAccessError(err, manifestPath), {
+      cause: err,
+    });
   }
   if (!stat.isFile()) {
     throw new UserError(
@@ -399,6 +401,7 @@ export async function validateSkillDefinitionFile(
     throw new UserError(
       "DEPLOY_FAILED",
       sourceAccessError(err, `${manifestPath}/SKILL.md`),
+      { cause: err },
     );
   }
 

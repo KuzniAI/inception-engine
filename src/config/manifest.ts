@@ -17,26 +17,31 @@ export async function loadManifest(directory: string): Promise<Manifest> {
       throw new UserError(
         "MANIFEST_INVALID",
         `No inception.json found in ${directory}. Are you pointing to the right repo?`,
+        { cause: err },
       );
     }
     if (code === "EACCES" || code === "EPERM") {
       throw new UserError(
         "MANIFEST_INVALID",
         `Permission denied reading ${manifestPath}. Check file permissions.`,
+        { cause: err },
       );
     }
     const detail = err instanceof Error ? err.message : String(err);
     throw new UserError(
       "MANIFEST_INVALID",
       `Failed to read ${manifestPath}: ${detail}`,
+      { cause: err },
     );
   }
 
   let parsed: unknown;
   try {
     parsed = JSON.parse(raw);
-  } catch {
-    throw new UserError("MANIFEST_INVALID", `Invalid JSON in ${manifestPath}`);
+  } catch (err) {
+    throw new UserError("MANIFEST_INVALID", `Invalid JSON in ${manifestPath}`, {
+      cause: err,
+    });
   }
 
   return validateManifest(parsed, manifestPath);

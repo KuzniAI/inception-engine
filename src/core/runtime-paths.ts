@@ -1,4 +1,5 @@
 import path from "node:path";
+import { UserError } from "../errors.ts";
 
 export interface RuntimePaths {
   appdata: string;
@@ -80,7 +81,8 @@ function resolveVfsPlaceholder(
 ): string {
   const rootPath = root === "repo" ? repo : (workspace ?? repo);
   if (!rootPath) {
-    throw new Error(
+    throw new UserError(
+      "RESOLVE_FAILED",
       `Target template uses {${root}} but no ${root} directory was provided: ${template}`,
     );
   }
@@ -91,7 +93,8 @@ function resolveVfsPlaceholder(
     segments.length === 0 ? rootPath : rootPathApi.join(rootPath, ...segments);
 
   if (!isSameOrDescendantPath(resolved, rootPath)) {
-    throw new Error(
+    throw new UserError(
+      "RESOLVE_FAILED",
       `Target template resolves outside its placeholder root: ${template}`,
     );
   }
@@ -107,7 +110,10 @@ export function resolveTargetTemplate(
   const { appdata, localAppdata, xdgConfig } = resolveRuntimePaths(home);
   const match = TARGET_TEMPLATE_RE.exec(template);
   if (!match) {
-    throw new Error(`Invalid target template: ${template}`);
+    throw new UserError(
+      "RESOLVE_FAILED",
+      `Invalid target template: ${template}`,
+    );
   }
 
   const root = match[1] as TargetRoot;
@@ -133,7 +139,8 @@ export function resolveTargetTemplate(
     segments.length === 0 ? base : pathApi.join(base, ...segments);
 
   if (!isSameOrDescendantPath(resolved, base)) {
-    throw new Error(
+    throw new UserError(
+      "RESOLVE_FAILED",
       `Target template resolves outside its placeholder root: ${template}`,
     );
   }

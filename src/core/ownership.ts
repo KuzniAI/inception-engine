@@ -1,6 +1,7 @@
 import { chmod, lstat, mkdir, readFile } from "node:fs/promises";
 import { writeFileAtomic } from "./atomic-write.ts";
 import path from "node:path";
+import { UserError } from "../errors.ts";
 import {
   type ConfigPatchRegistryEntry,
   type FileWriteRegistryEntry,
@@ -42,7 +43,10 @@ async function assertSafeRegistryStoragePath(
   try {
     const stat = await lstat(targetPath);
     if (stat.isSymbolicLink()) {
-      throw new Error(`Refusing to use ${label} symlink: ${targetPath}`);
+      throw new UserError(
+        "DEPLOY_FAILED",
+        `Refusing to use ${label} symlink: ${targetPath}`,
+      );
     }
   } catch (err) {
     if ((err as NodeJS.ErrnoException).code === "ENOENT") return;

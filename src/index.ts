@@ -72,7 +72,7 @@ function parseCLI(argv: string[]): CliOptions {
       },
     });
   } catch (err) {
-    throw new UserError("INVALID_ARGS", (err as Error).message);
+    throw new UserError("INVALID_ARGS", (err as Error).message, { cause: err });
   }
 
   const { values, positionals } = parsed;
@@ -311,6 +311,9 @@ try {
 } catch (err) {
   if (err instanceof UserError) {
     logger.error(`Error: ${err.message}`);
+    if (err.cause instanceof Error && err.cause.message) {
+      logger.error(`Caused by: ${err.cause.message}`);
+    }
     if (debugMode) {
       logger.errorRaw(err);
     }

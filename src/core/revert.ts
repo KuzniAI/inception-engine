@@ -1,6 +1,7 @@
 import { lstat, readFile, rm, unlink } from "node:fs/promises";
 import { writeFileAtomic } from "./atomic-write.ts";
 import path from "node:path";
+import { UserError } from "../errors.ts";
 import { AGENT_REGISTRY_BY_ID } from "../config/agents.ts";
 import { logger } from "../logger.ts";
 import type {
@@ -192,11 +193,18 @@ async function readJsonConfig(
   let parsed: unknown;
   try {
     parsed = JSON.parse(rawContent);
-  } catch {
-    throw new Error(`Config file is not valid JSON: ${filePath}`);
+  } catch (err) {
+    throw new UserError(
+      "DEPLOY_FAILED",
+      `Config file is not valid JSON: ${filePath}`,
+      { cause: err },
+    );
   }
   if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) {
-    throw new Error(`Config file is not a JSON object: ${filePath}`);
+    throw new UserError(
+      "DEPLOY_FAILED",
+      `Config file is not a JSON object: ${filePath}`,
+    );
   }
   return parsed as Record<string, unknown>;
 }

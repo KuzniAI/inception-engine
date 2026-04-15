@@ -65,19 +65,30 @@ async function readJsonConfigFile(
   } catch (err) {
     const code = (err as NodeJS.ErrnoException).code;
     if (code === "ENOENT")
-      throw new Error(`Config file not found: ${filePath}`);
+      throw new UserError(
+        "DEPLOY_FAILED",
+        `Config file not found: ${filePath}`,
+        { cause: err },
+      );
     throw err;
   }
 
   let parsed: unknown;
   try {
     parsed = JSON.parse(rawContent);
-  } catch {
-    throw new Error(`Config file is not valid JSON: ${filePath}`);
+  } catch (err) {
+    throw new UserError(
+      "DEPLOY_FAILED",
+      `Config file is not valid JSON: ${filePath}`,
+      { cause: err },
+    );
   }
 
   if (!isPlainObject(parsed)) {
-    throw new Error(`Config file is not a JSON object: ${filePath}`);
+    throw new UserError(
+      "DEPLOY_FAILED",
+      `Config file is not a JSON object: ${filePath}`,
+    );
   }
 
   return parsed;
@@ -749,7 +760,8 @@ async function backupManagedFileWriteTarget(
     deps.registry,
   );
   if (!isOwned) {
-    throw new Error(
+    throw new UserError(
+      "DEPLOY_FAILED",
       `Target "${action.target}" exists but is not managed by inception-engine - refusing to overwrite`,
     );
   }
@@ -968,7 +980,8 @@ async function deployConfigPatch(
       (existingEntry.skill !== action.skill ||
         existingEntry.agent !== action.agent)
     ) {
-      throw new Error(
+      throw new UserError(
+        "DEPLOY_FAILED",
         `Config "${action.target}" is already patched by skill "${existingEntry.skill}" for agent "${existingEntry.agent}" - refusing to double-patch`,
       );
     }
@@ -1120,7 +1133,8 @@ async function deployFrontmatterEmit(
         existingEntry.skill !== action.skill ||
         existingEntry.agent !== action.agent)
     ) {
-      throw new Error(
+      throw new UserError(
+        "DEPLOY_FAILED",
         `Frontmatter target "${action.target}" is already patched by skill "${existingEntry.skill}" for agent "${existingEntry.agent}" - refusing to double-patch`,
       );
     }
@@ -1202,17 +1216,20 @@ async function validateSkillContract(
       throw new UserError(
         "DEPLOY_FAILED",
         `Skill "${skillPath}" source not found: ${source}`,
+        { cause: err },
       );
     }
     if (code === "EACCES" || code === "EPERM") {
       throw new UserError(
         "DEPLOY_FAILED",
         `Permission denied accessing skill "${skillPath}" source: ${source}`,
+        { cause: err },
       );
     }
     throw new UserError(
       "DEPLOY_FAILED",
       `Cannot access skill "${skillPath}" source: ${source}`,
+      { cause: err },
     );
   }
   if (!stat.isDirectory()) {
@@ -1229,11 +1246,13 @@ async function validateSkillContract(
       throw new UserError(
         "DEPLOY_FAILED",
         `Permission denied reading skill directory "${skillPath}": ${source}`,
+        { cause: err },
       );
     }
     throw new UserError(
       "DEPLOY_FAILED",
       `Cannot read skill directory "${skillPath}": ${source}`,
+      { cause: err },
     );
   }
   try {
@@ -1244,11 +1263,13 @@ async function validateSkillContract(
       throw new UserError(
         "DEPLOY_FAILED",
         `Permission denied reading SKILL.md in skill "${skillPath}": ${source}`,
+        { cause: err },
       );
     }
     throw new UserError(
       "DEPLOY_FAILED",
       `Skill "${skillPath}" source is missing SKILL.md: ${source}`,
+      { cause: err },
     );
   }
   await validateSkillDefinitionFile(path.join(source, "SKILL.md"), skillPath);
@@ -1363,7 +1384,8 @@ async function backupExisting(
       deps.registry,
     ))
   ) {
-    throw new Error(
+    throw new UserError(
+      "DEPLOY_FAILED",
       `Target "${targetPath}" exists but is not managed by inception-engine - refusing to overwrite`,
     );
   }
