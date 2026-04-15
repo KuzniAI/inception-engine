@@ -1,10 +1,12 @@
 import assert from "node:assert/strict";
-import { chmod, mkdir, rm, writeFile } from "node:fs/promises";
+import { mkdir, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { describe, it } from "node:test";
 import { executeDeploy, planDeploy } from "../../../src/core/deploy.ts";
 import {
+  defaultRegistryPersistence,
   lookupDeployment,
+  type RegistryPersistence,
   registerDeployment,
 } from "../../../src/core/ownership.ts";
 import { UserError } from "../../../src/errors.ts";
@@ -336,18 +338,25 @@ describe("atomic redeploy behavior (Windows)", {
       );
       assert.equal(firstSucceeded, 1);
 
-      const registryFile = path.join(
-        home,
-        ".inception-engine",
-        "registry.json",
-      );
-      await chmod(registryFile, 0o444);
+      // Simulate an unwritable registry via a failing RegistryPersistence
+      // instead of relying on chmod, which is not enforced for admin processes
+      // on Windows (e.g. GitHub Actions windows-latest runners).
+      const failingRegistry: RegistryPersistence = {
+        load: (h) => defaultRegistryPersistence.load(h),
+        save: async () => {
+          throw Object.assign(
+            new Error("EACCES: permission denied, open 'registry.json'"),
+            { code: "EACCES" },
+          );
+        },
+      };
 
       const { succeeded, failed } = await executeDeploy(
         actions,
         false,
         false,
         home,
+        { registry: failingRegistry },
       );
       assert.equal(succeeded, 0);
       assert.equal(failed.length, 1);
@@ -355,14 +364,6 @@ describe("atomic redeploy behavior (Windows)", {
       assert.ok(await exists(target));
       assert.ok(await exists(path.join(target, "SKILL.md")));
     } finally {
-      try {
-        await chmod(
-          path.join(home, ".inception-engine", "registry.json"),
-          0o666,
-        );
-      } catch {
-        // best effort
-      }
       await rm(sourceDir, { recursive: true, force: true });
       await rm(home, { recursive: true, force: true });
     }
