@@ -1745,12 +1745,18 @@ describe("executeDeploy — file-write", () => {
         },
       };
 
-      await assert.rejects(
-        executeDeploy([action], false, false, home, {
+      const { succeeded, failed } = await executeDeploy(
+        [action],
+        false,
+        false,
+        home,
+        {
           registry: failingRegistry,
-        }),
-        /registry unavailable/,
+        },
       );
+      assert.equal(succeeded, 0);
+      assert.equal(failed.length, 1);
+      assert.match(failed[0]?.error ?? "", /registry unavailable/);
       assert.ok(
         !(await exists(targetFile)),
         "target file should not be written",
@@ -1799,12 +1805,18 @@ describe("executeDeploy — file-write", () => {
         target: targetFile,
       };
 
-      await assert.rejects(
-        executeDeploy([action], false, false, home, {
+      const { succeeded, failed } = await executeDeploy(
+        [action],
+        false,
+        false,
+        home,
+        {
           registry: failingRegistry,
-        }),
-        /registry unavailable/,
+        },
       );
+      assert.equal(succeeded, 0);
+      assert.equal(failed.length, 1);
+      assert.match(failed[0]?.error ?? "", /registry unavailable/);
       assert.equal(await readFile(targetFile, "utf-8"), "old content");
       assert.ok(!(await exists(`${targetFile}.inception-backup`)));
     } finally {
@@ -2282,12 +2294,18 @@ describe("executeDeploy — config-patch", () => {
         },
       };
 
-      await assert.rejects(
-        executeDeploy([action], false, false, home, {
+      const { succeeded, failed } = await executeDeploy(
+        [action],
+        false,
+        false,
+        home,
+        {
           registry: failingRegistry,
-        }),
-        /registry unavailable/,
+        },
       );
+      assert.equal(succeeded, 0);
+      assert.equal(failed.length, 1);
+      assert.match(failed[0]?.error ?? "", /registry unavailable/);
       assert.deepEqual(JSON.parse(await readFile(configFile, "utf-8")), {
         a: 1,
         b: 2,
@@ -2503,12 +2521,18 @@ describe("executeDeploy — frontmatter-emit", () => {
         },
       };
 
-      await assert.rejects(
-        executeDeploy([action], false, false, home, {
+      const { succeeded, failed } = await executeDeploy(
+        [action],
+        false,
+        false,
+        home,
+        {
           registry: failingRegistry,
-        }),
-        /registry unavailable/,
+        },
       );
+      assert.equal(succeeded, 0);
+      assert.equal(failed.length, 1);
+      assert.match(failed[0]?.error ?? "", /registry unavailable/);
       assert.equal(await readFile(targetFile, "utf-8"), original);
       assert.ok(!(await exists(`${targetFile}.inception-backup`)));
     } finally {

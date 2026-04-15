@@ -11,6 +11,7 @@ import { UserError } from "../../../src/errors.ts";
 import type { DeployAction } from "../../../src/types.ts";
 import { exists, makeTmpDir } from "../../helpers/fs.ts";
 import {
+  createFailingRegistryPersistence,
   createSkillSource,
   testSkillManifest,
 } from "../../helpers/skill-dir.ts";
@@ -416,7 +417,6 @@ describe("atomic redeploy behavior (POSIX)", {
   it("restores the backup when registry write fails", async () => {
     const sourceDir = await makeTmpDir();
     const home = await makeTmpDir();
-    const registryFile = path.join(home, ".inception-engine", "registry.json");
     try {
       await createSkillSource(sourceDir, "skills/test-skill");
       const { actions } = await planDeploy(
@@ -437,13 +437,16 @@ describe("atomic redeploy behavior (POSIX)", {
       assert.equal(firstSucceeded, 1);
       const originalLink = await readlink(target);
 
-      await chmod(registryFile, 0o444);
-
+      // Use a mock registry that always fails on save. Using chmod on the
+      // registry file is not reliable because writeFileAtomic uses rename(),
+      // which only requires directory write permission (not file permission),
+      // and would also silently succeed when running as root.
       const { succeeded, failed } = await executeDeploy(
         actions,
         false,
         false,
         home,
+        { registry: createFailingRegistryPersistence() },
       );
       assert.equal(succeeded, 0);
       assert.equal(failed.length, 1);
@@ -452,11 +455,6 @@ describe("atomic redeploy behavior (POSIX)", {
       assert.ok((await lstat(target)).isSymbolicLink());
       assert.equal(await readlink(target), originalLink);
     } finally {
-      try {
-        await chmod(registryFile, 0o644);
-      } catch {
-        // best effort
-      }
       await rm(sourceDir, { recursive: true, force: true });
       await rm(home, { recursive: true, force: true });
     }

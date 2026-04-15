@@ -600,7 +600,16 @@ export async function executeDeploy(
   };
 
   if (!dryRun) {
-    await runRegistry.preflight(home);
+    try {
+      await runRegistry.preflight(home);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      return {
+        succeeded: 0,
+        failed: actions.map((action) => ({ action, error: message })),
+        planned,
+      };
+    }
   }
 
   for (const action of actions) {
