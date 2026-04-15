@@ -42,9 +42,9 @@ import {
   defaultRegistryPersistence,
   lookupDeployment,
   type RegistryPersistence,
-  registryDirPath,
-  registerDeployment,
   RunRegistry,
+  registerDeployment,
+  registryDirPath,
   verifyDeployment,
 } from "./ownership.ts";
 import { getDeployMethod, resolveAgentSkillPath } from "./resolve.ts";

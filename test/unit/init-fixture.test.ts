@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
-import { cp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { spawn } from "node:child_process";
+import { cp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { describe, it } from "node:test";
 import { runInit } from "../../src/core/init.ts";

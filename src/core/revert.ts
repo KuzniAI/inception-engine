@@ -1,8 +1,7 @@
 import { lstat, readFile, rm, unlink } from "node:fs/promises";
-import { writeFileAtomic } from "./atomic-write.ts";
 import path from "node:path";
-import { UserError } from "../errors.ts";
 import { AGENT_REGISTRY_BY_ID } from "../config/agents.ts";
+import { UserError } from "../errors.ts";
 import { logger } from "../logger.ts";
 import type {
   ConfigPatchRegistryEntry,
@@ -28,13 +27,14 @@ import {
   compilePermissionsReverts,
 } from "./adapters/index.ts";
 import { revertTomlMcpPatch } from "./adapters/toml.ts";
+import { writeFileAtomic } from "./atomic-write.ts";
 import { applyUndoPatch } from "./merge-patch.ts";
 import {
   defaultRegistryPersistence,
   lookupDeployment,
-  registryDirPath,
   type RegistryPersistence,
   RunRegistry,
+  registryDirPath,
   unregisterDeployment,
 } from "./ownership.ts";
 import { resolveAgentSkillPath } from "./resolve.ts";

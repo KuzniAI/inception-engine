@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
-import { stripVTControlCharacters } from "node:util";
 import { describe, it } from "node:test";
+import { stripVTControlCharacters } from "node:util";
 import { formatDryRunPlan } from "../../src/formatters.ts";
 import type { PlannedChange } from "../../src/types.ts";
 

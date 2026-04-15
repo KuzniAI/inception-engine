@@ -1,5 +1,4 @@
 import { access, readdir, readFile } from "node:fs/promises";
-import { writeFileAtomic } from "./atomic-write.ts";
 import path from "node:path";
 import { AGENT_REGISTRY } from "../config/agents.ts";
 import { dryRunPrefix, logger } from "../logger.ts";
@@ -20,6 +19,7 @@ import {
   McpServerEntrySchema,
 } from "../schemas/manifest.ts";
 import { parseFrontmatterDocument } from "./adapters/frontmatter.ts";
+import { writeFileAtomic } from "./atomic-write.ts";
 import { shouldInitIncludeAgent } from "./capabilities.ts";
 
 const SAFE_NAME_RE = /^[a-zA-Z0-9][a-zA-Z0-9._-]*$/;

@@ -1,5 +1,4 @@
 import { chmod, lstat, mkdir, readFile } from "node:fs/promises";
-import { writeFileAtomic } from "./atomic-write.ts";
 import path from "node:path";
 import { UserError } from "../errors.ts";
 import {
@@ -12,6 +11,7 @@ import {
   type SkillDirRegistryEntry,
 } from "../schemas/registry.ts";
 import type { AgentId } from "../types.ts";
+import { writeFileAtomic } from "./atomic-write.ts";
 
 export type { RegistryEntry } from "../schemas/registry.ts";
 
