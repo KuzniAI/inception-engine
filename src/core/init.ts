@@ -1,6 +1,6 @@
+import type { Dir } from "node:fs";
 import { access, opendir, readdir, readFile } from "node:fs/promises";
 import path from "node:path";
-import type { Dir } from "node:fs";
 import { AGENT_REGISTRY } from "../config/agents.ts";
 import { dryRunPrefix, logger } from "../logger.ts";
 import type {

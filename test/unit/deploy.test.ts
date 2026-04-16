@@ -10,8 +10,8 @@ import {
   writeFile,
 } from "node:fs/promises";
 import path from "node:path";
-import { setTimeout as delay } from "node:timers/promises";
 import { describe, it } from "node:test";
+import { setTimeout as delay } from "node:timers/promises";
 import { executeDeploy, planDeploy } from "../../src/core/deploy.ts";
 import {
   lookupDeployment,

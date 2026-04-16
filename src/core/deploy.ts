@@ -33,12 +33,12 @@ import * as frontmatterAdapter from "./adapters/frontmatter.ts";
 import { compileAdapterActions } from "./adapters/index.ts";
 import { applyTomlMcpPatch } from "./adapters/toml.ts";
 import { planCapabilityForDeploy } from "./capabilities.ts";
+import { mapConcurrentOrdered } from "./concurrency.ts";
 import {
   applyMergePatch,
   computeUndoPatch,
   isPlainObject,
 } from "./merge-patch.ts";
-import { mapConcurrentOrdered } from "./concurrency.ts";
 import {
   defaultRegistryPersistence,
   lookupDeployment,

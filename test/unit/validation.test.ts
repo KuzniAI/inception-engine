@@ -2,8 +2,8 @@ import assert from "node:assert/strict";
 import { realpath, rm, symlink, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { describe, it } from "node:test";
-import { UserError } from "../../src/errors.ts";
 import { createSourcePathValidator } from "../../src/core/validation.ts";
+import { UserError } from "../../src/errors.ts";
 import { makeTmpDir } from "../helpers/fs.ts";
 
 describe("createSourcePathValidator", () => {
