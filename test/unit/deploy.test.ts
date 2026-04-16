@@ -1288,6 +1288,161 @@ describe("planDeploy", () => {
       await rm(sourceDir, { recursive: true });
     }
   });
+
+  it("runs per-agent structural validation on shared agentDefinitions source (github-copilot missing tools/instructions)", async () => {
+    const sourceDir = await makeTmpDir();
+    // Source missing both `tools` and `instructions` — valid for antigravity,
+    // invalid for github-copilot. The per-agent check must still fire even
+    // though parsing is now shared across agents.
+    const manifest: Manifest = {
+      skills: [],
+      files: [],
+      configs: [],
+      mcpServers: [],
+      agentRules: [],
+      permissions: [],
+      agentDefinitions: [
+        {
+          name: "bad-def",
+          path: "agents/bad.md",
+          scope: "repo",
+          agents: ["antigravity", "github-copilot"],
+        },
+      ],
+    };
+    try {
+      await mkdir(path.join(sourceDir, "agents"), { recursive: true });
+      await writeFile(
+        path.join(sourceDir, "agents/bad.md"),
+        "---\nname: bad-def\ndescription: bad\n---\n# body\n",
+      );
+      await assert.rejects(
+        () =>
+          planDeploy(
+            manifest,
+            sourceDir,
+            ["antigravity", "github-copilot"],
+            "/home/test",
+            "/repo",
+          ),
+        (err: unknown) =>
+          err instanceof UserError &&
+          err.message.includes("github-copilot") &&
+          err.message.includes("tools"),
+        "expected per-agent github-copilot validation to still fire",
+      );
+    } finally {
+      await rm(sourceDir, { recursive: true });
+    }
+  });
+
+  it("planning a shared agentDefinitions source succeeds when frontmatter satisfies every targeted agent", async () => {
+    const sourceDir = await makeTmpDir();
+    const manifest: Manifest = {
+      skills: [],
+      files: [],
+      configs: [],
+      mcpServers: [],
+      agentRules: [],
+      permissions: [],
+      agentDefinitions: [
+        {
+          name: "shared-def",
+          path: "agents/shared.md",
+          scope: "repo",
+          agents: ["github-copilot", "antigravity"],
+        },
+      ],
+    };
+    try {
+      await mkdir(path.join(sourceDir, "agents"), { recursive: true });
+      await writeFile(
+        path.join(sourceDir, "agents/shared.md"),
+        '---\nname: shared-def\ndescription: shared\ntools: ["Read"]\n---\n# body\n',
+      );
+      const { actions } = await planDeploy(
+        manifest,
+        sourceDir,
+        ["github-copilot", "antigravity"],
+        "/home/test",
+        "/repo",
+      );
+      const defActions = actions.filter(
+        (a) => a.kind === "file-write" && a.skill === "shared-def",
+      );
+      // Both agents produce distinct targets — exercises the per-agent
+      // validation loop against a single cached parse result.
+      assert.equal(
+        defActions.length,
+        2,
+        "expected one file-write action per agent",
+      );
+    } finally {
+      await rm(sourceDir, { recursive: true });
+    }
+  });
+});
+
+describe("instruction file parsing helpers", () => {
+  it("parseInstructionDocument reads and parses the source only once per call", async () => {
+    const { parseInstructionDocument } = await import(
+      "../../src/core/validation.ts"
+    );
+    const sourceDir = await makeTmpDir();
+    try {
+      const sourcePath = path.join(sourceDir, "shared.md");
+      await writeFile(
+        sourcePath,
+        "---\nname: shared\ndescription: shared\ntools: []\n---\n# body\n",
+      );
+      const parsed = await parseInstructionDocument(sourcePath, "shared.md");
+      assert.equal(parsed.attributes.name, "shared");
+      assert.equal(parsed.attributes.description, "shared");
+      assert.deepEqual(parsed.attributes.tools, []);
+    } finally {
+      await rm(sourceDir, { recursive: true });
+    }
+  });
+
+  it("validateInstructionAgentRequirements enforces per-agent rules from cached attributes without re-reading", async () => {
+    const { validateInstructionAgentRequirements } = await import(
+      "../../src/core/validation.ts"
+    );
+    // Simulate a cached parse result shared across agents.
+    const attributesMissingTools = {
+      name: "shared",
+      description: "shared",
+    };
+    // antigravity passes (mcp-servers is optional).
+    assert.doesNotThrow(() =>
+      validateInstructionAgentRequirements(
+        attributesMissingTools,
+        "shared.md",
+        "antigravity",
+      ),
+    );
+    // github-copilot fails (requires tools or instructions).
+    assert.throws(
+      () =>
+        validateInstructionAgentRequirements(
+          attributesMissingTools,
+          "shared.md",
+          "github-copilot",
+        ),
+      (err: unknown) =>
+        err instanceof UserError &&
+        err.message.includes("github-copilot") &&
+        err.message.includes("tools"),
+    );
+    // Agents without instructionFrontmatterRequired are a no-op regardless of attrs.
+    assert.doesNotThrow(() =>
+      validateInstructionAgentRequirements(
+        {} as Record<string, unknown>,
+        "shared.md",
+        "claude-code",
+      ),
+    );
+  });
 });
 
 describe("planDeploy path traversal", () => {

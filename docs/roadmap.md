@@ -16,8 +16,8 @@ Maximum score: `12`
 Score format:
 `Score X/12 (Architecture A, Agents B, OS C, Confidence D, Safety E, Stability F)`
 
-1. **Deduplicate instruction-file parsing across multi-agent planning.**  
-   Shared `agentRules` and `agentDefinitions` sources can be re-opened and re-parsed once per target agent during planning. That repeats the same markdown and frontmatter validation work and inflates planning cost for entries that fan out to multiple agents. Cache parsed instruction documents and reuse the result for agent-specific validation so planning remains linear in source files rather than target combinations.  
+1. ~~**Deduplicate instruction-file parsing across multi-agent planning.**~~  
+   ~~Shared `agentRules` and `agentDefinitions` sources can be re-opened and re-parsed once per target agent during planning. That repeats the same markdown and frontmatter validation work and inflates planning cost for entries that fan out to multiple agents. Cache parsed instruction documents and reuse the result for agent-specific validation so planning remains linear in source files rather than target combinations.~~  
    `Score 10/12 (Architecture 1, Agents 2, OS 2, Confidence 2, Safety 1, Stability 2)`
 
 2. **Parallelize independent deploy work with bounded concurrency and target isolation.**  

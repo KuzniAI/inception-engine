@@ -185,7 +185,7 @@ export interface AgentConfig {
   unsupportedSurfaces?: AgentSurfaceSupport[];
   /**
    * When true, instruction files deployed to this agent must include valid
-   * YAML frontmatter. Drives validateInstructionFileRequirements without
+   * YAML frontmatter. Drives instructionRequiresFrontmatter without
    * hardcoded agent-ID checks.
    */
   instructionFrontmatterRequired?: boolean;

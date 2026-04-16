@@ -12,8 +12,10 @@ import {
 } from "../capabilities.ts";
 import { getPlatformKey, resolvePlaceholders } from "../resolve.ts";
 import {
+  instructionRequiresFrontmatter,
+  parseInstructionDocument,
   validateAgentRuleMarkdownPath,
-  validateInstructionFileRequirements,
+  validateInstructionAgentRequirements,
   validateSourceFile,
   validateSourcePath,
 } from "../validation.ts";
@@ -197,11 +199,22 @@ export async function compileAgentRuleActions(
   const skipFrontmatterValidation =
     entry.scope === "copilot-repo" || entry.scope === "copilot-scoped";
 
+  // Parse the shared source document once when any deduped target requires
+  // frontmatter validation, then reuse the attributes for per-agent checks.
+  const needsFrontmatter =
+    !skipFrontmatterValidation &&
+    dedupedTargets.some((target) =>
+      instructionRequiresFrontmatter(target.agentId),
+    );
+  const parsedAttributes = needsFrontmatter
+    ? (await parseInstructionDocument(source, entry.path)).attributes
+    : null;
+
   for (const target of dedupedTargets) {
     validateAgentRuleMarkdownPath(entry.path, target.agentId);
-    if (!skipFrontmatterValidation) {
-      await validateInstructionFileRequirements(
-        source,
+    if (!skipFrontmatterValidation && parsedAttributes !== null) {
+      validateInstructionAgentRequirements(
+        parsedAttributes,
         entry.path,
         target.agentId,
       );

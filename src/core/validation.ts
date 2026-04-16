@@ -532,32 +532,48 @@ function validateAntigravityRequirements(
 }
 
 /**
- * Validates that an instruction file (agentRules or agentDefinitions) meets
- * the structural requirements of the target agent.
+ * Returns true when the agent requires its instruction-file source to expose
+ * structural YAML frontmatter. Used by adapters to decide whether to parse
+ * the source document before per-agent validation.
  */
-export async function validateInstructionFileRequirements(
+export function instructionRequiresFrontmatter(agentId: AgentId): boolean {
+  return AGENT_REGISTRY_BY_ID[agentId]?.instructionFrontmatterRequired === true;
+}
+
+/**
+ * Reads and parses an instruction file's YAML frontmatter once. Callers that
+ * fan out to multiple target agents should invoke this at most once per
+ * source file and reuse the returned attributes for each
+ * `validateInstructionAgentRequirements` call.
+ */
+export async function parseInstructionDocument(
   sourcePath: string,
   manifestPath: string,
-  agentId: AgentId,
-): Promise<void> {
-  const requiresFrontmatter =
-    AGENT_REGISTRY_BY_ID[agentId]?.instructionFrontmatterRequired === true;
-
-  if (!requiresFrontmatter) return;
-
-  let attributes: Record<string, unknown>;
+): Promise<{ attributes: Record<string, unknown>; body: string }> {
   try {
-    const result = await validateSkillDefinitionFile(sourcePath, manifestPath);
-    attributes = result.attributes;
+    return await validateSkillDefinitionFile(sourcePath, manifestPath);
   } catch (err) {
     if (err instanceof UserError) {
       throw new UserError(
         "DEPLOY_FAILED",
-        `Instruction file "${manifestPath}" for agent "${agentId}" failed structural validation: ${err.message}`,
+        `Instruction file "${manifestPath}" failed structural validation: ${err.message}`,
+        { cause: err },
       );
     }
     throw err;
   }
+}
+
+/**
+ * Runs the per-agent structural checks against an already-parsed instruction
+ * document. Agents without frontmatter requirements are a no-op.
+ */
+export function validateInstructionAgentRequirements(
+  attributes: Record<string, unknown>,
+  manifestPath: string,
+  agentId: AgentId,
+): void {
+  if (!instructionRequiresFrontmatter(agentId)) return;
 
   if (agentId === "github-copilot") {
     validateGithubCopilotRequirements(attributes, manifestPath);

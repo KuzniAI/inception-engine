@@ -14,8 +14,10 @@ import {
 } from "../capabilities.ts";
 import { getPlatformKey, resolvePlaceholders } from "../resolve.ts";
 import {
+  instructionRequiresFrontmatter,
+  parseInstructionDocument,
   validateAgentRuleMarkdownPath,
-  validateInstructionFileRequirements,
+  validateInstructionAgentRequirements,
   validateSourceFile,
   validateSourcePath,
 } from "../validation.ts";
@@ -160,15 +162,28 @@ async function createAgentDefinitionActions(
   const actions: FileWriteDeployAction[] = [];
   const isToml = path.extname(entry.path).toLowerCase() === ".toml";
 
+  // Parse the shared source document once when any supported target requires
+  // frontmatter validation, then reuse the attributes for per-agent checks.
+  const needsFrontmatter =
+    !isToml &&
+    supportedTargets.some((target) =>
+      instructionRequiresFrontmatter(target.agentId),
+    );
+  const parsedAttributes = needsFrontmatter
+    ? (await parseInstructionDocument(source, entry.path)).attributes
+    : null;
+
   for (const target of supportedTargets) {
     // TOML definition files have no YAML frontmatter — skip Markdown validation.
     if (!isToml) {
       validateAgentRuleMarkdownPath(entry.path, target.agentId);
-      await validateInstructionFileRequirements(
-        source,
-        entry.path,
-        target.agentId,
-      );
+      if (parsedAttributes !== null) {
+        validateInstructionAgentRequirements(
+          parsedAttributes,
+          entry.path,
+          target.agentId,
+        );
+      }
     }
 
     let migratedFrom: string[] | undefined;
