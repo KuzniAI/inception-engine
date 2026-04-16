@@ -259,6 +259,34 @@ describe("loadManifest", () => {
     }
   });
 
+  it("mentions {workspace} in target placeholder validation errors", async () => {
+    const dir = await makeTmpDir();
+    try {
+      await writeFile(
+        path.join(dir, "inception.json"),
+        JSON.stringify({
+          skills: [],
+          files: [
+            {
+              name: "bad-target",
+              path: "files/settings.json",
+              target: "{invalid}/settings.json",
+              agents: ["claude-code"],
+            },
+          ],
+        }),
+      );
+      await assert.rejects(loadManifest(dir), (err: unknown) => {
+        assert.ok(err instanceof UserError);
+        assert.equal(err.code, "MANIFEST_INVALID");
+        assert.match(err.message, /\{workspace\}/);
+        return true;
+      });
+    } finally {
+      await rm(dir, { recursive: true });
+    }
+  });
+
   it("throws when agentRules is not an array", async () => {
     const dir = await makeTmpDir();
     try {

@@ -184,7 +184,7 @@ Each **file** entry deploys a single file to an agent's configuration location:
 
 - **name** - Unique identifier (same format as skill names)
 - **path** - Relative path to the source file within the repo
-- **target** - Destination path using a placeholder prefix: `{home}`, `{appdata}` (Windows), or `{xdg_config}` (Linux). For example: `{home}/.claude/settings.json`
+- **target** - Destination path using a placeholder prefix: `{home}`, `{appdata}`, `{xdg_config}`, `{repo}`, or `{workspace}`. For example: `{home}/.claude/settings.json`
 - **agents** - Array of agent IDs to deploy this file to
 
 Each **config** entry applies a [JSON merge patch (RFC 7386)](https://datatracker.ietf.org/doc/html/rfc7386) to an existing agent config file:
@@ -231,6 +231,7 @@ Each **agentRules** entry deploys a Markdown instruction file to an agent's supp
   - `"workspace"` — deploys to the workspace-root instruction file when an agent exposes one (e.g., `{workspace}/CLAUDE.md` for `claude-code`); when unsupported, deployment is skipped with a warning
   - `"copilot-repo"` — deploys to GitHub Copilot's native repo-level instruction file at `{repo}/.github/copilot-instructions.md` (`github-copilot` only; other agents are warned and skipped)
   - `"copilot-scoped"` — deploys to `{repo}/.github/instructions/{name}.instructions.md` where `{name}` is the manifest entry name (`github-copilot` only; other agents are warned and skipped)
+- **targetDir** - Optional relative subdirectory under the selected `{repo}` or `{workspace}` root. Only valid with `scope: "repo"` or `scope: "workspace"`. This lets one manifest entry target nested workspaces such as `apps/frontend/CLAUDE.md` without changing the source file path.
 
 Instruction rule deployment is supported for implemented global, repo, and workspace surfaces. The target path depends on the agent and the `scope`:
 
@@ -257,7 +258,7 @@ Each **permissions** entry deploys execution and safety-oriented configuration t
 - **agents** - Array of agent IDs to deploy this entry to
 - **config** - Permission config payload; shape is validated per agent (see below)
 
-Permission deployment is currently supported for `claude-code` and `codex`. Other agents emit a warning and are skipped.
+Permission deployment is currently supported for `claude-code`, `codex`, and `opencode`. Other agents emit a warning and are skipped.
 
 For `claude-code`, the config is merged into `~/.claude/settings.json`. Only the `permissions` key is accepted:
 
@@ -289,6 +290,24 @@ For `codex`, the config is merged into `~/.codex/config.toml`. Only the `approva
 ```
 
 Valid `approval_policy` values are `"auto"`, `"manual"`, `"suggest"`, and `"on-failure"`.
+
+For `opencode`, the config is merged into `~/.config/opencode/opencode.json` on POSIX or `%APPDATA%\\opencode\\opencode.json` on Windows. Only the `permissions` key is accepted:
+
+```json
+{
+  "name": "opencode-permissions",
+  "agents": ["opencode"],
+  "config": {
+    "permissions": {
+      "allow": ["Read", "Glob"],
+      "ask": ["Bash(git push:*)"],
+      "deny": ["Bash(rm:*)"]
+    }
+  }
+}
+```
+
+`allow`, `ask`, and `deny` are optional string arrays.
 
 Revert restores the previous config values using the undo patch recorded at deploy time.
 
@@ -325,6 +344,29 @@ For `claude-code`, the config is merged into `~/.claude/settings.json`. Only the
 ```
 
 Revert restores the previous config values using the undo patch recorded at deploy time.
+
+Each **executionConfigs** entry deploys agent execution or safety settings to an agent's modeled runtime config surface:
+
+- **name** - Unique identifier (same format as skill names)
+- **agents** - Array of agent IDs to deploy this entry to
+- **config** - Raw execution-config payload; today this is modeled for `gemini-cli` and patched into its settings file
+
+Execution-config deployment is currently supported for `gemini-cli`. Other agents emit a warning and are skipped. Because this surface is still treated as provisional, preflight emits a config-authority warning when you target it so you can sanity-check the current upstream behavior.
+
+For `gemini-cli`, the config is merged into `~/.gemini/settings.json`:
+
+```json
+{
+  "name": "gemini-safety",
+  "agents": ["gemini-cli"],
+  "config": {
+    "safeMode": true,
+    "sandbox": "workspace-write"
+  }
+}
+```
+
+Values are passed through as a JSON merge patch so the tool can model emerging Gemini CLI execution settings without inventing a separate schema for each key. Revert restores the previous config values using the undo patch recorded at deploy time.
 
 Each **agentDefinitions** entry deploys an agent-definition file to the agent-definition directory of each targeted agent. `scope: "repo"` is the default, and some agents also support `scope: "global"`:
 

@@ -69,7 +69,7 @@ const targetTemplateField = z
   .min(1, { message: "target must be a non-empty string" })
   .refine((t) => TARGET_TEMPLATE_RE.test(t), {
     message:
-      "target must start with a known placeholder: {home}, {appdata}, {xdg_config}, or {repo}",
+      "target must start with a known placeholder: {home}, {appdata}, {xdg_config}, {repo}, or {workspace}",
   })
   .refine((t) => !t.split(/[\\/]+/).includes(".."), {
     message: "target must not escape its placeholder root",
