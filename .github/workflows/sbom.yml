@@ -33,13 +33,16 @@ jobs:
 
       - run: npm run test:posix
 
+      - name: Create artifact directory
+        run: mkdir -p dist-artifacts
+
       - name: Pack npm artifact
         run: npm pack --pack-destination dist-artifacts
 
       - name: Capture tarball path
         id: tarball
         shell: bash
-        run: echo "path=$(ls dist-artifacts/*.tgz)" >> "$GITHUB_OUTPUT"
+        run: echo "path=$(find dist-artifacts -maxdepth 1 -name '*.tgz' -print -quit)" >> "$GITHUB_OUTPUT"
 
       - name: Generate SPDX SBOM
         shell: bash
