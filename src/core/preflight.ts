@@ -6,6 +6,7 @@ import {
   describeCapabilityConfidence,
   planCapabilityForDeploy,
 } from "./capabilities.ts";
+import { mapConcurrentOrdered } from "./concurrency.ts";
 import { resolveRuntimePaths } from "./runtime-paths.ts";
 
 export interface PreflightWarning {
@@ -524,9 +525,14 @@ export async function runPreflight(
 ): Promise<PreflightWarning[]> {
   const warnings: PreflightWarning[] = [];
 
-  for (const agentId of detectedAgents) {
-    if (signal?.aborted) return warnings;
-    warnings.push(...(await collectAgentWarnings(agentId, manifest, home)));
+  const agentWarnings = await mapConcurrentOrdered(
+    detectedAgents,
+    (agentId) => collectAgentWarnings(agentId, manifest, home),
+    { signal },
+  );
+  for (const warningSet of agentWarnings) {
+    if (!warningSet) continue;
+    warnings.push(...warningSet);
   }
 
   if (signal?.aborted) return warnings;

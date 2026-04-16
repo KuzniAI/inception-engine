@@ -86,6 +86,41 @@ describe("runPreflight", () => {
     assert.match(warnings[0]?.message ?? "", /antigravity/);
   });
 
+  it("keeps agent-specific warning order aligned with detectedAgents", async () => {
+    const home = await makeTmpDir();
+    try {
+      await mkdir(path.join(home, ".gemini"), { recursive: true });
+      await writeFile(
+        path.join(home, ".gemini", "settings.json"),
+        JSON.stringify({ instructionFilename: "CUSTOM.md" }),
+      );
+
+      const manifest: Manifest = {
+        ...emptyManifest,
+        agentRules: [
+          {
+            name: "gemini-rules",
+            path: "GEMINI.md",
+            agents: ["gemini-cli"],
+            scope: "global",
+          },
+        ],
+      };
+
+      const warnings = await runPreflight(baseOptions, manifest, home, [
+        "gemini-cli",
+        "antigravity",
+      ]);
+
+      assert.equal(warnings.length, 2);
+      assert.match(warnings[0]?.message ?? "", /instructionFilename/);
+      assert.match(warnings[1]?.message ?? "", /antigravity/);
+      assert.match(warnings[1]?.message ?? "", /implementation-only/);
+    } finally {
+      await rm(home, { recursive: true, force: true });
+    }
+  });
+
   it("emits shared-surface guidance when a skill targets github-copilot without claude-code", async () => {
     const manifest: Manifest = {
       ...emptyManifest,

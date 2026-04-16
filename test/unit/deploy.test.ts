@@ -10,6 +10,7 @@ import {
   writeFile,
 } from "node:fs/promises";
 import path from "node:path";
+import { setTimeout as delay } from "node:timers/promises";
 import { describe, it } from "node:test";
 import { executeDeploy, planDeploy } from "../../src/core/deploy.ts";
 import {
@@ -1850,6 +1851,129 @@ describe("executeDeploy — file-write", () => {
     }
   });
 
+  it("runs independent file-write targets concurrently", async () => {
+    const sourceDir = await makeTmpDir();
+    const home = await makeTmpDir();
+    let inFlight = 0;
+    let maxInFlight = 0;
+    try {
+      const sourceA = path.join(sourceDir, "a.txt");
+      const sourceB = path.join(sourceDir, "b.txt");
+      await writeFile(sourceA, "a");
+      await writeFile(sourceB, "b");
+
+      const actions: FileWriteDeployAction[] = [
+        {
+          kind: "file-write",
+          skill: "skill-a",
+          agent: "claude-code",
+          source: sourceA,
+          target: path.join(home, "a.txt"),
+        },
+        {
+          kind: "file-write",
+          skill: "skill-b",
+          agent: "codex",
+          source: sourceB,
+          target: path.join(home, "b.txt"),
+        },
+      ];
+
+      const { succeeded, failed } = await executeDeploy(
+        actions,
+        false,
+        false,
+        home,
+        {
+          fileOps: {
+            async copyFile(source, target) {
+              inFlight += 1;
+              maxInFlight = Math.max(maxInFlight, inFlight);
+              await delay(25);
+              await copyFile(source, target);
+              inFlight -= 1;
+            },
+            rename,
+            rm,
+            writeFile,
+          },
+        },
+      );
+
+      assert.equal(succeeded, 2);
+      assert.equal(failed.length, 0);
+      assert.equal(maxInFlight, 2);
+    } finally {
+      await rm(sourceDir, { recursive: true });
+      await rm(home, { recursive: true, force: true });
+    }
+  });
+
+  it("serializes file-write actions that share the same target", async () => {
+    const sourceDir = await makeTmpDir();
+    const home = await makeTmpDir();
+    let inFlight = 0;
+    let maxInFlight = 0;
+    try {
+      const sourceFile = path.join(sourceDir, "file.txt");
+      const targetFile = path.join(home, "shared.txt");
+      await writeFile(sourceFile, "version 1");
+
+      const action: FileWriteDeployAction = {
+        kind: "file-write",
+        skill: "test-skill",
+        agent: "claude-code",
+        source: sourceFile,
+        target: targetFile,
+      };
+
+      await executeDeploy([action], false, false, home, {
+        fileOps: {
+          async copyFile(source, target) {
+            inFlight += 1;
+            maxInFlight = Math.max(maxInFlight, inFlight);
+            await delay(25);
+            await copyFile(source, target);
+            inFlight -= 1;
+          },
+          rename,
+          rm,
+          writeFile,
+        },
+      });
+
+      await writeFile(sourceFile, "version 2");
+      const { succeeded, failed } = await executeDeploy(
+        [action, action],
+        false,
+        false,
+        home,
+        {
+          fileOps: {
+            async copyFile(source, target) {
+              inFlight += 1;
+              maxInFlight = Math.max(maxInFlight, inFlight);
+              await delay(25);
+              await copyFile(source, target);
+              inFlight -= 1;
+            },
+            rename,
+            rm,
+            writeFile,
+          },
+        },
+      );
+
+      assert.equal(succeeded, 2);
+      assert.equal(failed.length, 0);
+      assert.equal(maxInFlight, 1);
+      assert.equal(await readFile(targetFile, "utf-8"), "version 2");
+    } finally {
+      await rm(sourceDir, { recursive: true });
+      await rm(home, { recursive: true, force: true });
+    }
+  });
+
   it("fails gracefully when source file does not exist", async () => {
     const home = await makeTmpDir();
     try {
@@ -2077,6 +2201,67 @@ describe("executeDeploy — file-write", () => {
       assert.equal(failed.length, 0);
       assert.equal(await readFile(targetFile, "utf-8"), "new content");
       assert.ok(!(await exists(backupPath)));
+    } finally {
+      await rm(sourceDir, { recursive: true });
+      await rm(home, { recursive: true, force: true });
+    }
+  });
+
+  it("returns failed actions in input order under concurrent execution", async () => {
+    const sourceDir = await makeTmpDir();
+    const home = await makeTmpDir();
+    try {
+      const sourceA = path.join(sourceDir, "a.txt");
+      const sourceB = path.join(sourceDir, "b.txt");
+      const targetA = path.join(home, "a.txt");
+      const targetB = path.join(home, "b.txt");
+      await writeFile(sourceA, "a");
+      await writeFile(sourceB, "b");
+
+      const actions: FileWriteDeployAction[] = [
+        {
+          kind: "file-write",
+          skill: "slow-fail",
+          agent: "claude-code",
+          source: sourceA,
+          target: targetA,
+        },
+        {
+          kind: "file-write",
+          skill: "fast-fail",
+          agent: "codex",
+          source: sourceB,
+          target: targetB,
+        },
+      ];
+
+      const { succeeded, failed } = await executeDeploy(
+        actions,
+        false,
+        false,
+        home,
+        {
+          fileOps: {
+            async copyFile(_source, target) {
+              if (target.includes("a.txt")) {
+                await delay(25);
+                throw new Error("slow failure");
+              }
+              throw new Error("fast failure");
+            },
+            rename,
+            rm,
+            writeFile,
+          },
+        },
+      );
+
+      assert.equal(succeeded, 0);
+      assert.equal(failed.length, 2);
+      assert.equal(failed[0]?.action.skill, "slow-fail");
+      assert.match(failed[0]?.error ?? "", /slow failure/);
+      assert.equal(failed[1]?.action.skill, "fast-fail");
+      assert.match(failed[1]?.error ?? "", /fast failure/);
     } finally {
       await rm(sourceDir, { recursive: true });
       await rm(home, { recursive: true, force: true });

@@ -20,12 +20,12 @@ Score format:
    ~~Shared `agentRules` and `agentDefinitions` sources can be re-opened and re-parsed once per target agent during planning. That repeats the same markdown and frontmatter validation work and inflates planning cost for entries that fan out to multiple agents. Cache parsed instruction documents and reuse the result for agent-specific validation so planning remains linear in source files rather than target combinations.~~  
    `Score 10/12 (Architecture 1, Agents 2, OS 2, Confidence 2, Safety 1, Stability 2)`
 
-2. **Parallelize independent deploy work with bounded concurrency and target isolation.**  
-   The deploy executor currently processes all actions serially even when they write to unrelated targets. After registry writes are decoupled from each action, non-conflicting actions should be grouped and executed with bounded concurrency so large manifests can make better use of Node.js asynchronous filesystem throughput without weakening collision handling, dry-run reporting, or rollback safety.  
+2. ~~**Parallelize independent deploy work with bounded concurrency and target isolation.**~~  
+   ~~The deploy executor currently processes all actions serially even when they write to unrelated targets. After registry writes are decoupled from each action, non-conflicting actions should be grouped and executed with bounded concurrency so large manifests can make better use of Node.js asynchronous filesystem throughput without weakening collision handling, dry-run reporting, or rollback safety.~~  
    `Score 9/12 (Architecture 2, Agents 1, OS 2, Confidence 1, Safety 1, Stability 2)`
 
-3. **Parallelize preflight checks that read independent agent state.**  
-    Preflight still collects some agent-specific warnings sequentially even though the work is mostly independent file reads and environment inspection. Running those checks concurrently would not change behavior, but it would reduce startup latency as the number of detected agents grows. Keep warning ordering deterministic if the output contract depends on it.  
+3. ~~**Parallelize preflight checks that read independent agent state.**~~  
+    ~~Preflight still collects some agent-specific warnings sequentially even though the work is mostly independent file reads and environment inspection. Running those checks concurrently would not change behavior, but it would reduce startup latency as the number of detected agents grows. Keep warning ordering deterministic if the output contract depends on it.~~  
     `Score 8/12 (Architecture 1, Agents 1, OS 2, Confidence 2, Safety 1, Stability 1)`
 
 4. ~~**Memoize symlink-containment validation for manifest source paths.**~~  

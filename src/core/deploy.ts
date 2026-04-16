@@ -38,6 +38,7 @@ import {
   computeUndoPatch,
   isPlainObject,
 } from "./merge-patch.ts";
+import { mapConcurrentOrdered } from "./concurrency.ts";
 import {
   defaultRegistryPersistence,
   lookupDeployment,
@@ -601,10 +602,7 @@ export async function executeDeploy(
   failed: Array<{ action: DeployAction; error: string }>;
   planned: PlannedChange[];
 }> {
-  let succeeded = 0;
-  const failed: Array<{ action: DeployAction; error: string }> = [];
   const planned: PlannedChange[] = [];
-
   const runRegistry = new RunRegistry(
     deps.registry ?? defaultRegistryPersistence,
   );
@@ -613,41 +611,227 @@ export async function executeDeploy(
     registry: runRegistry,
   };
 
-  if (!dryRun) {
-    try {
-      await runRegistry.preflight(home);
-    } catch (err) {
-      const message = err instanceof Error ? err.message : String(err);
-      return {
-        succeeded: 0,
-        failed: actions.map((action) => ({ action, error: message })),
-        planned,
-      };
-    }
+  const preflightFailure = await preflightDeployRegistry(
+    actions,
+    dryRun,
+    home,
+    runRegistry,
+  );
+  if (preflightFailure) {
+    return preflightFailure;
   }
 
-  for (const action of actions) {
-    if (signal?.aborted) break;
-    const result = await dispatchDeployAction(
-      action,
-      dryRun,
-      verbose,
-      home,
-      planned,
-      depsWithRegistry,
-    );
-    if (result.error === null) {
-      succeeded++;
-    } else {
-      failed.push({ action, error: result.error });
-    }
-  }
+  const results = await executeDeployActions(
+    actions,
+    dryRun,
+    verbose,
+    home,
+    depsWithRegistry,
+    signal,
+  );
 
   if (!dryRun) {
     await runRegistry.flush(home);
   }
 
+  return summarizeDeployResults(actions, results, planned);
+}
+
+async function preflightDeployRegistry(
+  actions: DeployAction[],
+  dryRun: boolean,
+  home: string,
+  runRegistry: RunRegistry,
+): Promise<{
+  succeeded: number;
+  failed: Array<{ action: DeployAction; error: string }>;
+  planned: PlannedChange[];
+} | null> {
+  if (dryRun) return null;
+  try {
+    await runRegistry.preflight(home);
+    return null;
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    return {
+      succeeded: 0,
+      failed: actions.map((action) => ({ action, error: message })),
+      planned: [],
+    };
+  }
+}
+
+async function executeDeployActions(
+  actions: DeployAction[],
+  dryRun: boolean,
+  verbose: boolean,
+  home: string,
+  deps: DeployDependencies,
+  signal?: AbortSignal,
+): Promise<Array<DeployActionResult | undefined>> {
+  const results = new Array<DeployActionResult | undefined>(actions.length);
+  if (dryRun) {
+    await executeDryRunDeployActions(
+      results,
+      actions,
+      verbose,
+      home,
+      deps,
+      signal,
+    );
+    return results;
+  }
+
+  const lanes = partitionDeployActionLanes(actions);
+  await mapConcurrentOrdered(
+    lanes,
+    async (lane) => {
+      for (const indexedAction of lane) {
+        if (signal?.aborted) return;
+        results[indexedAction.index] = await dispatchDeployAction(
+          indexedAction.action,
+          false,
+          verbose,
+          home,
+          deps,
+        );
+      }
+    },
+    { signal },
+  );
+
+  return results;
+}
+
+async function executeDryRunDeployActions(
+  results: Array<DeployActionResult | undefined>,
+  actions: DeployAction[],
+  verbose: boolean,
+  home: string,
+  deps: DeployDependencies,
+  signal?: AbortSignal,
+): Promise<void> {
+  for (const [index, action] of actions.entries()) {
+    if (signal?.aborted) break;
+    results[index] = await dispatchDeployAction(
+      action,
+      true,
+      verbose,
+      home,
+      deps,
+    );
+  }
+}
+
+function summarizeDeployResults(
+  actions: DeployAction[],
+  results: Array<DeployActionResult | undefined>,
+  planned: PlannedChange[],
+): {
+  succeeded: number;
+  failed: Array<{ action: DeployAction; error: string }>;
+  planned: PlannedChange[];
+} {
+  let succeeded = 0;
+  const failed: Array<{ action: DeployAction; error: string }> = [];
+  for (const [index, result] of results.entries()) {
+    if (!result) continue;
+    emitDeployLogs(result.logs);
+    if (result.plannedChange) {
+      planned.push(result.plannedChange);
+    }
+    if (result.error === null) {
+      succeeded += 1;
+    } else {
+      failed.push({
+        action: actions[index] as DeployAction,
+        error: result.error,
+      });
+    }
+  }
+
   return { succeeded, failed, planned };
+}
+
+type DeployLogEvent =
+  | { kind: "ok"; label: string }
+  | { kind: "fail"; label: string; message: string }
+  | { kind: "detail"; message: string };
+
+interface DeployActionResult {
+  error: string | null;
+  logs: DeployLogEvent[];
+  plannedChange?: PlannedChange;
+}
+
+function emitDeployLogs(logs: DeployLogEvent[]): void {
+  for (const event of logs) {
+    switch (event.kind) {
+      case "ok":
+        logger.ok(event.label);
+        break;
+      case "fail":
+        logger.fail(event.label, event.message);
+        break;
+      case "detail":
+        logger.detail(event.message);
+        break;
+      default:
+        throw new Error(
+          `Unhandled deploy log event: ${(event as DeployLogEvent).kind}`,
+        );
+    }
+  }
+}
+
+function buildSuccessResult(
+  label: string,
+  detail?: string,
+  plannedChange?: PlannedChange,
+): DeployActionResult {
+  const logs: DeployLogEvent[] = [];
+  if (!plannedChange) {
+    logs.push({ kind: "ok", label });
+    if (detail) {
+      logs.push({ kind: "detail", message: detail });
+    }
+  }
+  return { error: null, logs, plannedChange };
+}
+
+function buildFailureResult(
+  label: string,
+  message: string,
+): DeployActionResult {
+  return {
+    error: message,
+    logs: [{ kind: "fail", label, message }],
+  };
+}
+
+function pushVerboseDetail(
+  logs: DeployLogEvent[],
+  verbose: boolean,
+  message: string,
+): void {
+  if (verbose) {
+    logs.push({ kind: "detail", message });
+  }
+}
+
+function partitionDeployActionLanes(
+  actions: DeployAction[],
+): Array<Array<{ action: DeployAction; index: number }>> {
+  const lanes = new Map<
+    string,
+    Array<{ action: DeployAction; index: number }>
+  >();
+  for (const [index, action] of actions.entries()) {
+    const lane = lanes.get(action.target) ?? [];
+    lane.push({ action, index });
+    lanes.set(action.target, lane);
+  }
+  return Array.from(lanes.values());
 }
 
 async function dispatchDeployAction(
@@ -655,27 +839,19 @@ async function dispatchDeployAction(
   dryRun: boolean,
   verbose: boolean,
   home: string,
-  planned: PlannedChange[],
   deps: DeployDependencies,
-): Promise<{ error: string | null }> {
+): Promise<DeployActionResult> {
   switch (action.kind) {
     case "skill-dir":
-      return deploySkillDir(action, dryRun, verbose, home, planned, deps);
+      return deploySkillDir(action, dryRun, verbose, home, deps);
     case "file-write":
-      return deployFileWrite(action, dryRun, verbose, home, planned, deps);
+      return deployFileWrite(action, dryRun, verbose, home, deps);
     case "config-patch":
-      return deployConfigPatch(action, dryRun, verbose, home, planned, deps);
+      return deployConfigPatch(action, dryRun, verbose, home, deps);
     case "toml-patch":
-      return deployTomlPatch(action, dryRun, verbose, home, planned, deps);
+      return deployTomlPatch(action, dryRun, verbose, home, deps);
     case "frontmatter-emit":
-      return deployFrontmatterEmit(
-        action,
-        dryRun,
-        verbose,
-        home,
-        planned,
-        deps,
-      );
+      return deployFrontmatterEmit(action, dryRun, verbose, home, deps);
     default:
       throw new Error(
         `Unhandled deploy action kind: ${(action as DeployAction).kind}`,
@@ -843,21 +1019,19 @@ async function deploySkillDir(
   dryRun: boolean,
   verbose: boolean,
   home: string,
-  planned: PlannedChange[],
   deps: DeployDependencies,
-): Promise<{ error: string | null }> {
+): Promise<DeployActionResult> {
   const label = `${action.skill} -> ${action.agent}`;
 
   try {
     await access(action.source);
   } catch (err) {
     const msg = sourceAccessError(err, action.source);
-    logger.fail(label, msg);
-    return { error: msg };
+    return buildFailureResult(label, msg);
   }
 
   if (dryRun) {
-    planned.push({
+    return buildSuccessResult(label, undefined, {
       verb: action.method === "symlink" ? "create-symlink" : "copy-dir",
       kind: "skill-dir",
       skill: action.skill,
@@ -867,16 +1041,14 @@ async function deploySkillDir(
       method: action.method,
       confidence: action.confidence,
     });
-    return { error: null };
   }
 
   try {
-    await executeDeployAction(action, verbose, home, deps);
-    return { error: null };
+    const logs = await executeDeployAction(action, verbose, home, deps);
+    return { error: null, logs };
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
-    logger.fail(label, msg);
-    return { error: msg };
+    return buildFailureResult(label, msg);
   }
 }
 
@@ -885,21 +1057,19 @@ async function deployFileWrite(
   dryRun: boolean,
   verbose: boolean,
   home: string,
-  planned: PlannedChange[],
   deps: DeployDependencies,
-): Promise<{ error: string | null }> {
+): Promise<DeployActionResult> {
   const label = `${action.skill} -> ${action.agent}`;
 
   try {
     await access(action.source);
   } catch (err) {
     const msg = sourceAccessError(err, action.source);
-    logger.fail(label, msg);
-    return { error: msg };
+    return buildFailureResult(label, msg);
   }
 
   if (dryRun) {
-    planned.push({
+    return buildSuccessResult(label, undefined, {
       verb: "write-file",
       kind: "file-write",
       skill: action.skill,
@@ -907,7 +1077,6 @@ async function deployFileWrite(
       source: action.source,
       target: action.target,
     });
-    return { error: null };
   }
 
   try {
@@ -930,15 +1099,13 @@ async function deployFileWrite(
           deps.registry,
         ),
     );
-    logger.ok(label);
-    if (verbose) {
-      logger.detail(`write-file: ${action.source} -> ${action.target}`);
-    }
-    return { error: null };
+    return buildSuccessResult(
+      label,
+      verbose ? `write-file: ${action.source} -> ${action.target}` : undefined,
+    );
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
-    logger.fail(label, msg);
-    return { error: msg };
+    return buildFailureResult(label, msg);
   }
 }
 
@@ -947,21 +1114,19 @@ async function deployConfigPatch(
   dryRun: boolean,
   verbose: boolean,
   home: string,
-  planned: PlannedChange[],
   deps: DeployDependencies,
-): Promise<{ error: string | null }> {
+): Promise<DeployActionResult> {
   const label = `${action.skill} -> ${action.agent}`;
 
   if (!isPlainObject(action.patch)) {
     const msg = `Config patch for skill "${action.skill}" must be a plain object`;
-    logger.fail(label, msg);
-    return { error: msg };
+    return buildFailureResult(label, msg);
   }
 
   const patch = action.patch;
 
   if (dryRun) {
-    planned.push({
+    return buildSuccessResult(label, undefined, {
       verb: "patch-config",
       kind: "config-patch",
       skill: action.skill,
@@ -969,7 +1134,6 @@ async function deployConfigPatch(
       target: action.target,
       patch,
     });
-    return { error: null };
   }
 
   try {
@@ -1030,17 +1194,15 @@ async function deployConfigPatch(
         ),
     );
 
-    logger.ok(label);
-    if (verbose) {
-      logger.detail(
-        `patch-config: applied ${Object.keys(patch).length} key(s) to ${action.target}`,
-      );
-    }
-    return { error: null };
+    return buildSuccessResult(
+      label,
+      verbose
+        ? `patch-config: applied ${Object.keys(patch).length} key(s) to ${action.target}`
+        : undefined,
+    );
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
-    logger.fail(label, msg);
-    return { error: msg };
+    return buildFailureResult(label, msg);
   }
 }
 async function deployTomlPatch(
@@ -1048,13 +1210,12 @@ async function deployTomlPatch(
   dryRun: boolean,
   verbose: boolean,
   home: string,
-  planned: PlannedChange[],
   deps: DeployDependencies,
-): Promise<{ error: string | null }> {
+): Promise<DeployActionResult> {
   const label = `${action.skill} -> ${action.agent}`;
 
   if (dryRun) {
-    planned.push({
+    return buildSuccessResult(label, undefined, {
       verb: "patch-toml",
       kind: "toml-patch",
       skill: action.skill,
@@ -1062,7 +1223,6 @@ async function deployTomlPatch(
       target: action.target,
       patch: action.config,
     });
-    return { error: null };
   }
 
   try {
@@ -1085,15 +1245,13 @@ async function deployTomlPatch(
       deps.registry,
     );
 
-    logger.ok(label);
-    if (verbose) {
-      logger.detail(`patch-toml: ${action.target}`);
-    }
-    return { error: null };
+    return buildSuccessResult(
+      label,
+      verbose ? `patch-toml: ${action.target}` : undefined,
+    );
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
-    logger.fail(label, msg);
-    return { error: msg };
+    return buildFailureResult(label, msg);
   }
 }
 
@@ -1102,19 +1260,17 @@ async function deployFrontmatterEmit(
   dryRun: boolean,
   verbose: boolean,
   home: string,
-  planned: PlannedChange[],
   deps: DeployDependencies,
-): Promise<{ error: string | null }> {
+): Promise<DeployActionResult> {
   const label = `${action.skill} -> ${action.agent}`;
 
   if (!isPlainObject(action.frontmatter)) {
     const msg = `Frontmatter patch for skill "${action.skill}" must be a plain object`;
-    logger.fail(label, msg);
-    return { error: msg };
+    return buildFailureResult(label, msg);
   }
 
   if (dryRun) {
-    planned.push({
+    return buildSuccessResult(label, undefined, {
       verb: "emit-frontmatter",
       kind: "frontmatter-emit",
       skill: action.skill,
@@ -1122,7 +1278,6 @@ async function deployFrontmatterEmit(
       target: action.target,
       frontmatter: action.frontmatter,
     });
-    return { error: null };
   }
 
   try {
@@ -1195,15 +1350,13 @@ async function deployFrontmatterEmit(
         ),
     );
 
-    logger.ok(label);
-    if (verbose) {
-      logger.detail(`emit-frontmatter: ${action.target}`);
-    }
-    return { error: null };
+    return buildSuccessResult(
+      label,
+      verbose ? `emit-frontmatter: ${action.target}` : undefined,
+    );
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
-    logger.fail(label, msg);
-    return { error: msg };
+    return buildFailureResult(label, msg);
   }
 }
 
@@ -1317,8 +1470,8 @@ async function executeDeployAction(
   verbose: boolean,
   home: string,
   deps: DeployDependencies,
-): Promise<void> {
-  const label = `${action.skill} -> ${action.agent}`;
+): Promise<DeployLogEvent[]> {
+  const logs: DeployLogEvent[] = [];
   const backupPath = await backupExisting(
     action.target,
     verbose,
@@ -1330,6 +1483,7 @@ async function executeDeployAction(
       agent: action.agent,
     },
     deps,
+    logs,
   );
   await mkdir(path.dirname(action.target), { recursive: true });
 
@@ -1356,10 +1510,13 @@ async function executeDeployAction(
     await (deps.skillDirOps ?? defaultSkillDirOps).removeTarget(backupPath);
   }
 
-  logger.ok(label);
-  if (verbose) {
-    logger.detail(`${action.method}: ${action.source} -> ${action.target}`);
-  }
+  logs.push({ kind: "ok", label: `${action.skill} -> ${action.agent}` });
+  pushVerboseDetail(
+    logs,
+    verbose,
+    `${action.method}: ${action.source} -> ${action.target}`,
+  );
+  return logs;
 }
 
 async function backupExisting(
@@ -1368,6 +1525,7 @@ async function backupExisting(
   home: string,
   expected: { kind: string; source: string; skill: string; agent: AgentId },
   deps: DeployDependencies,
+  logs: DeployLogEvent[],
 ): Promise<string | null> {
   try {
     await lstat(targetPath);
@@ -1396,9 +1554,7 @@ async function backupExisting(
 
   const backupPath = `${targetPath}.inception-backup`;
 
-  if (verbose) {
-    logger.detail(`backing up existing target: ${targetPath}`);
-  }
+  pushVerboseDetail(logs, verbose, `backing up existing target: ${targetPath}`);
 
   // Remove any stale backup from a previous failed attempt. Using rm with
   // { force: true } avoids a separate lstat existence check and handles
