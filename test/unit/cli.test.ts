@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
-import { mkdir, rm, writeFile } from "node:fs/promises";
+import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { describe, it } from "node:test";
 import { makeTmpDir } from "../helpers/fs.ts";
@@ -1695,6 +1695,149 @@ describe("init command", () => {
       assert.ok(stdout.includes("agentRules:"), stdout);
       assert.ok(stdout.includes("agentDefinitions:"), stdout);
       assert.ok(stdout.includes("mcpServers:"), stdout);
+    } finally {
+      await rm(dir, { recursive: true });
+    }
+  });
+
+  it("keeps conventional markdown discovery focused outside discovered skill roots", async () => {
+    const dir = await makeTmpDir();
+    try {
+      await mkdir(path.join(dir, "skills", "alpha"), { recursive: true });
+      await writeFile(
+        path.join(dir, "skills", "alpha", "SKILL.md"),
+        "---\nname: alpha\ndescription: test\n---\n",
+      );
+      await writeFile(
+        path.join(dir, "skills", "alpha", "notes.md"),
+        "# direct child in skill\n",
+      );
+      await mkdir(path.join(dir, "rules"), { recursive: true });
+      await writeFile(
+        path.join(dir, "rules", "shared.md"),
+        "# shared markdown rule\n",
+      );
+      await mkdir(path.join(dir, ".claude", "agents"), { recursive: true });
+      await writeFile(
+        path.join(dir, ".claude", "agents", "reviewer.md"),
+        "---\nname: reviewer\ndescription: test\n---\n# Agent\n",
+      );
+
+      const { code } = await run(["init", dir]);
+      assert.equal(code, 0);
+
+      const manifest = JSON.parse(
+        await readFile(path.join(dir, "inception.json"), "utf-8"),
+      ) as {
+        agentRules: Array<{ path: string }>;
+        agentDefinitions: Array<{ path: string }>;
+      };
+
+      const discoveredRulePaths = manifest.agentRules.map((entry) =>
+        normalizeSlashes(entry.path),
+      );
+      assert.ok(
+        !discoveredRulePaths.includes("skills/alpha/notes.md"),
+        "direct markdown child of a skill should be excluded from agentRules",
+      );
+      assert.ok(
+        discoveredRulePaths.includes("rules/shared.md"),
+        "supported markdown outside skills should still be scanned",
+      );
+
+      const discoveredDefinitionPaths = manifest.agentDefinitions.map((entry) =>
+        normalizeSlashes(entry.path),
+      );
+      assert.ok(
+        discoveredDefinitionPaths.includes(".claude/agents/reviewer.md"),
+        "agent definitions outside skills should still be discovered",
+      );
+    } finally {
+      await rm(dir, { recursive: true });
+    }
+  });
+
+  it("keeps skill discovery deterministic and does not descend below discovered skill roots", async () => {
+    const dir = await makeTmpDir();
+    try {
+      for (const skillName of ["charlie", "alpha", "bravo"]) {
+        const skillDir = path.join(dir, "skills", skillName);
+        await mkdir(path.join(skillDir, "deep", "nested"), { recursive: true });
+        await writeFile(
+          path.join(skillDir, "SKILL.md"),
+          `---\nname: ${skillName}\ndescription: test\n---\n`,
+        );
+        await writeFile(
+          path.join(skillDir, "deep", "nested", "ignored.md"),
+          "# ignored because it is inside a skill\n",
+        );
+        await writeFile(
+          path.join(skillDir, "deep", "nested", "SKILL.md"),
+          "---\nname: ignored\ndescription: nested\n---\n",
+        );
+      }
+
+      await mkdir(path.join(dir, "rules"), { recursive: true });
+      await writeFile(path.join(dir, "rules", "shared.md"), "# shared rule\n");
+
+      for (let i = 0; i < 24; i++) {
+        const branchDir = path.join(dir, "packages", `pkg-${i}`);
+        await mkdir(path.join(branchDir, "docs"), { recursive: true });
+        await writeFile(
+          path.join(branchDir, "docs", `ignored-${i}.md`),
+          `# package doc ${i}\n`,
+        );
+      }
+
+      await mkdir(path.join(dir, ".claude", "agents"), { recursive: true });
+      await writeFile(
+        path.join(dir, ".claude", "agents", "maintainer.md"),
+        "---\nname: maintainer\ndescription: test\n---\n# Agent\n",
+      );
+
+      const { code } = await run(["init", dir]);
+      assert.equal(code, 0);
+
+      const manifest = JSON.parse(
+        await readFile(path.join(dir, "inception.json"), "utf-8"),
+      ) as {
+        skills: Array<{ name: string; path: string }>;
+        agentRules: Array<{ path: string }>;
+        agentDefinitions: Array<{ path: string }>;
+      };
+
+      assert.deepEqual(
+        manifest.skills.map((entry) => entry.name),
+        ["alpha", "bravo", "charlie"],
+        "skill ordering should be path-sorted and deterministic",
+      );
+      assert.deepEqual(
+        manifest.skills.map((entry) => normalizeSlashes(entry.path)),
+        ["skills/alpha", "skills/bravo", "skills/charlie"],
+      );
+      assert.ok(
+        !manifest.skills.some((entry) => entry.name === "nested"),
+        "nested SKILL.md below a discovered skill should not be treated as a new skill",
+      );
+      assert.ok(
+        !manifest.agentRules.some((entry) =>
+          normalizeSlashes(entry.path).includes("ignored.md"),
+        ),
+        "markdown below a discovered skill should be excluded from agentRules",
+      );
+      assert.ok(
+        manifest.agentRules.some(
+          (entry) => normalizeSlashes(entry.path) === "rules/shared.md",
+        ),
+        "documented rule directories should still be scanned for markdown rules",
+      );
+      assert.ok(
+        manifest.agentDefinitions.some(
+          (entry) =>
+            normalizeSlashes(entry.path) === ".claude/agents/maintainer.md",
+        ),
+        "agent definitions outside skills should still be discovered",
+      );
     } finally {
       await rm(dir, { recursive: true });
     }

@@ -1,5 +1,6 @@
-import { access, readdir, readFile } from "node:fs/promises";
+import { access, opendir, readdir, readFile } from "node:fs/promises";
 import path from "node:path";
+import type { Dir } from "node:fs";
 import { AGENT_REGISTRY } from "../config/agents.ts";
 import { dryRunPrefix, logger } from "../logger.ts";
 import type {
@@ -23,6 +24,7 @@ import { writeFileAtomic } from "./atomic-write.ts";
 import { shouldInitIncludeAgent } from "./capabilities.ts";
 
 const SAFE_NAME_RE = /^[a-zA-Z0-9][a-zA-Z0-9._-]*$/;
+const SKILL_SCAN_CONCURRENCY = 8;
 
 // Ordered list: first match wins. Catch-all is applied at call site.
 // Derived from the registry: group agents by the filename of their global
@@ -99,42 +101,106 @@ async function hasAntigravityMcpFrontmatter(absPath: string): Promise<boolean> {
   );
 }
 
-async function findSkillDirs(
+async function inspectSkillScanDir(
+  dir: string,
+): Promise<{ hasSkillMd: boolean; subdirs: string[] } | null> {
+  let handle: Dir | null = null;
+  try {
+    handle = await opendir(dir, { encoding: "utf-8" });
+  } catch {
+    return null;
+  }
+
+  const subdirs: string[] = [];
+  try {
+    while (true) {
+      const entry = await handle.read();
+      if (entry === null) break;
+      if (entry.isFile() && entry.name === "SKILL.md") {
+        return { hasSkillMd: true, subdirs: [] };
+      }
+      if (entry.isDirectory() && !entry.name.startsWith(".")) {
+        subdirs.push(path.join(dir, entry.name));
+      }
+    }
+  } finally {
+    await handle.close().catch(() => {
+      // Ignore double-close when returning early after finding SKILL.md.
+    });
+  }
+
+  return { hasSkillMd: false, subdirs };
+}
+
+function addFoundSkill(
   baseDir: string,
   dir: string,
   found: Array<{ relPath: string; name: string }>,
+): void {
+  const relPath = path.relative(baseDir, dir).split(path.sep).join("/");
+  const name = path.basename(dir);
+  if (SAFE_NAME_RE.test(name)) {
+    found.push({ relPath, name });
+    return;
+  }
+  logger.warn(
+    "init",
+    `Skipping "${relPath}": directory name "${name}" is not a valid skill name`,
+  );
+}
+
+function enqueueSubdirs(
+  queue: string[],
+  subdirs: string[],
   signal?: AbortSignal,
-): Promise<void> {
-  if (signal?.aborted) return;
-  let entries: import("node:fs").Dirent<string>[];
-  try {
-    entries = await readdir(dir, { withFileTypes: true, encoding: "utf-8" });
-  } catch {
-    return;
+): boolean {
+  for (const subdir of subdirs) {
+    if (signal?.aborted) return false;
+    queue.push(subdir);
+  }
+  return true;
+}
+
+async function processSkillScanDir(
+  baseDir: string,
+  dir: string,
+  queue: string[],
+  found: Array<{ relPath: string; name: string }>,
+  signal?: AbortSignal,
+): Promise<boolean> {
+  const scanned = await inspectSkillScanDir(dir);
+  if (scanned === null) return true;
+  if (scanned.hasSkillMd) {
+    addFoundSkill(baseDir, dir, found);
+    return true;
+  }
+  return enqueueSubdirs(queue, scanned.subdirs, signal);
+}
+
+async function findSkillDirs(
+  baseDir: string,
+  startDir: string,
+  signal?: AbortSignal,
+): Promise<Array<{ relPath: string; name: string }>> {
+  const found: Array<{ relPath: string; name: string }> = [];
+  const queue = [startDir];
+
+  async function worker(): Promise<void> {
+    while (queue.length > 0) {
+      if (signal?.aborted) return;
+      const dir = queue.shift();
+      if (!dir) return;
+      if (!(await processSkillScanDir(baseDir, dir, queue, found, signal))) {
+        return;
+      }
+    }
   }
 
-  const hasSkillMd = entries.some((e) => e.isFile() && e.name === "SKILL.md");
-  if (hasSkillMd) {
-    const relPath = path.relative(baseDir, dir).split(path.sep).join("/");
-    const name = path.basename(dir);
-    if (SAFE_NAME_RE.test(name)) {
-      found.push({ relPath, name });
-    } else {
-      logger.warn(
-        "init",
-        `Skipping "${relPath}": directory name "${name}" is not a valid skill name`,
-      );
-    }
-    // Don't recurse into a skill directory
-    return;
-  }
+  const workerCount = Math.min(SKILL_SCAN_CONCURRENCY, queue.length || 1);
+  await Promise.all(Array.from({ length: workerCount }, () => worker()));
 
-  for (const entry of entries) {
-    if (signal?.aborted) return;
-    if (entry.isDirectory() && !entry.name.startsWith(".")) {
-      await findSkillDirs(baseDir, path.join(dir, entry.name), found, signal);
-    }
-  }
+  found.sort((a, b) => a.relPath.localeCompare(b.relPath));
+  return found;
 }
 
 function resolveSkillName(
@@ -182,15 +248,18 @@ function defaultAgentsForFile(
   return fallback;
 }
 
-function isInsideSkillDir(
+export function isInsideSkillDir(
   relPath: string,
   skillDirRelPaths: Set<string>,
 ): boolean {
-  const parentRelPath = path.dirname(relPath).split(path.sep).join("/");
-  if (skillDirRelPaths.has(parentRelPath)) return true;
-  return [...skillDirRelPaths].some(
-    (sp) => parentRelPath === sp || parentRelPath.startsWith(`${sp}/`),
-  );
+  let parentRelPath = path.posix.dirname(relPath.split(path.sep).join("/"));
+  while (parentRelPath !== "." && parentRelPath !== "/") {
+    if (skillDirRelPaths.has(parentRelPath)) return true;
+    const nextParent = path.posix.dirname(parentRelPath);
+    if (nextParent === parentRelPath) break;
+    parentRelPath = nextParent;
+  }
+  return false;
 }
 
 function deriveAgentRulesName(
@@ -870,8 +939,7 @@ export async function runInit(options: InitOptions): Promise<number> {
     return 2;
   }
 
-  const found: Array<{ relPath: string; name: string }> = [];
-  await findSkillDirs(directory, directory, found, signal);
+  const found = await findSkillDirs(directory, directory, signal);
 
   if (signal?.aborted) return 0;
 
