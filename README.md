@@ -10,6 +10,27 @@ The broader portability layer is the roadmap direction, but this README focuses 
 
 `init` is available as a bootstrap command. It scans for directories containing `SKILL.md`, discovers agent-rules Markdown files using the Claude-first portability conventions, and reads `mcp-servers.json` from the repo root to populate `mcpServers`. Shared surfaces now default to the primary deploy target in generated manifests: for example, `init` emits `claude-code` rather than `github-copilot` for shared Claude-native skills and rules, and emits `gemini-cli` rather than `antigravity` for shared `GEMINI.md` rules surfaces. `files` and `configs` remain empty — `init` emits guidance when it detects a `files/` or `configs/` directory.
 
+## SBOM
+
+This repo can generate an SPDX SBOM without adding any new runtime dependency by using npm's built-in `sbom` command:
+
+```bash
+npm ci
+npm sbom --sbom-format spdx --omit dev > sbom.spdx.json
+```
+
+`--omit dev` keeps the SBOM focused on the published CLI's runtime dependency graph.
+
+For GitHub Actions, the repository includes [`.github/workflows/sbom.yml`](.github/workflows/sbom.yml). It:
+
+- installs dependencies and runs the normal release checks
+- creates the npm package tarball with `npm pack`
+- generates `dist-artifacts/sbom.spdx.json` via `npm sbom`
+- uploads both the tarball and SBOM as workflow artifacts
+- creates a GitHub artifact attestation that binds the SBOM to the packaged tarball
+
+Run it manually with `workflow_dispatch`, or let it run automatically when a GitHub Release is published.
+
 ## Quick Start
 
 ```bash

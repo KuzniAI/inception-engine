@@ -1,0 +1,60 @@
+name: SBOM
+
+on:
+  workflow_dispatch:
+  release:
+    types: [published]
+
+jobs:
+  sbom:
+    runs-on: ubuntu-latest
+    env:
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+    permissions:
+      contents: read
+      id-token: write
+      attestations: write
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: "24"
+          cache: "npm"
+          registry-url: "https://registry.npmjs.org"
+
+      - run: npm ci
+
+      - run: npm run lint
+
+      - run: npm run build
+
+      - run: npm run test:posix
+
+      - name: Pack npm artifact
+        run: npm pack --pack-destination dist-artifacts
+
+      - name: Capture tarball path
+        id: tarball
+        shell: bash
+        run: echo "path=$(ls dist-artifacts/*.tgz)" >> "$GITHUB_OUTPUT"
+
+      - name: Generate SPDX SBOM
+        shell: bash
+        run: npm sbom --sbom-format spdx --omit dev > dist-artifacts/sbom.spdx.json
+
+      - name: Upload release artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-with-sbom
+          path: |
+            ${{ steps.tarball.outputs.path }}
+            dist-artifacts/sbom.spdx.json
+
+      - name: Attest SBOM
+        uses: actions/attest@v4
+        with:
+          subject-path: ${{ steps.tarball.outputs.path }}
+          sbom-path: dist-artifacts/sbom.spdx.json
