@@ -14,10 +14,10 @@ import { getPlatformKey, resolvePlaceholders } from "../resolve.ts";
 import {
   instructionRequiresFrontmatter,
   parseInstructionDocument,
+  type SourcePathValidator,
   validateAgentRuleMarkdownPath,
   validateInstructionAgentRequirements,
   validateSourceFile,
-  validateSourcePath,
 } from "../validation.ts";
 
 export interface RulesAdapterResult {
@@ -139,7 +139,7 @@ export async function compileAgentRuleActions(
   entry: AgentRuleEntry,
   sourceDir: string,
   resolvedSourceDir: string,
-  realRoot: string,
+  validateSource: SourcePathValidator,
   detectedAgents: AgentId[],
   home: string,
   repo?: string,
@@ -189,7 +189,7 @@ export async function compileAgentRuleActions(
   // Validate the shared source file only when at least one target uses the
   // current rules adapter surface.
   const source = path.resolve(sourceDir, entry.path);
-  await validateSourcePath(source, entry.path, resolvedSourceDir, realRoot);
+  await validateSource(source, entry.path, resolvedSourceDir);
   await validateSourceFile(source, entry.path);
 
   // Native Copilot instruction files (.github/copilot-instructions.md and

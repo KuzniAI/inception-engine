@@ -28,8 +28,8 @@ Score format:
     Preflight still collects some agent-specific warnings sequentially even though the work is mostly independent file reads and environment inspection. Running those checks concurrently would not change behavior, but it would reduce startup latency as the number of detected agents grows. Keep warning ordering deterministic if the output contract depends on it.  
     `Score 8/12 (Architecture 1, Agents 1, OS 2, Confidence 2, Safety 1, Stability 1)`
 
-4. **Memoize symlink-containment validation for manifest source paths.**  
-   Source-path validation defends correctly against symlink escape, but its identity fallback can walk ancestor chains and issue repeated `stat` calls for the same paths. On deeper trees or manifests with many entries, that becomes avoidable syscall overhead. Add memoization around resolved source validation so repository-root safety guarantees are preserved without redoing the same containment checks across planning stages.  
+4. ~~**Memoize symlink-containment validation for manifest source paths.**~~  
+   ~~Source-path validation defends correctly against symlink escape, but its identity fallback can walk ancestor chains and issue repeated `stat` calls for the same paths. On deeper trees or manifests with many entries, that becomes avoidable syscall overhead. Add memoization around resolved source validation so repository-root safety guarantees are preserved without redoing the same containment checks across planning stages.~~  
    `Score 9/12 (Architecture 1, Agents 1, OS 2, Confidence 2, Safety 1, Stability 2)`
 
 5. **Make `init` repo scanning scale better on large trees.**  

@@ -16,10 +16,10 @@ import { getPlatformKey, resolvePlaceholders } from "../resolve.ts";
 import {
   instructionRequiresFrontmatter,
   parseInstructionDocument,
+  type SourcePathValidator,
   validateAgentRuleMarkdownPath,
   validateInstructionAgentRequirements,
   validateSourceFile,
-  validateSourcePath,
 } from "../validation.ts";
 
 export interface AgentDefinitionsAdapterResult {
@@ -217,7 +217,7 @@ export async function compileAgentDefinitionActions(
   entry: AgentDefinitionEntry,
   sourceDir: string,
   resolvedSourceDir: string,
-  realRoot: string,
+  validateSource: SourcePathValidator,
   detectedAgents: AgentId[],
   home: string,
   repo?: string,
@@ -245,7 +245,7 @@ export async function compileAgentDefinitionActions(
 
   // Validate the shared source file only when at least one target is active.
   const source = path.resolve(sourceDir, entry.path);
-  await validateSourcePath(source, entry.path, resolvedSourceDir, realRoot);
+  await validateSource(source, entry.path, resolvedSourceDir);
   await validateSourceFile(source, entry.path);
 
   const actions = await createAgentDefinitionActions(

@@ -4,6 +4,7 @@ import path from "node:path";
 import { describe, it } from "node:test";
 import { compileAgentDefinitionActions } from "../../src/core/adapters/agent-definitions.ts";
 import { runPreflight } from "../../src/core/preflight.ts";
+import { createSourcePathValidator } from "../../src/core/validation.ts";
 import { makeTmpDir } from "../helpers/fs.ts";
 import { assertPathEndsWith } from "../helpers/path.ts";
 
@@ -15,7 +16,7 @@ describe("Gemini CLI North Star", () => {
         path.join(dir, "my-agent.md"),
         "---\nname: test-agent\ndescription: test\ntools: []\n---\n# Agent",
       );
-      const realRoot = await realpath(dir);
+      const validateSource = createSourcePathValidator(await realpath(dir));
       const { actions, warnings } = await compileAgentDefinitionActions(
         {
           name: "my-agent",
@@ -25,7 +26,7 @@ describe("Gemini CLI North Star", () => {
         },
         dir,
         dir,
-        realRoot,
+        validateSource,
         ["gemini-cli"],
         "/home/test",
         "/repo/test",
@@ -56,7 +57,7 @@ describe("Gemini CLI North Star", () => {
         path.join(dir, "my-agent.toml"),
         '[agent]\nname = "my-agent"\ndescription = "test"\n',
       );
-      const realRoot = await realpath(dir);
+      const validateSource = createSourcePathValidator(await realpath(dir));
       const { actions, warnings } = await compileAgentDefinitionActions(
         {
           name: "my-agent",
@@ -66,7 +67,7 @@ describe("Gemini CLI North Star", () => {
         },
         dir,
         dir,
-        realRoot,
+        validateSource,
         ["gemini-cli"],
         "/home/test",
         "/repo/test",
@@ -97,7 +98,7 @@ describe("Gemini CLI North Star", () => {
         path.join(dir, "my-agent.toml"),
         '[agent]\nname = "my-agent"\ndescription = "test"\n',
       );
-      const realRoot = await realpath(dir);
+      const validateSource = createSourcePathValidator(await realpath(dir));
       const { actions, warnings } = await compileAgentDefinitionActions(
         {
           name: "my-agent",
@@ -107,7 +108,7 @@ describe("Gemini CLI North Star", () => {
         },
         dir,
         dir,
-        realRoot,
+        validateSource,
         ["gemini-cli"],
         "/home/test",
         "/repo/test",
@@ -138,7 +139,7 @@ describe("Gemini CLI North Star", () => {
         path.join(dir, "my-agent.toml"),
         '[agent]\nname = "my-agent"\ndescription = "test"\n',
       );
-      const realRoot = await realpath(dir);
+      const validateSource = createSourcePathValidator(await realpath(dir));
       // claude-code has no TOML surface — should silently produce no action
       const { actions, warnings } = await compileAgentDefinitionActions(
         {
@@ -149,7 +150,7 @@ describe("Gemini CLI North Star", () => {
         },
         dir,
         dir,
-        realRoot,
+        validateSource,
         ["claude-code"],
         "/home/test",
         "/repo/test",

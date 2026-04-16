@@ -81,6 +81,72 @@ export async function validateSourcePath(
   }
 }
 
+type RealpathCheckOutcome =
+  | { kind: "ok" }
+  | { kind: "escape"; realSource: string };
+
+export type SourcePathValidator = (
+  source: string,
+  manifestPath: string,
+  resolvedSourceDir: string,
+) => Promise<void>;
+
+/**
+ * Returns a memoizing source-path validator bound to a single `realRoot`.
+ *
+ * The cheap out-of-root string gate still runs on every call so per-entry
+ * `manifestPath` error messages remain accurate. The realpath resolution and
+ * the identity-based ancestor walk are memoized per resolved `source`, which
+ * eliminates repeated syscalls when the same source is referenced across
+ * multiple manifest sections or fans out to multiple agents within one
+ * `planDeploy` invocation.
+ */
+export function createSourcePathValidator(
+  realRoot: string,
+): SourcePathValidator {
+  const cache = new Map<string, Promise<RealpathCheckOutcome>>();
+
+  const resolveOutcome = async (
+    source: string,
+  ): Promise<RealpathCheckOutcome> => {
+    try {
+      const realSource = await realpath(source);
+      if (
+        isSameOrDescendantPath(realSource, realRoot) ||
+        (await isWithinRootByIdentity(realSource, realRoot))
+      ) {
+        return { kind: "ok" };
+      }
+      return { kind: "escape", realSource };
+    } catch {
+      // Source doesn't exist yet — will be caught during execute
+      return { kind: "ok" };
+    }
+  };
+
+  return async (source, manifestPath, resolvedSourceDir) => {
+    if (!source.startsWith(resolvedSourceDir + path.sep)) {
+      throw new UserError(
+        "DEPLOY_FAILED",
+        `Skill path "${manifestPath}" resolves outside the repository root: ${source}`,
+      );
+    }
+
+    let pending = cache.get(source);
+    if (!pending) {
+      pending = resolveOutcome(source);
+      cache.set(source, pending);
+    }
+    const outcome = await pending;
+    if (outcome.kind === "escape") {
+      throw new UserError(
+        "DEPLOY_FAILED",
+        `Skill path "${manifestPath}" resolves outside the repository root via symlink: ${source} -> ${outcome.realSource}`,
+      );
+    }
+  };
+}
+
 export async function validateSourceFile(
   sourcePath: string,
   manifestPath: string,

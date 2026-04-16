@@ -50,10 +50,11 @@ import {
 import { getDeployMethod, resolveAgentSkillPath } from "./resolve.ts";
 import { resolveTargetTemplate } from "./runtime-paths.ts";
 import {
+  createSourcePathValidator,
+  type SourcePathValidator,
   sourceAccessError,
   validateSkillDefinitionFile,
   validateSourceFile,
-  validateSourcePath,
 } from "./validation.ts";
 
 async function readJsonConfigFile(
@@ -361,7 +362,7 @@ async function planSkillDirActions(
   manifest: Manifest,
   sourceDir: string,
   resolvedSourceDir: string,
-  realRoot: string,
+  validateSource: SourcePathValidator,
   detectedAgents: AgentId[],
   home: string,
 ): Promise<{ actions: SkillDirDeployAction[]; warnings: PlanWarning[] }> {
@@ -378,7 +379,7 @@ async function planSkillDirActions(
     if (targetAgents.length === 0) return;
 
     const source = path.resolve(sourceDir, skill.path);
-    await validateSourcePath(source, skill.path, resolvedSourceDir, realRoot);
+    await validateSource(source, skill.path, resolvedSourceDir);
     await validateSkillContract(source, skill.path);
 
     for (const agentId of targetAgents) {
@@ -416,7 +417,7 @@ async function planFileWriteActions(
   manifest: Manifest,
   sourceDir: string,
   resolvedSourceDir: string,
-  realRoot: string,
+  validateSource: SourcePathValidator,
   detectedAgents: AgentId[],
   home: string,
   repo: string,
@@ -436,12 +437,7 @@ async function planFileWriteActions(
       );
 
       const source = path.resolve(sourceDir, fileEntry.path);
-      await validateSourcePath(
-        source,
-        fileEntry.path,
-        resolvedSourceDir,
-        realRoot,
-      );
+      await validateSource(source, fileEntry.path, resolvedSourceDir);
       await validateSourceFile(source, fileEntry.path);
       for (const agentId of targetAgents) {
         const agent = AGENT_REGISTRY_BY_ID[agentId];
@@ -524,13 +520,14 @@ export async function planDeploy(
   } catch {
     realRoot = resolvedSourceDir;
   }
+  const validateSource = createSourcePathValidator(realRoot);
 
   const repoDir = repo ?? realRoot;
   const skillPlan = await planSkillDirActions(
     manifest,
     sourceDir,
     resolvedSourceDir,
-    realRoot,
+    validateSource,
     detectedAgents,
     home,
   );
@@ -543,7 +540,7 @@ export async function planDeploy(
       manifest,
       sourceDir,
       resolvedSourceDir,
-      realRoot,
+      validateSource,
       detectedAgents,
       home,
       repoDir,
@@ -566,7 +563,7 @@ export async function planDeploy(
     manifest.permissions ?? [],
     sourceDir,
     resolvedSourceDir,
-    realRoot,
+    validateSource,
     detectedAgents,
     home,
     repoDir,

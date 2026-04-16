@@ -14,6 +14,7 @@ import type {
   PlanWarning,
   TomlPatchDeployAction,
 } from "../../types.ts";
+import type { SourcePathValidator } from "../validation.ts";
 import {
   compileAgentDefinitionActions,
   compileAgentDefinitionReverts,
@@ -67,7 +68,7 @@ export async function compileAdapterActions(
   permissions: PermissionsEntry[],
   sourceDir: string,
   resolvedSourceDir: string,
-  realRoot: string,
+  validateSource: SourcePathValidator,
   detectedAgents: AgentId[],
   home: string,
   repo?: string,
@@ -89,7 +90,7 @@ export async function compileAdapterActions(
           entry,
           sourceDir,
           resolvedSourceDir,
-          realRoot,
+          validateSource,
           detectedAgents,
           home,
           repo,
@@ -104,7 +105,7 @@ export async function compileAdapterActions(
           entry,
           sourceDir,
           resolvedSourceDir,
-          realRoot,
+          validateSource,
           detectedAgents,
           home,
           repo,

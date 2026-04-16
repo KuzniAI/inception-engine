@@ -12,6 +12,7 @@ import {
   compileAgentRuleActions,
   compileAgentRuleReverts,
 } from "../../src/core/adapters/rules.ts";
+import { createSourcePathValidator } from "../../src/core/validation.ts";
 import type {
   ConfigPatchDeployAction,
   FileWriteDeployAction,
@@ -308,7 +309,7 @@ describe("compileAgentRuleActions", () => {
     try {
       const rulesFile = path.join(dir, "CLAUDE.md");
       await writeFile(rulesFile, "# Rules");
-      const realRoot = await realpath(dir);
+      const validateSource = createSourcePathValidator(await realpath(dir));
       const { actions, warnings } = await compileAgentRuleActions(
         {
           name: "my-rule",
@@ -318,7 +319,7 @@ describe("compileAgentRuleActions", () => {
         },
         dir,
         dir,
-        realRoot,
+        validateSource,
         ["codex"],
         "/home/test",
       );
@@ -341,7 +342,7 @@ describe("compileAgentRuleActions", () => {
         },
         dir,
         dir,
-        dir,
+        createSourcePathValidator(dir),
         ["codex"],
         "/home/test",
       );
@@ -358,7 +359,7 @@ describe("compileAgentRuleActions", () => {
       const rulesFile = path.join(dir, "CLAUDE.md");
       await writeFile(rulesFile, "# Rules");
       const home = "/home/test";
-      const realRoot = await realpath(dir);
+      const validateSource = createSourcePathValidator(await realpath(dir));
       const { actions, warnings } = await compileAgentRuleActions(
         {
           name: "my-rule",
@@ -368,7 +369,7 @@ describe("compileAgentRuleActions", () => {
         },
         dir,
         dir,
-        realRoot,
+        validateSource,
         ["claude-code"],
         home,
       );
@@ -397,7 +398,7 @@ describe("compileAgentRuleActions", () => {
         path.join(dir, "rules.md"),
         "---\nname: test-rule\ndescription: test\n---\n# Rules",
       );
-      const realRoot = await realpath(dir);
+      const validateSource = createSourcePathValidator(await realpath(dir));
       const { actions, warnings } = await compileAgentRuleActions(
         {
           name: "my-rule",
@@ -407,7 +408,7 @@ describe("compileAgentRuleActions", () => {
         },
         dir,
         dir,
-        realRoot,
+        validateSource,
         ["github-copilot"],
         "/home/test",
       );
@@ -436,7 +437,7 @@ describe("compileAgentRuleActions", () => {
         path.join(dir, "rules.md"),
         "---\nname: test-rule\ndescription: test\n---\n# Rules",
       );
-      const realRoot = await realpath(dir);
+      const validateSource = createSourcePathValidator(await realpath(dir));
       const { actions, warnings } = await compileAgentRuleActions(
         {
           name: "my-rule",
@@ -446,7 +447,7 @@ describe("compileAgentRuleActions", () => {
         },
         dir,
         dir,
-        realRoot,
+        validateSource,
         ["antigravity"],
         "/home/test",
         "/repo/test",
@@ -472,7 +473,7 @@ describe("compileAgentRuleActions", () => {
         path.join(dir, "rules.md"),
         "---\nname: test-rule\ndescription: test\n---\n# Rules",
       );
-      const realRoot = await realpath(dir);
+      const validateSource = createSourcePathValidator(await realpath(dir));
       const { actions, warnings } = await compileAgentRuleActions(
         {
           name: "my-rule",
@@ -482,7 +483,7 @@ describe("compileAgentRuleActions", () => {
         },
         dir,
         dir,
-        realRoot,
+        validateSource,
         ["gemini-cli", "antigravity"],
         "/home/test",
         "/repo/test",
@@ -511,7 +512,7 @@ describe("compileAgentRuleActions", () => {
         "---\nname: test-rule\ndescription: test\n---\n# Rules",
       );
       const repo = "/repo/myproject";
-      const realRoot = await realpath(dir);
+      const validateSource = createSourcePathValidator(await realpath(dir));
       const { actions, warnings } = await compileAgentRuleActions(
         {
           name: "my-rule",
@@ -521,7 +522,7 @@ describe("compileAgentRuleActions", () => {
         },
         dir,
         dir,
-        realRoot,
+        validateSource,
         ["gemini-cli", "antigravity"],
         "/home/test",
         repo,
@@ -543,7 +544,7 @@ describe("compileAgentRuleActions", () => {
     const dir = await makeTmpDir();
     try {
       await writeFile(path.join(dir, "rules.txt"), "plain text");
-      const realRoot = await realpath(dir);
+      const validateSource = createSourcePathValidator(await realpath(dir));
       await assert.rejects(
         compileAgentRuleActions(
           {
@@ -554,7 +555,7 @@ describe("compileAgentRuleActions", () => {
           },
           dir,
           dir,
-          realRoot,
+          validateSource,
           ["codex"],
           "/home/test",
         ),
@@ -570,7 +571,7 @@ describe("compileAgentRuleActions", () => {
     try {
       await writeFile(path.join(dir, "copilot.md"), "# Copilot rules");
       const repo = "/repo/myproject";
-      const realRoot = await realpath(dir);
+      const validateSource = createSourcePathValidator(await realpath(dir));
       const { actions, warnings } = await compileAgentRuleActions(
         {
           name: "copilot-main",
@@ -580,7 +581,7 @@ describe("compileAgentRuleActions", () => {
         },
         dir,
         dir,
-        realRoot,
+        validateSource,
         ["github-copilot"],
         "/home/test",
         repo,
@@ -606,7 +607,7 @@ describe("compileAgentRuleActions", () => {
     try {
       await writeFile(path.join(dir, "typescript.md"), "# TypeScript rules");
       const repo = "/repo/myproject";
-      const realRoot = await realpath(dir);
+      const validateSource = createSourcePathValidator(await realpath(dir));
       const { actions, warnings } = await compileAgentRuleActions(
         {
           name: "typescript",
@@ -616,7 +617,7 @@ describe("compileAgentRuleActions", () => {
         },
         dir,
         dir,
-        realRoot,
+        validateSource,
         ["github-copilot"],
         "/home/test",
         repo,
@@ -641,7 +642,7 @@ describe("compileAgentRuleActions", () => {
     const dir = await makeTmpDir();
     try {
       await writeFile(path.join(dir, "copilot.md"), "# Copilot rules");
-      const realRoot = await realpath(dir);
+      const validateSource = createSourcePathValidator(await realpath(dir));
       const { actions, warnings } = await compileAgentRuleActions(
         {
           name: "copilot-main",
@@ -651,7 +652,7 @@ describe("compileAgentRuleActions", () => {
         },
         dir,
         dir,
-        realRoot,
+        validateSource,
         ["github-copilot"],
         "/home/test",
         // no repo
@@ -670,7 +671,7 @@ describe("compileAgentRuleActions", () => {
     const dir = await makeTmpDir();
     try {
       await writeFile(path.join(dir, "copilot.md"), "# Copilot rules");
-      const realRoot = await realpath(dir);
+      const validateSource = createSourcePathValidator(await realpath(dir));
       const { actions, warnings } = await compileAgentRuleActions(
         {
           name: "copilot-main",
@@ -680,7 +681,7 @@ describe("compileAgentRuleActions", () => {
         },
         dir,
         dir,
-        realRoot,
+        validateSource,
         ["claude-code"],
         "/home/test",
         "/repo/test",
@@ -703,7 +704,7 @@ describe("compileAgentRuleActions", () => {
         "# Plain rules\n\nNo frontmatter.",
       );
       const repo = "/repo/myproject";
-      const realRoot = await realpath(dir);
+      const validateSource = createSourcePathValidator(await realpath(dir));
       const { actions, warnings } = await compileAgentRuleActions(
         {
           name: "plain-rules",
@@ -713,7 +714,7 @@ describe("compileAgentRuleActions", () => {
         },
         dir,
         dir,
-        realRoot,
+        validateSource,
         ["github-copilot"],
         "/home/test",
         repo,
@@ -738,7 +739,7 @@ describe("compileAgentRuleActions", () => {
           },
           dir,
           dir,
-          dir,
+          createSourcePathValidator(dir),
           ["claude-code"],
           "/home/test",
         ),
@@ -760,7 +761,7 @@ describe("compileAgentRuleActions", () => {
         path.join(dir, "rules.md"),
         "---\nname: test-rule\ndescription: test\n---\n# Rules",
       );
-      const realRoot = await realpath(dir);
+      const validateSource = createSourcePathValidator(await realpath(dir));
       const { actions, warnings } = await compileAgentRuleActions(
         {
           name: "my-rule",
@@ -770,7 +771,7 @@ describe("compileAgentRuleActions", () => {
         },
         dir,
         dir,
-        realRoot,
+        validateSource,
         ["claude-code", "codex"],
         "/home/test",
       );
@@ -790,7 +791,7 @@ describe("compileAgentRuleActions", () => {
       const rulesFile = path.join(dir, "CLAUDE.md");
       await writeFile(rulesFile, "# Rules");
       const repo = "/repo/myproject";
-      const realRoot = await realpath(dir);
+      const validateSource = createSourcePathValidator(await realpath(dir));
       const { actions, warnings } = await compileAgentRuleActions(
         {
           name: "my-rule",
@@ -800,7 +801,7 @@ describe("compileAgentRuleActions", () => {
         },
         dir,
         dir,
-        realRoot,
+        validateSource,
         ["claude-code"],
         "/home/test",
         repo,
@@ -827,7 +828,7 @@ describe("compileAgentRuleActions", () => {
       await writeFile(rulesFile, "# Rules");
       const home = "/home/test";
       const repo = "/repo/myproject";
-      const realRoot = await realpath(dir);
+      const validateSource = createSourcePathValidator(await realpath(dir));
       const [globalResult, repoResult] = await Promise.all([
         compileAgentRuleActions(
           {
@@ -838,7 +839,7 @@ describe("compileAgentRuleActions", () => {
           },
           dir,
           dir,
-          realRoot,
+          validateSource,
           ["claude-code"],
           home,
           repo,
@@ -852,7 +853,7 @@ describe("compileAgentRuleActions", () => {
           },
           dir,
           dir,
-          realRoot,
+          validateSource,
           ["claude-code"],
           home,
           repo,
@@ -889,7 +890,7 @@ describe("compileAgentRuleActions", () => {
         "---\nname: test-rule\ndescription: test\n---\n# Rules",
       );
       const repo = "/repo/myproject";
-      const realRoot = await realpath(dir);
+      const validateSource = createSourcePathValidator(await realpath(dir));
       const { actions, warnings } = await compileAgentRuleActions(
         {
           name: "my-rule",
@@ -899,7 +900,7 @@ describe("compileAgentRuleActions", () => {
         },
         dir,
         dir,
-        realRoot,
+        validateSource,
         ["antigravity"],
         "/home/test",
         repo,
@@ -922,7 +923,7 @@ describe("compileAgentRuleActions", () => {
       const rulesFile = path.join(dir, "CLAUDE.md");
       await writeFile(rulesFile, "# Rules");
       const repo = "/repo/myproject";
-      const realRoot = await realpath(dir);
+      const validateSource = createSourcePathValidator(await realpath(dir));
       const { actions, warnings } = await compileAgentRuleActions(
         {
           name: "my-rule",
@@ -933,7 +934,7 @@ describe("compileAgentRuleActions", () => {
         },
         dir,
         dir,
-        realRoot,
+        validateSource,
         ["claude-code"],
         "/home/test",
         repo,
@@ -958,7 +959,7 @@ describe("compileAgentRuleActions", () => {
         path.join(dir, "rules.md"),
         "---\nname: test-rule\ndescription: test\n---\n# Rules",
       );
-      const realRoot = await realpath(dir);
+      const validateSource = createSourcePathValidator(await realpath(dir));
       const { actions, warnings } = await compileAgentRuleActions(
         {
           name: "my-rule",
@@ -968,7 +969,7 @@ describe("compileAgentRuleActions", () => {
         },
         dir,
         dir,
-        realRoot,
+        validateSource,
         ["claude-code"],
         "/home/test",
         // no repo arg
@@ -992,7 +993,7 @@ describe("compileAgentRuleActions", () => {
         path.join(dir, "rules.md"),
         "---\nname: test-rule\ndescription: test\n---\n# Rules",
       );
-      const realRoot = await realpath(dir);
+      const validateSource = createSourcePathValidator(await realpath(dir));
       const { actions, warnings } = await compileAgentRuleActions(
         {
           name: "my-rule",
@@ -1002,7 +1003,7 @@ describe("compileAgentRuleActions", () => {
         },
         dir,
         dir,
-        realRoot,
+        validateSource,
         ["github-copilot"],
         "/home/test",
         "/repo/myproject",
@@ -1023,7 +1024,7 @@ describe("compileAgentRuleActions", () => {
         path.join(dir, "rules.md"),
         "---\nname: test-rule\ndescription: test\n---\n# Rules",
       );
-      const realRoot = await realpath(dir);
+      const validateSource = createSourcePathValidator(await realpath(dir));
       const { actions, warnings } = await compileAgentRuleActions(
         {
           name: "my-rule",
@@ -1033,7 +1034,7 @@ describe("compileAgentRuleActions", () => {
         },
         dir,
         dir,
-        realRoot,
+        validateSource,
         ["claude-code", "github-copilot"],
         "/home/test",
       );
@@ -1059,7 +1060,7 @@ describe("compileAgentRuleActions", () => {
         path.join(dir, "rules.md"),
         "---\nname: test-rule\ndescription: test\n---\n# Rules",
       );
-      const realRoot = await realpath(dir);
+      const validateSource = createSourcePathValidator(await realpath(dir));
       const { actions, warnings } = await compileAgentRuleActions(
         {
           name: "my-rule",
@@ -1069,7 +1070,7 @@ describe("compileAgentRuleActions", () => {
         },
         dir,
         dir,
-        realRoot,
+        validateSource,
         ["github-copilot"],
         "/home/test",
       );
@@ -1620,7 +1621,7 @@ describe("compileAgentDefinitionActions", () => {
         path.join(dir, "agent.md"),
         "---\nname: test-agent\ndescription: test\n---\n# Agent",
       );
-      const realRoot = await realpath(dir);
+      const validateSource = createSourcePathValidator(await realpath(dir));
       const { actions, warnings } = await compile(
         {
           name: "my-agent",
@@ -1630,7 +1631,7 @@ describe("compileAgentDefinitionActions", () => {
         },
         dir,
         dir,
-        realRoot,
+        validateSource,
         ["codex"],
         "/home/test",
         "/repo/test",
@@ -1656,7 +1657,7 @@ describe("compileAgentDefinitionActions", () => {
         },
         dir,
         dir,
-        dir,
+        createSourcePathValidator(dir),
         ["codex"],
         "/home/test",
         "/repo/test",
@@ -1676,7 +1677,7 @@ describe("compileAgentDefinitionActions", () => {
         path.join(dir, "my-agent.md"),
         "---\nname: test-agent\ndescription: test\ntools: []\n---\n# Agent",
       );
-      const realRoot = await realpath(dir);
+      const validateSource = createSourcePathValidator(await realpath(dir));
       const { actions, warnings } = await compile(
         {
           name: "my-agent",
@@ -1686,7 +1687,7 @@ describe("compileAgentDefinitionActions", () => {
         },
         dir,
         dir,
-        realRoot,
+        validateSource,
         ["claude-code"],
         "/home/test",
         "/repo/test",
@@ -1716,7 +1717,7 @@ describe("compileAgentDefinitionActions", () => {
         path.join(dir, "my-agent.md"),
         "---\nname: test-agent\ndescription: test\ntools: []\n---\n# Agent",
       );
-      const realRoot = await realpath(dir);
+      const validateSource = createSourcePathValidator(await realpath(dir));
       const { actions, warnings } = await compile(
         {
           name: "my-agent",
@@ -1726,7 +1727,7 @@ describe("compileAgentDefinitionActions", () => {
         },
         dir,
         dir,
-        realRoot,
+        validateSource,
         ["claude-code"],
         "/home/test",
       );
@@ -1751,7 +1752,7 @@ describe("compileAgentDefinitionActions", () => {
         path.join(dir, "my-agent.md"),
         "---\nname: test-agent\ndescription: test\ntools: []\n---\n# Agent",
       );
-      const realRoot = await realpath(dir);
+      const validateSource = createSourcePathValidator(await realpath(dir));
       const { actions, warnings } = await compile(
         {
           name: "my-agent",
@@ -1761,7 +1762,7 @@ describe("compileAgentDefinitionActions", () => {
         },
         dir,
         dir,
-        realRoot,
+        validateSource,
         ["gemini-cli"],
         "/home/test",
         "/repo/test",
@@ -1786,7 +1787,7 @@ describe("compileAgentDefinitionActions", () => {
         path.join(dir, "my-agent.md"),
         "---\nname: test-agent\ndescription: test\ntools: []\n---\n# Agent",
       );
-      const realRoot = await realpath(dir);
+      const validateSource = createSourcePathValidator(await realpath(dir));
       const { actions, warnings } = await compile(
         {
           name: "my-agent",
@@ -1796,7 +1797,7 @@ describe("compileAgentDefinitionActions", () => {
         },
         dir,
         dir,
-        realRoot,
+        validateSource,
         ["gemini-cli"],
         "/home/test",
       );
@@ -1821,7 +1822,7 @@ describe("compileAgentDefinitionActions", () => {
         path.join(dir, "my-agent.md"),
         "---\nname: test-agent\ndescription: test\ntools: []\n---\n# Agent",
       );
-      const realRoot = await realpath(dir);
+      const validateSource = createSourcePathValidator(await realpath(dir));
       const { actions, warnings } = await compile(
         {
           name: "my-agent",
@@ -1831,7 +1832,7 @@ describe("compileAgentDefinitionActions", () => {
         },
         dir,
         dir,
-        realRoot,
+        validateSource,
         ["opencode"],
         "/home/test",
         "/repo/test",
@@ -1860,7 +1861,7 @@ describe("compileAgentDefinitionActions", () => {
         path.join(dir, "my-agent.md"),
         "---\nname: test-agent\ndescription: test\ntools: []\n---\n# Agent",
       );
-      const realRoot = await realpath(dir);
+      const validateSource = createSourcePathValidator(await realpath(dir));
       const { actions, warnings } = await compile(
         {
           name: "my-agent",
@@ -1870,7 +1871,7 @@ describe("compileAgentDefinitionActions", () => {
         },
         dir,
         dir,
-        realRoot,
+        validateSource,
         ["github-copilot"],
         "/home/test",
         "/repo/test",
@@ -1902,7 +1903,7 @@ describe("compileAgentDefinitionActions", () => {
         path.join(dir, "my-agent.md"),
         "---\nname: test-agent\ndescription: test\ntools: []\n---\n# Agent",
       );
-      const realRoot = await realpath(dir);
+      const validateSource = createSourcePathValidator(await realpath(dir));
       const { actions, warnings } = await compile(
         {
           name: "my-agent",
@@ -1912,7 +1913,7 @@ describe("compileAgentDefinitionActions", () => {
         },
         dir,
         dir,
-        realRoot,
+        validateSource,
         ["antigravity"],
         "/home/test",
         "/repo/test",
@@ -1941,7 +1942,7 @@ describe("compileAgentDefinitionActions", () => {
         path.join(dir, "my-agent.md"),
         "---\nname: test-agent\ndescription: test\ntools: []\n---\n# Agent",
       );
-      const realRoot = await realpath(dir);
+      const validateSource = createSourcePathValidator(await realpath(dir));
       const { actions, warnings } = await compile(
         {
           name: "my-agent",
@@ -1951,7 +1952,7 @@ describe("compileAgentDefinitionActions", () => {
         },
         dir,
         dir,
-        realRoot,
+        validateSource,
         ["codex"],
         "/home/test",
         "/repo/test",
@@ -1970,7 +1971,7 @@ describe("compileAgentDefinitionActions", () => {
     const dir = await makeTmpDir();
     try {
       await writeFile(path.join(dir, "agent.txt"), "plain text");
-      const realRoot = await realpath(dir);
+      const validateSource = createSourcePathValidator(await realpath(dir));
       await assert.rejects(
         compile(
           {
@@ -1981,7 +1982,7 @@ describe("compileAgentDefinitionActions", () => {
           },
           dir,
           dir,
-          realRoot,
+          validateSource,
           ["claude-code"],
           "/home/test",
           "/repo/test",
@@ -2007,7 +2008,7 @@ describe("compileAgentDefinitionActions", () => {
           },
           dir,
           dir,
-          dir,
+          createSourcePathValidator(dir),
           ["claude-code"],
           "/home/test",
           "/repo/test",
@@ -2031,7 +2032,7 @@ describe("compileAgentDefinitionActions", () => {
         path.join(dir, "my-agent.md"),
         "---\nname: test-agent\ndescription: test\ntools: []\n---\n# Agent",
       );
-      const realRoot = await realpath(dir);
+      const validateSource = createSourcePathValidator(await realpath(dir));
       const { actions, warnings } = await compile(
         {
           name: "my-agent",
@@ -2041,7 +2042,7 @@ describe("compileAgentDefinitionActions", () => {
         },
         dir,
         dir,
-        realRoot,
+        validateSource,
         ["claude-code", "opencode", "github-copilot"],
         "/home/test",
         "/repo/test",
@@ -2065,7 +2066,7 @@ describe("compileAgentDefinitionActions", () => {
         path.join(dir, "bad-copilot.md"),
         "---\nname: test\ndescription: test\n---\n# Bad",
       );
-      const realRoot = await realpath(dir);
+      const validateSource = createSourcePathValidator(await realpath(dir));
       await assert.rejects(
         compile(
           {
@@ -2076,7 +2077,7 @@ describe("compileAgentDefinitionActions", () => {
           },
           dir,
           dir,
-          realRoot,
+          validateSource,
           ["github-copilot"],
           "/home/test",
           "/repo/test",
@@ -2096,7 +2097,7 @@ describe("compileAgentDefinitionActions", () => {
         path.join(dir, "agent.md"),
         "---\nname: test\ndescription: test\ntools: []\n---\n# Agent",
       );
-      const realRoot = await realpath(dir);
+      const validateSource = createSourcePathValidator(await realpath(dir));
       const result = await compile(
         {
           name: "agent",
@@ -2106,7 +2107,7 @@ describe("compileAgentDefinitionActions", () => {
         },
         dir,
         dir,
-        realRoot,
+        validateSource,
         ["github-copilot"],
         "/home/test",
         "/repo/test",
@@ -2125,7 +2126,7 @@ describe("compileAgentDefinitionActions", () => {
         path.join(dir, "agent.md"),
         "---\nname: test\ndescription: test\ntools:\n  - github\n  - codebase\n---\n# Agent",
       );
-      const realRoot = await realpath(dir);
+      const validateSource = createSourcePathValidator(await realpath(dir));
       const result = await compile(
         {
           name: "agent",
@@ -2135,7 +2136,7 @@ describe("compileAgentDefinitionActions", () => {
         },
         dir,
         dir,
-        realRoot,
+        validateSource,
         ["github-copilot"],
         "/home/test",
         "/repo/test",
@@ -2154,7 +2155,7 @@ describe("compileAgentDefinitionActions", () => {
         path.join(dir, "bad-tools.md"),
         "---\nname: test\ndescription: test\ntools: not-an-array\n---\n# Bad",
       );
-      const realRoot = await realpath(dir);
+      const validateSource = createSourcePathValidator(await realpath(dir));
       await assert.rejects(
         compile(
           {
@@ -2165,7 +2166,7 @@ describe("compileAgentDefinitionActions", () => {
           },
           dir,
           dir,
-          realRoot,
+          validateSource,
           ["github-copilot"],
           "/home/test",
           "/repo/test",
@@ -2185,7 +2186,7 @@ describe("compileAgentDefinitionActions", () => {
         path.join(dir, "bad-tools.md"),
         "---\nname: test\ndescription: test\ntools:\n  - github\n  - 123\n---\n# Bad",
       );
-      const realRoot = await realpath(dir);
+      const validateSource = createSourcePathValidator(await realpath(dir));
       await assert.rejects(
         compile(
           {
@@ -2196,7 +2197,7 @@ describe("compileAgentDefinitionActions", () => {
           },
           dir,
           dir,
-          realRoot,
+          validateSource,
           ["github-copilot"],
           "/home/test",
           "/repo/test",
@@ -2216,7 +2217,7 @@ describe("compileAgentDefinitionActions", () => {
         path.join(dir, "bad-antigravity.md"),
         "---\nname: test\ndescription: test\nmcp-servers:\n  - not-an-object\n---\n# Bad",
       );
-      const realRoot = await realpath(dir);
+      const validateSource = createSourcePathValidator(await realpath(dir));
       await assert.rejects(
         compile(
           {
@@ -2227,7 +2228,7 @@ describe("compileAgentDefinitionActions", () => {
           },
           dir,
           dir,
-          realRoot,
+          validateSource,
           ["antigravity"],
           "/home/test",
           "/repo/test",
@@ -2247,7 +2248,7 @@ describe("compileAgentDefinitionActions", () => {
         path.join(dir, "bad-mcp-config.md"),
         "---\nname: test\ndescription: test\nmcp-servers:\n  my-server: { args: [] }\n---\n# Bad",
       );
-      const realRoot = await realpath(dir);
+      const validateSource = createSourcePathValidator(await realpath(dir));
       await assert.rejects(
         compile(
           {
@@ -2258,7 +2259,7 @@ describe("compileAgentDefinitionActions", () => {
           },
           dir,
           dir,
-          realRoot,
+          validateSource,
           ["antigravity"],
           "/home/test",
           "/repo/test",
