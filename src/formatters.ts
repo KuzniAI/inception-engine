@@ -35,10 +35,7 @@ export function formatDryRunPlan(planned: PlannedChange[]): string {
 
 function formatPlannedChange(change: PlannedChange): string {
   const icon = styleText("cyan", "○");
-  const kind = styleText("dim", `[${change.kind}]`);
-  const lines = [
-    `  ${icon} ${kind} ${change.verb} ${styleText("bold", change.skill)}`,
-  ];
+  const lines = [`  ${icon} ${change.verb} ${styleText("bold", change.skill)}`];
 
   if (change.source !== undefined) {
     lines.push(`    source: ${styleText("dim", change.source)}`);

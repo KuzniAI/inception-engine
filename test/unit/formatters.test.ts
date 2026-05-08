@@ -80,5 +80,6 @@ describe("formatDryRunPlan", () => {
     assert.match(output, /remove zeta/);
     assert.doesNotMatch(output, /source: \/targets\/zeta\.md/);
     assert.match(output, /patch-config beta/);
+    assert.doesNotMatch(output, /\[config-patch\]/);
   });
 });

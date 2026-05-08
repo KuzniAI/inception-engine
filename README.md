@@ -543,7 +543,7 @@ inception-engine init <directory> [options]
 | `--debug` | Show full error stack traces |
 | `--help` | Show help message |
 
-With `--plan`, deploy and revert print a grouped action preview by agent. Each planned change includes the source path when applicable, the resolved target path, and action-specific details such as JSON/TOML patch payloads or emitted frontmatter content.
+With `--plan`, deploy and revert print a grouped action preview by agent. Each planned change includes the action verb, the source path when applicable, the resolved target path, and action-specific details such as JSON/TOML patch payloads or emitted frontmatter content.
 
 ### Examples
 
