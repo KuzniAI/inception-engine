@@ -74,9 +74,15 @@ describe("formatDryRunPlan", () => {
     assert.match(output, /write-file alpha/);
     assert.match(output, /source: \/source\/alpha\.md/);
     assert.match(output, /target: \/targets\/alpha\.md/);
-    assert.match(output, /undo:\s+\{"enabled":null\}/);
-    assert.match(output, /patch:\s+\{"approval_policy":"suggest"\}/);
-    assert.match(output, /frontmatter: \{"tools":\["github"\]\}/);
+    assert.match(output, /undo:\n\s+\{\n\s+"enabled": null\n\s+\}/);
+    assert.match(
+      output,
+      /patch:\n\s+\{\n\s+"approval_policy": "suggest"\n\s+\}/,
+    );
+    assert.match(
+      output,
+      /frontmatter:\n\s+\{\n\s+"tools": \[\n\s+"github"\n\s+\]\n\s+\}/,
+    );
     assert.match(output, /remove zeta/);
     assert.doesNotMatch(output, /source: \/targets\/zeta\.md/);
     assert.match(output, /patch-config beta/);

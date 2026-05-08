@@ -42,26 +42,33 @@ function formatPlannedChange(change: PlannedChange): string {
   }
   lines.push(`    target: ${styleText("dim", change.target)}`);
 
-  const detail = formatChangeDetail(change);
-  if (detail) {
-    lines.push(`    ${detail}`);
+  const detailLines = formatChangeDetail(change);
+  if (detailLines) {
+    lines.push(...detailLines.map((line) => `    ${line}`));
   }
 
   return lines.join("\n");
 }
 
-function formatChangeDetail(change: PlannedChange): string | null {
+function formatChangeDetail(change: PlannedChange): string[] | null {
   if (change.verb === "patch-config" && change.patch !== undefined) {
-    return `patch:  ${styleText("dim", JSON.stringify(change.patch))}`;
+    return formatJsonDetail("patch", change.patch);
   }
   if (change.verb === "unapply-patch" && change.patch !== undefined) {
-    return `undo:   ${styleText("dim", JSON.stringify(change.patch))}`;
+    return formatJsonDetail("undo", change.patch);
   }
   if (change.verb === "patch-toml" && change.patch !== undefined) {
-    return `patch:  ${styleText("dim", JSON.stringify(change.patch))}`;
+    return formatJsonDetail("patch", change.patch);
   }
   if (change.verb === "emit-frontmatter" && change.frontmatter !== undefined) {
-    return `frontmatter: ${styleText("dim", JSON.stringify(change.frontmatter))}`;
+    return formatJsonDetail("frontmatter", change.frontmatter);
   }
   return null;
+}
+
+function formatJsonDetail(label: string, value: unknown): string[] {
+  const jsonLines = JSON.stringify(value, null, 2)
+    .split("\n")
+    .map((line) => styleText("dim", line));
+  return [`${label}:`, ...jsonLines.map((line) => `  ${line}`)];
 }
