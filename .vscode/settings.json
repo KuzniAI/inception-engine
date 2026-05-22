@@ -22,5 +22,8 @@
       "extensions": ["ts"],
       "parameters": []
     }
-  ]
+  ],
+  "[jsonc]": {
+    "editor.defaultFormatter": "vscode.json-language-features"
+  }
 }
