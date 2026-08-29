@@ -34,8 +34,8 @@
     "node": ">=22.3.0"
   },
   "scripts": {
-    "build": "tsgo",
-    "typecheck": "tsgo --noEmit",
+    "build": "tsc",
+    "typecheck": "tsc --noEmit",
     "fmt": "biome format --write .",
     "lint": "biome lint . --max-diagnostics none",
     "lint:fix": "biome lint . --max-diagnostics none --write --unsafe",
@@ -54,6 +54,6 @@
   "devDependencies": {
     "@biomejs/biome": "^2.4.12",
     "@types/node": "^25.9.5",
-    "@typescript/native-preview": "^7.0.0-dev.20260421.2"
+    "typescript": "^7.0.2"
   }
 }
