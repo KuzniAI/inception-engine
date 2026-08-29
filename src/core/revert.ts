@@ -718,8 +718,7 @@ async function revertConfigPatch(
 
   const entry = await lookupDeployment(home, action.target, deps.registry);
   if (
-    !entry ||
-    entry.kind !== "config-patch" ||
+    entry?.kind !== "config-patch" ||
     entry.skill !== action.skill ||
     entry.agent !== action.agent
   ) {
@@ -796,8 +795,7 @@ async function revertTomlPatch(
 
   const entry = await lookupDeployment(home, action.target, deps.registry);
   if (
-    !entry ||
-    entry.kind !== "config-patch" ||
+    entry?.kind !== "config-patch" ||
     entry.skill !== action.skill ||
     entry.agent !== action.agent
   ) {

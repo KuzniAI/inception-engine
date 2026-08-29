@@ -287,7 +287,7 @@ function collectApprovedGlobalSurfaceTemplates(agentId: AgentId): Set<string> {
 
   const approved = new Set<string>();
   for (const support of supports) {
-    if (!support || support.status !== "supported") continue;
+    if (support?.status !== "supported") continue;
     approved.add(normalizeTemplatePath(support.path.posix.join("/")));
     approved.add(normalizeTemplatePath(support.path.windows.join("/")));
   }

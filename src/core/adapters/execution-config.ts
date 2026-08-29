@@ -33,10 +33,7 @@ export function compileExecutionConfigActions(
     if (!detectedAgents.includes(agentId)) continue;
 
     const agent = AGENT_REGISTRY_BY_ID[agentId];
-    if (
-      !agent?.executionConfigSupport ||
-      agent.executionConfigSupport.status !== "supported"
-    ) {
+    if (agent.executionConfigSupport?.status !== "supported") {
       warnings.push({
         kind: "confidence",
         message: `Agent "${agentId}" does not support modeled execution configuration surfaces — skipping "${entry.name}"`,
@@ -76,10 +73,7 @@ export function compileExecutionConfigReverts(
     if (agentFilter && !agentFilter.includes(agentId)) continue;
 
     const agent = AGENT_REGISTRY_BY_ID[agentId];
-    if (
-      !agent?.executionConfigSupport ||
-      agent.executionConfigSupport.status !== "supported"
-    ) {
+    if (agent.executionConfigSupport?.status !== "supported") {
       continue;
     }
 

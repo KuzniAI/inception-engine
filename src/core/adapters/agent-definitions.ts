@@ -58,7 +58,7 @@ function resolveTomlDefinitionsSurface(
       ? (agent.agentDefinitionsTomlRepoSupport ??
         agent.agentDefinitionsTomlSupport)
       : agent.agentDefinitionsTomlSupport;
-  if (!tomlSupport || tomlSupport.status !== "supported") return undefined;
+  if (tomlSupport?.status !== "supported") return undefined;
   return tomlSupport;
 }
 
